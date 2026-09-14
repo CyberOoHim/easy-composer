@@ -51,9 +51,21 @@ import {
 
 interface ComposerEditorProps {
   song: Song;
+  cursor?: [number, number] | null;
+  onSelectCoord?: (
+    coord:
+      | [number, number]
+      | null
+      | ((prev: [number, number] | null) => [number, number] | null)
+  ) => void;
   onUpdateSong: (
     updatedSong: Song,
-    options?: { coalesce?: boolean; coalesceKey?: string }
+    options?: {
+      coalesce?: boolean;
+      coalesceKey?: string;
+      cursor?: [number, number] | null;
+      undoCursor?: [number, number] | null;
+    }
   ) => void;
   audioEngine: AudioEngine;
   displayMode: LyricDisplayMode;
@@ -86,6 +98,8 @@ const renumberMeasures = (measures: Measure[]): Measure[] =>
 
 export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   song,
+  cursor: propCursor,
+  onSelectCoord: propOnSelectCoord,
   onUpdateSong,
   audioEngine,
   displayMode,
@@ -116,7 +130,65 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     else setInternalKeyboardModalOpen(false);
   }, [propOnCloseKeyboardModal]);
 
-  const [selectedCoord, setSelectedCoord] = useState<[number, number] | null>([0, 0]);
+  const [internalSelectedCoord, setInternalSelectedCoord] = useState<[number, number] | null>([0, 0]);
+  const selectedCoord = propCursor !== undefined ? propCursor : internalSelectedCoord;
+
+  const setSelectedCoord = useCallback(
+    (
+      coordOrUpdater:
+        | [number, number]
+        | null
+        | ((prev: [number, number] | null) => [number, number] | null)
+    ) => {
+      if (propOnSelectCoord) {
+        propOnSelectCoord(coordOrUpdater);
+      } else {
+        setInternalSelectedCoord(coordOrUpdater);
+      }
+    },
+    [propOnSelectCoord]
+  );
+
+  const handleUpdateSong = useCallback(
+    (
+      updatedSong: Song,
+      options?: {
+        coalesce?: boolean;
+        coalesceKey?: string;
+        cursor?: [number, number] | null;
+        undoCursor?: [number, number] | null;
+      }
+    ) => {
+      onUpdateSong(updatedSong, {
+        ...options,
+        cursor: options?.cursor !== undefined ? options.cursor : selectedCoord,
+        undoCursor: options?.undoCursor !== undefined ? options.undoCursor : selectedCoord,
+      });
+    },
+    [onUpdateSong, selectedCoord]
+  );
+
+  // Smoothly bring note into view when cursor changes via undo/redo or navigation
+  const prevCoordRef = useRef<[number, number] | null>(null);
+  useEffect(() => {
+    if (!selectedCoord) {
+      prevCoordRef.current = null;
+      return;
+    }
+    const [mIdx, nIdx] = selectedCoord;
+    const prev = prevCoordRef.current;
+    prevCoordRef.current = selectedCoord;
+
+    if (!prev || prev[0] !== mIdx || prev[1] !== nIdx) {
+      const note = song.measures[mIdx]?.notes[nIdx];
+      if (note) {
+        const el = document.getElementById(`sheet-note-${note.id}`);
+        if (el) {
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+      }
+    }
+  }, [selectedCoord, song.measures]);
   const [autoStepAdvance, setAutoStepAdvanceState] = useState<boolean>(() => {
     if (typeof window !== 'undefined') return getStoredAutoStepAdvance(false);
     return false;
@@ -183,7 +255,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         }
       }
     },
-    [song.measures, song.key, audioEngine]
+    [song.measures, song.key, audioEngine, setSelectedCoord]
   );
 
   const handleSearchJumpToVerse = useCallback(
@@ -200,7 +272,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         }
       }
     },
-    [song.measures, song.key, audioEngine]
+    [song.measures, song.key, audioEngine, setSelectedCoord]
   );
 
   const [isSongPlaying, setIsSongPlaying] = useState<boolean>(() => (audioEngine ? audioEngine.getIsPlaying() : false));
@@ -273,7 +345,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         clearTimeout(timer);
       };
     }
-  }, [targetMeasureIndex, song, audioEngine, showNotice, onTargetMeasureHandled, safeTimeout]);
+  }, [targetMeasureIndex, song, audioEngine, showNotice, onTargetMeasureHandled, safeTimeout, setSelectedCoord]);
 
   // Derive safely clamped selection coordinate
   const [selectedMeasureIndex, selectedNoteIndex] = useMemo((): [number | null, number | null] => {
@@ -305,7 +377,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         audioEngine.previewNote(song.key, note);
       }
     },
-    [song, audioEngine]
+    [song, audioEngine, setSelectedCoord]
   );
 
   // Dedicated Play/Stop Measure verification
@@ -376,7 +448,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       mIdx: number,
       nIdx: number,
       updater: (note: NumberedNotationNote) => NumberedNotationNote,
-      options?: { coalesce?: boolean; coalesceKey?: string }
+      options?: {
+        coalesce?: boolean;
+        coalesceKey?: string;
+        cursor?: [number, number] | null;
+        undoCursor?: [number, number] | null;
+      }
     ) => {
       const newMeasures = song.measures.map((m, currentMIdx) => {
         if (currentMIdx !== mIdx) return m;
@@ -387,16 +464,29 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         return { ...m, notes: newNotes };
       });
 
-      onUpdateSong({ ...song, measures: newMeasures }, options);
+      const noteCoord: [number, number] = [mIdx, nIdx];
+      handleUpdateSong(
+        { ...song, measures: newMeasures },
+        {
+          ...options,
+          cursor: options?.cursor !== undefined ? options.cursor : noteCoord,
+          undoCursor: options?.undoCursor !== undefined ? options.undoCursor : noteCoord,
+        }
+      );
     },
-    [song, onUpdateSong]
+    [song, handleUpdateSong]
   );
 
   // Mutate currently selected note
   const updateSelectedNote = useCallback(
     (
       updater: (note: NumberedNotationNote) => NumberedNotationNote,
-      options?: { coalesce?: boolean; coalesceKey?: string }
+      options?: {
+        coalesce?: boolean;
+        coalesceKey?: string;
+        cursor?: [number, number] | null;
+        undoCursor?: [number, number] | null;
+      }
     ) => {
       if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
       updateNoteAt(selectedMeasureIndex, selectedNoteIndex, updater, options);
@@ -410,7 +500,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       mIdx: number,
       nIdx: number,
       partialNote: Partial<NumberedNotationNote>,
-      options?: { coalesce?: boolean; coalesceKey?: string }
+      options?: {
+        coalesce?: boolean;
+        coalesceKey?: string;
+        cursor?: [number, number] | null;
+        undoCursor?: [number, number] | null;
+      }
     ) => {
       updateNoteAt(mIdx, nIdx, n => ({ ...n, ...partialNote }), options);
     },
@@ -482,7 +577,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         };
       });
 
-      onUpdateSong({ ...song, measures: updatedMeasures });
+      handleUpdateSong({ ...song, measures: updatedMeasures });
 
       const label =
         targetIndices.length === 1
@@ -492,7 +587,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         `Toggled ${label}: Converted to ${targetDur === 0.5 ? 'Eighth notes (0.5 beats)' : 'Quarter notes (1.0 beat)'}`
       );
     },
-    [getTargetMeasureIndices, song, onUpdateSong, showNotice]
+    [getTargetMeasureIndices, song, handleUpdateSong, showNotice]
   );
 
   // Proportional Scale: Halve (÷2) or Double (×2)
@@ -510,7 +605,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         };
       });
 
-      onUpdateSong({ ...song, measures: updatedMeasures });
+      handleUpdateSong({ ...song, measures: updatedMeasures });
 
       const label =
         targetIndices.length === 1
@@ -518,7 +613,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           : `${targetIndices.length} measures (#${targetIndices.map(i => i + 1).join(', ')})`;
       showNotice(`${factor === 0.5 ? 'Halved (÷2)' : 'Doubled (×2)'} durations in ${label}`);
     },
-    [getTargetMeasureIndices, song, onUpdateSong, showNotice]
+    [getTargetMeasureIndices, song, handleUpdateSong, showNotice]
   );
 
   // Set Uniform Duration (e.g. 0.25, 0.5, 1.0, 2.0)
@@ -536,7 +631,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         };
       });
 
-      onUpdateSong({ ...song, measures: updatedMeasures });
+      handleUpdateSong({ ...song, measures: updatedMeasures });
 
       const label =
         targetIndices.length === 1
@@ -544,7 +639,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           : `${targetIndices.length} measures (#${targetIndices.map(i => i + 1).join(', ')})`;
       showNotice(`Set note durations to ${duration} beat(s) in ${label}`);
     },
-    [getTargetMeasureIndices, song, onUpdateSong, showNotice]
+    [getTargetMeasureIndices, song, handleUpdateSong, showNotice]
   );
 
   // Note Navigation: Previous and Next note
@@ -919,8 +1014,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       return { ...m, notes };
     });
 
-    onUpdateSong({ ...song, measures: newMeasures });
-    setSelectedCoord([mIdx, nIdx + 1]);
+    const targetCoord: [number, number] = [mIdx, nIdx + 1];
+    handleUpdateSong(
+      { ...song, measures: newMeasures },
+      { cursor: targetCoord, undoCursor: [mIdx, nIdx] }
+    );
+    setSelectedCoord(targetCoord);
     audioEngine.previewNote(song.key, newNote);
     showNotice(`Inserted new note after note #${nIdx + 1}`);
   };
@@ -942,8 +1041,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       return { ...m, notes };
     });
 
-    onUpdateSong({ ...song, measures: newMeasures });
-    setSelectedCoord([mIdx, nIdx]);
+    const targetCoord: [number, number] = [mIdx, nIdx];
+    handleUpdateSong(
+      { ...song, measures: newMeasures },
+      { cursor: targetCoord, undoCursor: [mIdx, nIdx] }
+    );
+    setSelectedCoord(targetCoord);
     audioEngine.previewNote(song.key, newNote);
     showNotice(`Inserted new note before note #${nIdx + 1}`);
   };
@@ -968,8 +1071,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       return { ...m, notes };
     });
 
-    onUpdateSong({ ...song, measures: newMeasures });
-    setSelectedCoord([mIdx, nIdx + 1]);
+    const targetCoord: [number, number] = [mIdx, nIdx + 1];
+    handleUpdateSong(
+      { ...song, measures: newMeasures },
+      { cursor: targetCoord, undoCursor: [mIdx, nIdx] }
+    );
+    setSelectedCoord(targetCoord);
     showNotice('Inserted line break note "↵" after current note (splits verse, 0 beats)');
   };
 
@@ -987,8 +1094,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       return { ...m, notes };
     });
 
-    onUpdateSong({ ...song, measures: newMeasures });
-    setSelectedCoord([mIdx, Math.max(0, nIdx - 1)]);
+    const targetCoord: [number, number] = [mIdx, Math.max(0, nIdx - 1)];
+    handleUpdateSong(
+      { ...song, measures: newMeasures },
+      { cursor: targetCoord, undoCursor: [mIdx, nIdx] }
+    );
+    setSelectedCoord(targetCoord);
   };
 
   // Add Note to end of measure
@@ -1013,11 +1124,15 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       ],
     };
 
-    onUpdateSong({
-      ...song,
-      measures: [...song.measures, newMeasure],
-    });
-    setSelectedCoord([song.measures.length, 0]);
+    const targetCoord: [number, number] = [song.measures.length, 0];
+    handleUpdateSong(
+      {
+        ...song,
+        measures: [...song.measures, newMeasure],
+      },
+      { cursor: targetCoord, undoCursor: selectedCoord }
+    );
+    setSelectedCoord(targetCoord);
   };
 
   // Keyboard-to-Score commit handler
@@ -1026,9 +1141,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       if (!measures || measures.length === 0) return;
 
       let nextMeasures: Measure[];
+      let targetMIdx = 0;
       if (mode === 'append') {
+        targetMIdx = song.measures.length;
         nextMeasures = [...song.measures, ...measures];
       } else if (mode === 'replace' && selectedMeasureIndex !== null && selectedMeasureIndex >= 0) {
+        targetMIdx = selectedMeasureIndex;
         const before = song.measures.slice(0, selectedMeasureIndex);
         const after = song.measures.slice(selectedMeasureIndex + 1);
         nextMeasures = [...before, ...measures, ...after];
@@ -1037,20 +1155,26 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           selectedMeasureIndex !== null && selectedMeasureIndex >= 0
             ? selectedMeasureIndex + 1
             : song.measures.length;
+        targetMIdx = insertIdx;
         const before = song.measures.slice(0, insertIdx);
         const after = song.measures.slice(insertIdx);
         nextMeasures = [...before, ...measures, ...after];
       }
 
       const renumbered = renumberMeasures(nextMeasures);
-      onUpdateSong({
-        ...song,
-        measures: renumbered,
-      });
+      const targetCoord: [number, number] = [targetMIdx, 0];
+      handleUpdateSong(
+        {
+          ...song,
+          measures: renumbered,
+        },
+        { cursor: targetCoord, undoCursor: selectedCoord }
+      );
+      setSelectedCoord(targetCoord);
 
       showNotice(`Successfully transcribed and inserted ${measures.length} measures from keyboard!`);
     },
-    [song, selectedMeasureIndex, onUpdateSong, showNotice]
+    [song, selectedMeasureIndex, handleUpdateSong, selectedCoord, setSelectedCoord, showNotice]
   );
 
   // Measure Management: Delete Measure
@@ -1062,9 +1186,13 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
     const newMeasures = song.measures.filter((_, idx) => idx !== mIdx);
     const renumbered = renumberMeasures(newMeasures);
+    const targetCoord: [number, number] = [Math.max(0, Math.min(newMeasures.length - 1, mIdx)), 0];
 
-    onUpdateSong({ ...song, measures: renumbered });
-    setSelectedCoord([Math.max(0, Math.min(newMeasures.length - 1, mIdx)), 0]);
+    handleUpdateSong(
+      { ...song, measures: renumbered },
+      { cursor: targetCoord, undoCursor: [mIdx, 0] }
+    );
+    setSelectedCoord(targetCoord);
     setSelectedMeasureIndices(prev => {
       if (prev.size === 0) return prev;
       const next = new Set<number>();
@@ -1084,16 +1212,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const chords = getMeasureChords({ chord });
       return { ...m, chord, chords };
     });
-    onUpdateSong({ ...song, measures: newMeasures });
+    handleUpdateSong({ ...song, measures: newMeasures });
   };
 
 
   // Auto-harmonize entire Song chords
   const handleAutoHarmonizeSong = useCallback(() => {
     const updated = autoArrangeSongChords(song);
-    onUpdateSong(updated);
+    handleUpdateSong(updated);
     showNotice(`🪄 Auto-harmonized chords across all ${updated.measures.length} measures!`);
-  }, [song, onUpdateSong, showNotice]);
+  }, [song, handleUpdateSong, showNotice]);
 
   // Measure Section change
   const handleUpdateMeasureSection = useCallback(
@@ -1102,9 +1230,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         if (idx !== mIdx) return m;
         return { ...m, section };
       });
-      onUpdateSong({ ...song, measures: newMeasures });
+      handleUpdateSong({ ...song, measures: newMeasures });
     },
-    [song, onUpdateSong]
+    [song, handleUpdateSong]
   );
 
   // Split Measure at specific note index
@@ -1135,12 +1263,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const newMeasures = [...song.measures];
       newMeasures.splice(mIdx, 1, firstMeasure, secondMeasure);
       const renumbered = renumberMeasures(newMeasures);
+      const targetCoord: [number, number] = [mIdx + 1, 0];
 
-      onUpdateSong({ ...song, measures: renumbered });
-      setSelectedCoord([mIdx + 1, 0]);
+      handleUpdateSong(
+        { ...song, measures: renumbered },
+        { cursor: targetCoord, undoCursor: [mIdx, splitAtIndex] }
+      );
+      setSelectedCoord(targetCoord);
       showNotice(`Inserted barline at note, splitting into Measures ${mIdx + 1} and ${mIdx + 2}`);
     },
-    [song, onUpdateSong, showNotice]
+    [song, handleUpdateSong, setSelectedCoord, showNotice]
   );
 
   // Merge Measure with next measure
@@ -1160,12 +1292,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const newMeasures = [...song.measures];
       newMeasures.splice(mIdx, 2, mergedMeasure);
       const renumbered = renumberMeasures(newMeasures);
+      const targetCoord: [number, number] = [mIdx, currentM.notes.length];
 
-      onUpdateSong({ ...song, measures: renumbered });
-      setSelectedCoord([mIdx, currentM.notes.length]);
+      handleUpdateSong(
+        { ...song, measures: renumbered },
+        { cursor: targetCoord, undoCursor: [mIdx + 1, 0] }
+      );
+      setSelectedCoord(targetCoord);
       showNotice(`Merged Measures ${mIdx + 1} and ${mIdx + 2} into one measure`);
     },
-    [song, onUpdateSong, showNotice]
+    [song, handleUpdateSong, setSelectedCoord, showNotice]
   );
 
   // Shift last note of measure to next measure
@@ -1199,12 +1335,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       }
 
       const renumbered = renumberMeasures(newMeasures);
+      const targetCoord: [number, number] = [mIdx + 1, 0];
 
-      onUpdateSong({ ...song, measures: renumbered });
-      setSelectedCoord([mIdx + 1, 0]);
+      handleUpdateSong(
+        { ...song, measures: renumbered },
+        { cursor: targetCoord, undoCursor: [mIdx, currentM.notes.length - 1] }
+      );
+      setSelectedCoord(targetCoord);
       showNotice(`Moved last note into Measure ${mIdx + 2}`);
     },
-    [song, onUpdateSong, showNotice]
+    [song, handleUpdateSong, setSelectedCoord, showNotice]
   );
 
   // Pull first note from next measure into current measure
@@ -1229,12 +1369,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       }
 
       const renumbered = renumberMeasures(newMeasures);
+      const targetCoord: [number, number] = [mIdx, newCurrentNotes.length - 1];
 
-      onUpdateSong({ ...song, measures: renumbered });
-      setSelectedCoord([mIdx, newCurrentNotes.length - 1]);
+      handleUpdateSong(
+        { ...song, measures: renumbered },
+        { cursor: targetCoord, undoCursor: [mIdx + 1, 0] }
+      );
+      setSelectedCoord(targetCoord);
       showNotice(`Borrowed first note from Measure ${mIdx + 2}`);
     },
-    [song, onUpdateSong, showNotice]
+    [song, handleUpdateSong, setSelectedCoord, showNotice]
   );
 
   // Push note from current measure into next measure
@@ -1275,12 +1419,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       }
 
       const renumbered = renumberMeasures(newMeasures);
+      const targetCoord: [number, number] = [mIdx + 1, 0];
 
-      onUpdateSong({ ...song, measures: renumbered });
-      setSelectedCoord([mIdx + 1, 0]);
+      handleUpdateSong(
+        { ...song, measures: renumbered },
+        { cursor: targetCoord, undoCursor: [mIdx, targetNoteIdx] }
+      );
+      setSelectedCoord(targetCoord);
       showNotice(`Pushed note into Measure ${mIdx + 2}`);
     },
-    [song, onUpdateSong, showNotice, selectedCoord]
+    [song, handleUpdateSong, showNotice, selectedCoord, setSelectedCoord]
   );
 
   // Move selected note backward (earlier in song)
@@ -1301,8 +1449,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const newMeasures = song.measures.map((m, idx) =>
         idx === mIdx ? { ...m, notes: newNotes } : m
       );
-      onUpdateSong({ ...song, measures: newMeasures });
-      setSelectedCoord([mIdx, nIdx - 1]);
+      const targetCoord: [number, number] = [mIdx, nIdx - 1];
+      handleUpdateSong(
+        { ...song, measures: newMeasures },
+        { cursor: targetCoord, undoCursor: [mIdx, nIdx] }
+      );
+      setSelectedCoord(targetCoord);
       audioEngine.previewNote(song.key, temp);
       showNotice(`Moved note backward to position #${nIdx}`);
     } else {
@@ -1323,15 +1475,23 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         newMeasures.splice(mIdx, 1);
         newMeasures[mIdx - 1] = { ...prevM, notes: newPrevNotes };
         newMeasures = renumberMeasures(newMeasures);
-        onUpdateSong({ ...song, measures: newMeasures });
-        setSelectedCoord([mIdx - 1, targetNoteIdx]);
+        const targetCoord: [number, number] = [mIdx - 1, targetNoteIdx];
+        handleUpdateSong(
+          { ...song, measures: newMeasures },
+          { cursor: targetCoord, undoCursor: [mIdx, 0] }
+        );
+        setSelectedCoord(targetCoord);
         audioEngine.previewNote(song.key, noteToMove);
         showNotice(`Moved note into Measure #${mIdx}`);
       } else {
         newMeasures[mIdx - 1] = { ...prevM, notes: newPrevNotes };
         newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
-        onUpdateSong({ ...song, measures: newMeasures });
-        setSelectedCoord([mIdx - 1, targetNoteIdx]);
+        const targetCoord: [number, number] = [mIdx - 1, targetNoteIdx];
+        handleUpdateSong(
+          { ...song, measures: newMeasures },
+          { cursor: targetCoord, undoCursor: [mIdx, 0] }
+        );
+        setSelectedCoord(targetCoord);
         audioEngine.previewNote(song.key, noteToMove);
         showNotice(`Moved note into Measure #${mIdx}`);
       }
@@ -1339,7 +1499,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         scrollToCardElement(`measure-card-${mIdx - 1}`, { align: 'top' });
       }, 50);
     }
-  }, [selectedMeasureIndex, selectedNoteIndex, song, onUpdateSong, showNotice, audioEngine, safeTimeout]);
+  }, [selectedMeasureIndex, selectedNoteIndex, song, handleUpdateSong, setSelectedCoord, showNotice, audioEngine, safeTimeout]);
 
   // Move selected note forward (later in song)
   const handleMoveNoteForward = useCallback(() => {
@@ -1359,8 +1519,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const newMeasures = song.measures.map((m, idx) =>
         idx === mIdx ? { ...m, notes: newNotes } : m
       );
-      onUpdateSong({ ...song, measures: newMeasures });
-      setSelectedCoord([mIdx, nIdx + 1]);
+      const targetCoord: [number, number] = [mIdx, nIdx + 1];
+      handleUpdateSong(
+        { ...song, measures: newMeasures },
+        { cursor: targetCoord, undoCursor: [mIdx, nIdx] }
+      );
+      setSelectedCoord(targetCoord);
       audioEngine.previewNote(song.key, temp);
       showNotice(`Moved note forward to position #${nIdx + 2}`);
     } else {
@@ -1377,15 +1541,23 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           newMeasures.splice(mIdx, 1);
           newMeasures[mIdx] = { ...nextM, notes: newNextNotes };
           newMeasures = renumberMeasures(newMeasures);
-          onUpdateSong({ ...song, measures: newMeasures });
-          setSelectedCoord([mIdx, 0]);
+          const targetCoord: [number, number] = [mIdx, 0];
+          handleUpdateSong(
+            { ...song, measures: newMeasures },
+            { cursor: targetCoord, undoCursor: [mIdx, nIdx] }
+          );
+          setSelectedCoord(targetCoord);
           audioEngine.previewNote(song.key, noteToMove);
           showNotice(`Moved note into Measure #${mIdx + 1}`);
         } else {
           newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
           newMeasures[mIdx + 1] = { ...nextM, notes: newNextNotes };
-          onUpdateSong({ ...song, measures: newMeasures });
-          setSelectedCoord([mIdx + 1, 0]);
+          const targetCoord: [number, number] = [mIdx + 1, 0];
+          handleUpdateSong(
+            { ...song, measures: newMeasures },
+            { cursor: targetCoord, undoCursor: [mIdx, nIdx] }
+          );
+          setSelectedCoord(targetCoord);
           audioEngine.previewNote(song.key, noteToMove);
           showNotice(`Moved note into Measure #${mIdx + 2}`);
         }
@@ -1411,9 +1583,13 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         newMeasures[mIdx] = { ...currentM, notes: newCurrentNotes };
         newMeasures.push(newMeasure);
         const renumbered = renumberMeasures(newMeasures);
+        const targetCoord: [number, number] = [mIdx + 1, 0];
 
-        onUpdateSong({ ...song, measures: renumbered });
-        setSelectedCoord([mIdx + 1, 0]);
+        handleUpdateSong(
+          { ...song, measures: renumbered },
+          { cursor: targetCoord, undoCursor: [mIdx, nIdx] }
+        );
+        setSelectedCoord(targetCoord);
         audioEngine.previewNote(song.key, noteToMove);
         showNotice(`Moved note into new Measure #${mIdx + 2}`);
         safeTimeout(() => {
@@ -1421,7 +1597,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         }, 50);
       }
     }
-  }, [selectedMeasureIndex, selectedNoteIndex, song, onUpdateSong, showNotice, audioEngine, safeTimeout]);
+  }, [selectedMeasureIndex, selectedNoteIndex, song, handleUpdateSong, setSelectedCoord, showNotice, audioEngine, safeTimeout]);
 
 
   // Toggle measure line break
@@ -1431,11 +1607,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         if (idx !== mIdx) return m;
         return { ...m, isLineBreak: !m.isLineBreak };
       });
-      onUpdateSong({ ...song, measures: newMeasures });
+      handleUpdateSong({ ...song, measures: newMeasures });
       const willBreak = !song.measures[mIdx]?.isLineBreak;
       showNotice(willBreak ? `Set line break after Measure ${mIdx + 1}` : `Removed line break after Measure ${mIdx + 1}`);
     },
-    [song, onUpdateSong, showNotice]
+    [song, handleUpdateSong, showNotice]
   );
 
   // Update barline type
@@ -1445,9 +1621,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         if (idx !== mIdx) return m;
         return { ...m, barlineType };
       });
-      onUpdateSong({ ...song, measures: newMeasures });
+      handleUpdateSong({ ...song, measures: newMeasures });
     },
-    [song, onUpdateSong]
+    [song, handleUpdateSong]
   );
 
   // Auto-fill rest note for under-beat measure
@@ -1475,10 +1651,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         };
       });
 
-      onUpdateSong({ ...song, measures: newMeasures });
+      handleUpdateSong({ ...song, measures: newMeasures });
       showNotice(`Padded Measure ${mIdx + 1} with ${report.absDiff} beats of rest (0)`);
     },
-    [song, onUpdateSong, showNotice]
+    [song, handleUpdateSong, showNotice]
   );
 
   // Trim excess notes into next measure
@@ -1533,9 +1709,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       return;
     }
 
-    onUpdateSong({ ...song, measures: newMeasures });
+    handleUpdateSong({ ...song, measures: newMeasures });
     showNotice(`Automatically padded ${fixedCount} incomplete measure(s) with rests!`);
-  }, [song, onUpdateSong, showNotice]);
+  }, [song, handleUpdateSong, showNotice]);
 
   // Undo / Redo triggers with user feedback
   const handleUndo = useCallback(() => {
@@ -1576,7 +1752,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     }
-  }, [song, audioEngine]);
+  }, [song, audioEngine, setSelectedCoord]);
 
   // Select measure within Sheet Mode
   const handleSelectMeasureInSheet = useCallback(
@@ -1597,7 +1773,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       }
       setSelectedCoord([mIdx, targetNoteIdx]);
     },
-    [song.measures, selectedCoord]
+    [song.measures, selectedCoord, setSelectedCoord]
   );
 
   const canMoveNoteBackward =
@@ -1802,7 +1978,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       {/* Song Metadata Card & Global Setting Header */}
       <SongMetadataHeader
         song={song}
-        onUpdateSong={onUpdateSong}
+        onUpdateSong={handleUpdateSong}
         displayMode={displayMode}
         setDisplayMode={setDisplayMode}
         onOpenAligner={onOpenAligner}
@@ -1968,7 +2144,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         {/* WYSIWYG REALISTIC NUMBERED NOTATION SCORE CANVAS */}
         <RealSheetCanvas
           song={song}
-          onUpdateSong={onUpdateSong}
+          onUpdateSong={handleUpdateSong}
           selectedMeasureIndex={selectedMeasureIndex}
           selectedNoteIndex={selectedNoteIndex}
           onSelectNote={handleSelectNote}

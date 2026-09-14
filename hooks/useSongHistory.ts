@@ -1,14 +1,28 @@
 import { useReducer, useCallback } from 'react';
 import { Song } from '@/types/song';
-import { createSongHistoryState, songHistoryReducer, SetSongActionOptions } from '@/lib/songHistory';
+import {
+  createSongHistoryState,
+  songHistoryReducer,
+  SetSongActionOptions,
+  CursorLocation,
+} from '@/lib/songHistory';
+
+export type { CursorLocation };
 
 export interface SongHistoryState {
   song: Song;
+  cursor: CursorLocation;
+  setCursor: (
+    cursorOrUpdater: CursorLocation | ((prev: CursorLocation) => CursorLocation)
+  ) => void;
   setSong: (
     newSong: Song | ((current: Song) => Song),
     options?: SetSongActionOptions
   ) => void;
-  loadNewSong: (newSong: Song, options?: { unsaved?: boolean }) => void;
+  loadNewSong: (
+    newSong: Song,
+    options?: { unsaved?: boolean; cursor?: CursorLocation }
+  ) => void;
   undo: () => boolean;
   redo: () => boolean;
   canUndo: boolean;
@@ -19,12 +33,34 @@ export interface SongHistoryState {
   contentRevision: number;
 }
 
-export function useSongHistory(initialSong: Song): SongHistoryState {
-  const [state, dispatch] = useReducer(songHistoryReducer, initialSong, createSongHistoryState);
+export function useSongHistory(
+  initialSong: Song,
+  initialCursor: CursorLocation = [0, 0]
+): SongHistoryState {
+  const [state, dispatch] = useReducer(
+    songHistoryReducer,
+    initialSong,
+    (s: Song) => createSongHistoryState(s, initialCursor)
+  );
 
-  const loadNewSong = useCallback((newSong: Song, options?: { unsaved?: boolean }) => {
-    dispatch({ type: 'LOAD_SONG', payload: newSong, unsaved: options?.unsaved });
-  }, []);
+  const loadNewSong = useCallback(
+    (newSong: Song, options?: { unsaved?: boolean; cursor?: CursorLocation }) => {
+      dispatch({
+        type: 'LOAD_SONG',
+        payload: newSong,
+        unsaved: options?.unsaved,
+        cursor: options?.cursor,
+      });
+    },
+    []
+  );
+
+  const setCursor = useCallback(
+    (cursorOrUpdater: CursorLocation | ((prev: CursorLocation) => CursorLocation)) => {
+      dispatch({ type: 'SET_CURSOR', payload: cursorOrUpdater });
+    },
+    []
+  );
 
   const setSong = useCallback(
     (
@@ -36,6 +72,8 @@ export function useSongHistory(initialSong: Song): SongHistoryState {
         payload: newSongOrUpdater,
         coalesce: options?.coalesce,
         coalesceKey: options?.coalesceKey,
+        cursor: options?.cursor,
+        undoCursor: options?.undoCursor,
       });
     },
     []
@@ -55,6 +93,8 @@ export function useSongHistory(initialSong: Song): SongHistoryState {
 
   return {
     song: state.present,
+    cursor: state.presentCursor,
+    setCursor,
     setSong,
     loadNewSong,
     undo,
