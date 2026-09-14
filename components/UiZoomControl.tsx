@@ -38,7 +38,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
           type="button"
           onClick={zoomOut}
           disabled={!canZoomOut}
-          className="p-1 sm:px-1.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] min-w-[28px] flex items-center justify-center"
+          className="p-1 sm:px-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[36px] flex items-center justify-center"
           title="縮小介面字級 Zoom Out Text [Alt + -]"
           aria-label="縮小介面字級 Zoom Out Text"
         >
@@ -49,7 +49,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
           id={`${idPrefix}-reset-btn`}
           type="button"
           onClick={handleResetOrCycle}
-          className={`px-1.5 py-1 font-mono font-bold text-xs rounded-md transition-all cursor-pointer touch-manipulation select-none flex items-center gap-0.5 ${
+          className={`px-2 py-1 font-mono font-bold text-xs rounded-md transition-all cursor-pointer touch-manipulation select-none flex items-center gap-0.5 min-h-[44px] ${
             isCustom
               ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25'
               : 'text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400'
@@ -66,7 +66,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
           type="button"
           onClick={zoomIn}
           disabled={!canZoomIn}
-          className="p-1 sm:px-1.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] min-w-[28px] flex items-center justify-center"
+          className="p-1 sm:px-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[36px] flex items-center justify-center"
           title="放大介面字級 Zoom In Text [Alt + +]"
           aria-label="放大介面字級 Zoom In Text"
         >
@@ -86,7 +86,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
         type="button"
         onClick={zoomOut}
         disabled={!canZoomOut}
-        className="flex items-center justify-center p-1.5 sm:px-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] sm:min-h-[38px] min-w-[32px] shrink-0"
+        className="flex items-center justify-center p-1.5 sm:px-2.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[40px] shrink-0"
         title="縮小介面字級 Zoom Out UI Text [Alt + -]"
         aria-label="Zoom out UI text"
       >
@@ -97,7 +97,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
         id={`${idPrefix}-reset-btn`}
         type="button"
         onClick={handleResetOrCycle}
-        className={`px-1.5 sm:px-2 py-1 font-mono font-bold text-xs rounded-md transition-all cursor-pointer touch-manipulation select-none flex items-center gap-1 shrink-0 ${
+        className={`px-2 py-1 font-mono font-bold text-xs rounded-md transition-all cursor-pointer touch-manipulation select-none flex items-center gap-1 shrink-0 min-h-[44px] ${
           isCustom
             ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25'
             : 'text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400'
@@ -114,7 +114,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
         type="button"
         onClick={zoomIn}
         disabled={!canZoomIn}
-        className="flex items-center justify-center p-1.5 sm:px-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] sm:min-h-[38px] min-w-[32px] shrink-0"
+        className="flex items-center justify-center p-1.5 sm:px-2.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[40px] shrink-0"
         title="放大介面字級 Zoom In UI Text [Alt + +]"
         aria-label="Zoom in UI text"
       >

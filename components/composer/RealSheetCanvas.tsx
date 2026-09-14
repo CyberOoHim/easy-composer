@@ -1219,7 +1219,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         handleNoteClick(engravedM.measureIndex, 0, activeField, activeVerseRow);
                       }
                     }}
-                    className={`relative flex-1 flex flex-col justify-between px-2 sm:px-3 pt-4 pb-2 transition-colors cursor-pointer group ${
+                    className={`relative flex-1 flex flex-col justify-between px-2 sm:px-3 pt-4 pb-2 transition-colors cursor-pointer group measure-containment touch-manipulation ${
                       isSelectedMeasure
                         ? sheetTheme === 'dark' ? 'bg-amber-950/30' : 'bg-amber-50/40'
                         : sheetTheme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50/80'
@@ -1338,7 +1338,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                   activeVerseRow
                                 );
                               }}
-                              className={`relative flex flex-col items-center justify-center p-1 rounded-sm transition-all cursor-pointer ${
+                              className={`relative flex flex-col items-center justify-center p-1 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[44px] min-w-[32px] sm:min-w-[36px] ${
                                 isSelectedNote
                                   ? sheetTheme === 'dark'
                                     ? 'ring-2 ring-amber-400 bg-amber-950/60'
@@ -1564,7 +1564,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                 e.stopPropagation();
                                 handleNoteClick(engravedM.measureIndex, nIdx, 'lyric', 1);
                               }}
-                              className={`flex-1 text-center min-w-[20px] px-0.5 py-0.5 rounded cursor-text ${
+                              className={`flex-1 text-center min-w-[24px] min-h-[36px] flex items-center justify-center px-0.5 py-0.5 rounded cursor-text touch-manipulation ${
                                 isSelectedLyric1
                                   ? sheetTheme === 'dark'
                                     ? 'bg-amber-950 ring-2 ring-amber-400 font-bold text-amber-200'
@@ -1624,7 +1624,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                 e.stopPropagation();
                                 handleNoteClick(engravedM.measureIndex, nIdx, 'lyric', 2);
                               }}
-                              className={`flex-1 text-center min-w-[20px] px-0.5 py-0.5 rounded cursor-text ${
+                              className={`flex-1 text-center min-w-[24px] min-h-[36px] flex items-center justify-center px-0.5 py-0.5 rounded cursor-text touch-manipulation ${
                                 isSelectedLyric2
                                   ? sheetTheme === 'dark'
                                     ? 'bg-amber-950 ring-2 ring-amber-400 font-bold text-amber-200'

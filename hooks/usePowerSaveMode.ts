@@ -1,20 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useSyncExternalStore } from 'react';
-import { supportsBatteryApi } from '@/lib/device';
-
-interface BatteryManager extends EventTarget {
-  charging: boolean;
-  chargingTime: number;
-  dischargingTime: number;
-  level: number;
-  onchargingchange: ((this: BatteryManager, ev: Event) => unknown) | null;
-  onlevelchange: ((this: BatteryManager, ev: Event) => unknown) | null;
-}
-
-interface NavigatorWithBattery extends Navigator {
-  getBattery?: () => Promise<BatteryManager>;
-}
+import { useEffect, useCallback, useSyncExternalStore } from 'react';
 
 const STORAGE_KEY = 'taigi_composer_power_save_mode';
 const ECO_MODE_EVENT = 'taigi_composer_eco_mode_change';
@@ -26,7 +12,6 @@ function getEcoModeSnapshot(): boolean {
     if (saved !== null) {
       return saved === 'true';
     }
-    // Reduced motion only gates animations — it must not skip wake lock / enable eco.
     return false;
   } catch {
     return false;
@@ -47,15 +32,17 @@ function subscribeEcoMode(callback: () => void) {
   };
 }
 
+/**
+ * iPad Dedicated Power Saving Hook
+ * Manages Eco Mode to reduce GPU compositor load and cut WebKit battery consumption.
+ * Automatically handles visibility changes to pause heavy renders when switching apps on iPad.
+ */
 export function usePowerSaveMode() {
   const isEcoMode = useSyncExternalStore(
     subscribeEcoMode,
     getEcoModeSnapshot,
     getEcoModeServerSnapshot
   );
-
-  const [batteryLevel, setBatteryLevel] = useState<number | null>(null);
-  const [isCharging, setIsCharging] = useState<boolean | null>(null);
 
   // Synchronize .eco-mode class on document element
   useEffect(() => {
@@ -66,6 +53,28 @@ export function usePowerSaveMode() {
         document.documentElement.classList.remove('eco-mode');
       }
     }
+  }, [isEcoMode]);
+
+  // iPad Background App Switch & Visibility Handling for power saving
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const handleVisibility = () => {
+      if (document.hidden) {
+        // When iPad app is backgrounded or tab switched, ensure eco class is applied to pause CSS animations
+        document.documentElement.classList.add('eco-mode');
+      } else if (!isEcoMode) {
+        document.documentElement.classList.remove('eco-mode');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    window.addEventListener('pagehide', handleVisibility);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      window.removeEventListener('pagehide', handleVisibility);
+    };
   }, [isEcoMode]);
 
   const setEcoMode = useCallback((val: boolean) => {
@@ -82,64 +91,14 @@ export function usePowerSaveMode() {
     setEcoMode(!current);
   }, [setEcoMode]);
 
-  // Battery status listener
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-
-    const nav = navigator as NavigatorWithBattery;
-    // Battery Status API is Chromium-only; iPadOS Safari never exposes getBattery().
-    if (supportsBatteryApi() && typeof nav.getBattery === 'function') {
-      let isMounted = true;
-      let batteryRef: BatteryManager | null = null;
-      let handleLevelChange: (() => void) | null = null;
-      let handleChargingChange: (() => void) | null = null;
-
-      nav.getBattery().then(battery => {
-        if (!isMounted) return;
-        batteryRef = battery;
-        setBatteryLevel(battery.level);
-        setIsCharging(battery.charging);
-
-        // We record battery metrics for UI display, but do not forcefully override user's sound quality
-        let saved: string | null = null;
-        try { saved = localStorage.getItem(STORAGE_KEY); } catch { /* storage blocked */ }
-        if (saved === 'true') {
-          setEcoMode(true);
-        }
-
-        handleLevelChange = () => {
-          if (!isMounted) return;
-          setBatteryLevel(battery.level);
-        };
-
-        handleChargingChange = () => {
-          if (!isMounted) return;
-          setIsCharging(battery.charging);
-        };
-
-        battery.addEventListener('levelchange', handleLevelChange);
-        battery.addEventListener('chargingchange', handleChargingChange);
-      }).catch(() => {
-        // Battery API not supported or permissions blocked
-      });
-
-      return () => {
-        isMounted = false;
-        if (batteryRef) {
-          if (handleLevelChange) batteryRef.removeEventListener('levelchange', handleLevelChange);
-          if (handleChargingChange) batteryRef.removeEventListener('chargingchange', handleChargingChange);
-        }
-      };
-    }
-  }, [setEcoMode]);
-
   return {
     isEcoMode,
     toggleEcoMode,
     setEcoMode,
-    batteryLevel,
-    isCharging,
-    isLowBattery: batteryLevel !== null && batteryLevel <= 0.2 && !isCharging,
-    batterySupported: supportsBatteryApi(),
+    batteryLevel: null,
+    isCharging: null,
+    isLowBattery: false,
+    batterySupported: false,
   };
 }
+

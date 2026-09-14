@@ -1,5 +1,19 @@
 # Project Guidelines
 
-- **Development Workflow**: Use `npm run dev` (or `bun run dev`) instead of `npm run build` when possible for faster iteration and live Hot Module Replacement (HMR).
-- **Fast Pre-Commit Verification**: Use `bun run lint && bun run typecheck` for pre-commit verification. Do NOT run full `bun run build` before routine commits unless specifically testing build packaging or static export, as full Next.js builds are resource-intensive on low-resource environments.
-- **Static Export & API Routes**: GitHub Actions builds with `STATIC_EXPORT=true` (`output: 'export'`). Pure client-side SPA score editor with zero backend API dependencies to ensure static export build compatibility.
+- **Dedicated iPad Platform Target**:
+  - The application is tailored and dedicated exclusively for iPad (iPadOS / WebKit Mobile Safari).
+  - All desktop-specific windowing chrome, hover-dependent menus, and Android-specific installation hacks (such as `beforeinstallprompt` or Chromium Battery API) are permanently excluded to keep the bundle lean.
+- **iPad Power & Battery Optimization**:
+  - Leverage `document.visibilityState` to trigger eco-mode automatically when backgrounded or switched away.
+  - Avoid polling loops, continuous canvas redraws, or unthrottled Web Audio synthesis loops when idle or backgrounded.
+- **iPad GPU Efficiency**:
+  - Never use expensive full-screen CSS backdrop blurs or heavy drop-shadows during live playback; eco-mode disables these to eliminate compositor churn.
+  - Apply CSS layout/paint containment (`.measure-containment`) to measures and score containers so panning/zooming minimizes GPU recomposition.
+  - Keep audio-visualizer rendering lightweight (15–30 FPS downsampled in eco-mode).
+- **iPad Touch Ergonomics**:
+  - Touch targets must adhere to Apple Human Interface Guidelines (minimum 44×44px hit areas, with at least 36–44px for compact musical ribbons).
+  - Apply `touch-action: manipulation` and `-webkit-tap-highlight-color: transparent` to eliminate 300ms tap delays and unstyled gray highlight flash.
+  - Native momentum scrolling enabled with `-webkit-overflow-scrolling: touch`.
+- **Development Workflow**: Use `npm run dev` (or `bun run dev`) instead of `npm run build` when possible for faster iteration.
+- **Fast Pre-Commit Verification**: Use `npm run typecheck` or `bun run lint && bun run typecheck` for verification.
+- **Static Export & Client-Side SPA**: Pure client-side SPA score editor with zero backend API dependencies, compatible with static exports.

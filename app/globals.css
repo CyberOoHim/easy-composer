@@ -33,19 +33,31 @@
 }
 
 /* =========================================================================
-   POWER SAVING & HARDWARE OPTIMIZATION FOR ALL DEVICES & IPADS
+   POWER SAVING & HARDWARE OPTIMIZATION FOR DEDICATED IPAD
    ========================================================================= */
 
-/* Optimization for Touch / Mobile Safari & iPad */
+/* Optimization for iPad Touch / WebKit MobileSafari */
 html, body {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
   overflow-x: hidden;
   max-width: 100vw;
   width: 100%;
+  -webkit-text-size-adjust: 100%;
 }
 
-/* Eco Mode / Low Power Mode Rules */
+/* Hardware-accelerated smooth touch scrolling on iPad */
+.touch-momentum {
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+}
+
+/* Measure layout & paint containment: keeps WebKit GPU compositor fast during panning */
+.measure-containment {
+  contain: layout paint;
+}
+
+/* Eco Mode / Low Power Mode Rules for iPad */
 .eco-mode {
   /* Disable expensive GPU backdrop filters and switch to solid backgrounds */
   --tw-backdrop-blur: none !important;
@@ -63,7 +75,7 @@ html, body {
   box-shadow: none !important;
 }
 
-/* Hide GPU-heavy ambient background blur orbs */
+/* Hide GPU-heavy ambient background blur orbs on iPad */
 .eco-mode .eco-hide-ambient {
   display: none !important;
 }
@@ -83,7 +95,8 @@ html, body {
 }
 
 /* Flatten heavy drop shadows in Eco Mode to cut GPU rasterization costs */
-.eco-mode .eco-flat-shadow {
+.eco-mode .eco-flat-shadow,
+.eco-mode [class*="shadow-"] {
   filter: none !important;
   box-shadow: none !important;
 }

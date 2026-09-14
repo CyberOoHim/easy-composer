@@ -495,7 +495,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             id="floating-hud-play-btn"
             type="button"
             onClick={onTogglePlay}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[36px] ${
+            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px] ${
               isPlaying
                 ? 'bg-rose-600 hover:bg-rose-500 text-white ring-2 ring-rose-400 font-extrabold animate-pulse'
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white font-bold'
@@ -510,12 +510,12 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           >
             {isPlaying ? (
               <>
-                <Square className="w-3.5 h-3.5 fill-current" />
+                <Square className="w-4 h-4 fill-current" />
                 <span>Stop</span>
               </>
             ) : (
               <>
-                <Play className="w-3.5 h-3.5 fill-current" />
+                <Play className="w-4 h-4 fill-current" />
                 <span>Play</span>
               </>
             )}
@@ -525,7 +525,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           {onUndo && onRedo && (
             <div
               id="floating-hud-undo-redo-group"
-              className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 min-h-[36px]"
+              className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 min-h-[42px]"
             >
               <button
                 id="floating-hud-undo-btn"
@@ -534,11 +534,11 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 disabled={!canUndo}
                 title={canUndo ? `Undo [Ctrl+Z / ⌘Z] · ${pastCount} step(s)` : 'Nothing to undo'}
                 aria-label="Undo"
-                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-90 cursor-pointer"
+                className="p-2.5 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-90 cursor-pointer touch-manipulation min-h-[38px] min-w-[38px] flex items-center justify-center"
               >
-                <Undo2 className="w-3.5 h-3.5" />
+                <Undo2 className="w-4 h-4" />
               </button>
-              <div className="w-[1px] h-3.5 bg-zinc-300 dark:bg-zinc-750 mx-0.5" />
+              <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-750 mx-0.5" />
               <button
                 id="floating-hud-redo-btn"
                 type="button"
@@ -546,9 +546,9 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 disabled={!canRedo}
                 title={canRedo ? `Redo [Ctrl+Y / ⌘Shift+Z] · ${futureCount} step(s)` : 'Nothing to redo'}
                 aria-label="Redo"
-                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-90 cursor-pointer"
+                className="p-2.5 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-90 cursor-pointer touch-manipulation min-h-[38px] min-w-[38px] flex items-center justify-center"
               >
-                <Redo2 className="w-3.5 h-3.5" />
+                <Redo2 className="w-4 h-4" />
               </button>
             </div>
           )}
@@ -556,12 +556,12 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block mx-0.5" />
 
           {/* Active Field Toggle: Pitch vs Lyric */}
-          <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+          <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 min-h-[42px] items-center">
             <button
               id="floating-hud-pitch-mode-btn"
               type="button"
               onClick={() => activeField !== 'pitch' && onToggleActiveField()}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] flex items-center justify-center ${
                 activeField === 'pitch'
                   ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
@@ -574,7 +574,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               id="floating-hud-lyric-mode-btn"
               type="button"
               onClick={() => activeField !== 'lyric' && onToggleActiveField()}
-              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] flex items-center justify-center ${
                 activeField === 'lyric'
                   ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
                   : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
