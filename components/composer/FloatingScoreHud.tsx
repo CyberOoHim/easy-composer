@@ -17,6 +17,8 @@ import {
   Trash2,
   Sun,
   Moon,
+  Undo2,
+  Redo2,
 } from 'lucide-react';
 import { NoteDuration, PitchNumber, ArticulationType } from '@/types/song';
 import {
@@ -114,6 +116,14 @@ export interface FloatingScoreHudProps {
   selectedVerseRow: number;
   onChangeVerseRow: (row: number) => void;
   availableVerseRows?: number[];
+
+  // Undo / Redo
+  onUndo?: () => boolean;
+  onRedo?: () => boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  pastCount?: number;
+  futureCount?: number;
 }
 
 const COMMON_PUNCTUATIONS = ['，', '。', '！', '？', '、', '；', '：', '—', '…'];
@@ -180,6 +190,12 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   selectedVerseRow,
   onChangeVerseRow,
   availableVerseRows = [1, 2, 3],
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  pastCount = 0,
+  futureCount = 0,
 }) => {
   const [internalDrawer, setInternalDrawer] = React.useState<HudDrawerType>('none');
   const [showShortcutsModal, setShowShortcutsModal] = React.useState<boolean>(false);
@@ -504,6 +520,38 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               </>
             )}
           </button>
+
+          {/* Quick Undo / Redo in HUD */}
+          {onUndo && onRedo && (
+            <div
+              id="floating-hud-undo-redo-group"
+              className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 min-h-[36px]"
+            >
+              <button
+                id="floating-hud-undo-btn"
+                type="button"
+                onClick={onUndo}
+                disabled={!canUndo}
+                title={canUndo ? `Undo [Ctrl+Z / ⌘Z] · ${pastCount} step(s)` : 'Nothing to undo'}
+                aria-label="Undo"
+                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-90 cursor-pointer"
+              >
+                <Undo2 className="w-3.5 h-3.5" />
+              </button>
+              <div className="w-[1px] h-3.5 bg-zinc-300 dark:bg-zinc-750 mx-0.5" />
+              <button
+                id="floating-hud-redo-btn"
+                type="button"
+                onClick={onRedo}
+                disabled={!canRedo}
+                title={canRedo ? `Redo [Ctrl+Y / ⌘Shift+Z] · ${futureCount} step(s)` : 'Nothing to redo'}
+                aria-label="Redo"
+                className="p-2 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-90 cursor-pointer"
+              >
+                <Redo2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block mx-0.5" />
 

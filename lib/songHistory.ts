@@ -1,18 +1,31 @@
 import type { Song } from '../types/song.ts';
 
-const MAX_HISTORY_LENGTH = 60;
+const MAX_HISTORY_LENGTH = 150;
+const COALESCE_WINDOW_MS = 1000;
 
 export interface SongHistoryReducerState {
   past: Song[];
   present: Song;
   future: Song[];
   contentRevision: number;
+  lastCoalesceKey?: string;
+  lastActionTimestamp?: number;
+}
+
+export interface SetSongActionOptions {
+  coalesce?: boolean;
+  coalesceKey?: string;
 }
 
 export type SongHistoryAction =
   | { type: 'UNDO' }
   | { type: 'REDO' }
-  | { type: 'SET_SONG'; payload: Song | ((current: Song) => Song) }
+  | {
+      type: 'SET_SONG';
+      payload: Song | ((current: Song) => Song);
+      coalesce?: boolean;
+      coalesceKey?: string;
+    }
   | { type: 'LOAD_SONG'; payload: Song; unsaved?: boolean };
 
 export function songHistoryReducer(
@@ -29,6 +42,8 @@ export function songHistoryReducer(
         present: previous,
         future: [state.present, ...state.future],
         contentRevision: state.contentRevision + 1,
+        lastCoalesceKey: undefined,
+        lastActionTimestamp: undefined,
       };
     }
     case 'REDO': {
@@ -40,6 +55,8 @@ export function songHistoryReducer(
         present: next,
         future: newFuture,
         contentRevision: state.contentRevision + 1,
+        lastCoalesceKey: undefined,
+        lastActionTimestamp: undefined,
       };
     }
     case 'SET_SONG': {
@@ -47,6 +64,25 @@ export function songHistoryReducer(
       if (state.present === nextSong) {
         return state;
       }
+
+      const now = Date.now();
+      const shouldCoalesce =
+        Boolean(action.coalesce) &&
+        Boolean(action.coalesceKey) &&
+        state.lastCoalesceKey === action.coalesceKey &&
+        state.lastActionTimestamp !== undefined &&
+        now - state.lastActionTimestamp < COALESCE_WINDOW_MS;
+
+      if (shouldCoalesce) {
+        // Group rapid continuous updates (e.g. typing text or dragging a slider) into the current edit
+        return {
+          ...state,
+          present: nextSong,
+          lastActionTimestamp: now,
+          contentRevision: state.contentRevision + 1,
+        };
+      }
+
       const newPast = [...state.past, state.present];
       return {
         past:
@@ -56,6 +92,8 @@ export function songHistoryReducer(
         present: nextSong,
         future: [],
         contentRevision: state.contentRevision + 1,
+        lastCoalesceKey: action.coalesce ? action.coalesceKey : undefined,
+        lastActionTimestamp: action.coalesce ? now : undefined,
       };
     }
     case 'LOAD_SONG': {
@@ -64,6 +102,8 @@ export function songHistoryReducer(
         present: action.payload,
         future: [],
         contentRevision: action.unsaved ? 1 : 0,
+        lastCoalesceKey: undefined,
+        lastActionTimestamp: undefined,
       };
     }
     default:
@@ -72,5 +112,10 @@ export function songHistoryReducer(
 }
 
 export function createSongHistoryState(present: Song): SongHistoryReducerState {
-  return { past: [], present, future: [], contentRevision: 0 };
+  return {
+    past: [],
+    present,
+    future: [],
+    contentRevision: 0,
+  };
 }

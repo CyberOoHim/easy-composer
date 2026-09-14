@@ -76,4 +76,72 @@ describe('songHistoryReducer dirty/contentRevision', () => {
     assert.equal(next, state);
     assert.equal(next.contentRevision, 0);
   });
+
+  it('coalesces rapid updates with the same coalesceKey into one undo state', () => {
+    const s0 = song('s', 'Initial');
+    let state = initial(s0);
+
+    // First letter typed
+    state = songHistoryReducer(state, {
+      type: 'SET_SONG',
+      payload: song('s', 'A'),
+      coalesce: true,
+      coalesceKey: 'title-edit',
+    });
+    assert.equal(state.past.length, 1);
+    assert.equal(state.present.title, 'A');
+
+    // Second letter typed immediately with same key
+    state = songHistoryReducer(state, {
+      type: 'SET_SONG',
+      payload: song('s', 'AB'),
+      coalesce: true,
+      coalesceKey: 'title-edit',
+    });
+    // Should NOT create another past entry because it coalesces into the active step
+    assert.equal(state.past.length, 1);
+    assert.equal(state.present.title, 'AB');
+
+    // Third letter typed immediately with same key
+    state = songHistoryReducer(state, {
+      type: 'SET_SONG',
+      payload: song('s', 'ABC'),
+      coalesce: true,
+      coalesceKey: 'title-edit',
+    });
+    assert.equal(state.past.length, 1);
+    assert.equal(state.present.title, 'ABC');
+
+    // Undo should restore Initial in one single step!
+    state = songHistoryReducer(state, { type: 'UNDO' });
+    assert.equal(state.present.title, 'Initial');
+    assert.equal(state.past.length, 0);
+    assert.equal(state.future.length, 1);
+
+    // Redo should restore ABC!
+    state = songHistoryReducer(state, { type: 'REDO' });
+    assert.equal(state.present.title, 'ABC');
+  });
+
+  it('creates separate history steps for different coalesceKeys', () => {
+    const s0 = song('s', 'Base');
+    let state = initial(s0);
+
+    state = songHistoryReducer(state, {
+      type: 'SET_SONG',
+      payload: song('s', 'Key1'),
+      coalesce: true,
+      coalesceKey: 'key-one',
+    });
+    assert.equal(state.past.length, 1);
+
+    state = songHistoryReducer(state, {
+      type: 'SET_SONG',
+      payload: song('s', 'Key2'),
+      coalesce: true,
+      coalesceKey: 'key-two',
+    });
+    assert.equal(state.past.length, 2);
+  });
 });
+

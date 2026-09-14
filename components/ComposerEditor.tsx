@@ -51,7 +51,10 @@ import {
 
 interface ComposerEditorProps {
   song: Song;
-  onUpdateSong: (updatedSong: Song) => void;
+  onUpdateSong: (
+    updatedSong: Song,
+    options?: { coalesce?: boolean; coalesceKey?: string }
+  ) => void;
   audioEngine: AudioEngine;
   displayMode: LyricDisplayMode;
   setDisplayMode: (mode: LyricDisplayMode) => void;
@@ -272,8 +275,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     }
   }, [targetMeasureIndex, song, audioEngine, showNotice, onTargetMeasureHandled, safeTimeout]);
 
-  const selectedMeasureIndex = selectedCoord ? selectedCoord[0] : null;
-  const selectedNoteIndex = selectedCoord ? selectedCoord[1] : null;
+  // Derive safely clamped selection coordinate
+  const [selectedMeasureIndex, selectedNoteIndex] = useMemo((): [number | null, number | null] => {
+    if (!selectedCoord || song.measures.length === 0) return [null, null];
+    const [mIdx, nIdx] = selectedCoord;
+    const safeMIdx = Math.max(0, Math.min(mIdx, song.measures.length - 1));
+    const m = song.measures[safeMIdx];
+    if (!m || m.notes.length === 0) return [safeMIdx, 0];
+    const safeNIdx = Math.max(0, Math.min(nIdx, m.notes.length - 1));
+    return [safeMIdx, safeNIdx];
+  }, [selectedCoord, song.measures]);
 
   const currentMeasure: Measure | null =
     selectedMeasureIndex !== null && song.measures[selectedMeasureIndex]
@@ -364,7 +375,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     (
       mIdx: number,
       nIdx: number,
-      updater: (note: NumberedNotationNote) => NumberedNotationNote
+      updater: (note: NumberedNotationNote) => NumberedNotationNote,
+      options?: { coalesce?: boolean; coalesceKey?: string }
     ) => {
       const newMeasures = song.measures.map((m, currentMIdx) => {
         if (currentMIdx !== mIdx) return m;
@@ -375,24 +387,32 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         return { ...m, notes: newNotes };
       });
 
-      onUpdateSong({ ...song, measures: newMeasures });
+      onUpdateSong({ ...song, measures: newMeasures }, options);
     },
     [song, onUpdateSong]
   );
 
   // Mutate currently selected note
   const updateSelectedNote = useCallback(
-    (updater: (note: NumberedNotationNote) => NumberedNotationNote) => {
+    (
+      updater: (note: NumberedNotationNote) => NumberedNotationNote,
+      options?: { coalesce?: boolean; coalesceKey?: string }
+    ) => {
       if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
-      updateNoteAt(selectedMeasureIndex, selectedNoteIndex, updater);
+      updateNoteAt(selectedMeasureIndex, selectedNoteIndex, updater, options);
     },
     [selectedMeasureIndex, selectedNoteIndex, updateNoteAt]
   );
 
   // Direct note updater for RealSheetCanvas
   const handleUpdateNoteDirect = useCallback(
-    (mIdx: number, nIdx: number, partialNote: Partial<NumberedNotationNote>) => {
-      updateNoteAt(mIdx, nIdx, n => ({ ...n, ...partialNote }));
+    (
+      mIdx: number,
+      nIdx: number,
+      partialNote: Partial<NumberedNotationNote>,
+      options?: { coalesce?: boolean; coalesceKey?: string }
+    ) => {
+      updateNoteAt(mIdx, nIdx, n => ({ ...n, ...partialNote }), options);
     },
     [updateNoteAt]
   );
@@ -1837,6 +1857,38 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
           {/* Right: Consolidated Studio Tools (Compact, Fast Access) */}
           <div className="flex items-center gap-1.5 flex-wrap justify-end">
+            {/* Score Studio Quick Undo / Redo */}
+            {onUndo && onRedo && (
+              <div
+                id="composer-deck-undo-redo-group"
+                className="flex items-center bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-750 h-8"
+              >
+                <button
+                  id="composer-deck-undo-btn"
+                  type="button"
+                  onClick={handleUndo}
+                  disabled={!canUndo}
+                  title={canUndo ? `Undo [Ctrl+Z / ⌘Z] · ${pastCount} step(s)` : 'Nothing to undo'}
+                  aria-label="Undo"
+                  className="flex items-center justify-center p-1.5 rounded-md text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer h-6.5 w-6.5"
+                >
+                  <Undo2 className="w-3.5 h-3.5" />
+                </button>
+                <div className="w-[1px] h-3.5 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
+                <button
+                  id="composer-deck-redo-btn"
+                  type="button"
+                  onClick={handleRedo}
+                  disabled={!canRedo}
+                  title={canRedo ? `Redo [Ctrl+Y / ⌘Shift+Z] · ${futureCount} step(s)` : 'Nothing to redo'}
+                  aria-label="Redo"
+                  className="flex items-center justify-center p-1.5 rounded-md text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer h-6.5 w-6.5"
+                >
+                  <Redo2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
             {/* Transcribe Studio */}
             <button
               id="composer-score-keyboard-btn"
@@ -1938,6 +1990,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           onAutoHarmonize={handleAutoHarmonizeSong}
           onUpdateMeasureChord={handleUpdateMeasureChord}
           displayMode={displayMode}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          pastCount={pastCount}
+          futureCount={futureCount}
         />
       </div>
 

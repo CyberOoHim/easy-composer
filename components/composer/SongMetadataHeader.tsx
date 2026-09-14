@@ -29,7 +29,10 @@ import {
 
 interface SongMetadataHeaderProps {
   song: Song;
-  onUpdateSong: (updatedSong: Song) => void;
+  onUpdateSong: (
+    updatedSong: Song,
+    options?: { coalesce?: boolean; coalesceKey?: string }
+  ) => void;
   displayMode: LyricDisplayMode;
   setDisplayMode: (mode: LyricDisplayMode) => void;
   onOpenAligner: () => void;
@@ -129,7 +132,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   // Handle BPM Change
   const handleSetBpm = (newBpm: number) => {
     const clamped = Math.max(30, Math.min(260, Math.round(newBpm)));
-    onUpdateSong({ ...song, bpm: clamped });
+    onUpdateSong({ ...song, bpm: clamped }, { coalesce: true, coalesceKey: 'song-bpm' });
   };
 
   const handleStepBpm = (delta: number) => {
@@ -735,7 +738,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   id="composer-song-title-input"
                   type="text"
                   value={song.title}
-                  onChange={e => onUpdateSong({ ...song, title: e.target.value })}
+                  onChange={e => onUpdateSong({ ...song, title: e.target.value }, { coalesce: true, coalesceKey: 'meta-title' })}
                   className="w-full text-sm font-bold text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
                   placeholder="e.g. Bang Chhun-hong..."
                 />
@@ -753,7 +756,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   id="composer-song-subtitle-input"
                   type="text"
                   value={song.subtitle || ''}
-                  onChange={e => onUpdateSong({ ...song, subtitle: e.target.value })}
+                  onChange={e => onUpdateSong({ ...song, subtitle: e.target.value }, { coalesce: true, coalesceKey: 'meta-subtitle' })}
                   className="w-full text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
                   placeholder="e.g. Taiwanese Folk Song..."
                 />
@@ -771,7 +774,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   id="composer-song-composer-input"
                   type="text"
                   value={song.composer || ''}
-                  onChange={e => onUpdateSong({ ...song, composer: e.target.value })}
+                  onChange={e => onUpdateSong({ ...song, composer: e.target.value }, { coalesce: true, coalesceKey: 'meta-composer' })}
                   className="w-full text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
                   placeholder="e.g. Tēng Ú-hiân..."
                 />
@@ -789,7 +792,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   id="composer-song-lyricist-input"
                   type="text"
                   value={song.lyricist || ''}
-                  onChange={e => onUpdateSong({ ...song, lyricist: e.target.value })}
+                  onChange={e => onUpdateSong({ ...song, lyricist: e.target.value }, { coalesce: true, coalesceKey: 'meta-lyricist' })}
                   className="w-full text-sm font-medium text-zinc-900 dark:text-zinc-100 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl px-3 py-2 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all"
                   placeholder="e.g. Lí Lîm-chhiu..."
                 />
@@ -849,7 +852,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                 id="composer-song-description-textarea"
                 rows={3}
                 value={song.description || ''}
-                onChange={e => onUpdateSong({ ...song, description: e.target.value })}
+                onChange={e => onUpdateSong({ ...song, description: e.target.value }, { coalesce: true, coalesceKey: 'meta-desc' })}
                 className="w-full text-xs font-normal leading-relaxed text-zinc-800 dark:text-zinc-200 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 rounded-xl p-3 focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-all resize-y"
                 placeholder="Enter historical background, lyrical context, or performance tips..."
               />

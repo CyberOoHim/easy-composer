@@ -276,14 +276,15 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           {onUndo && onRedo && (
             <div
               id="header-undo-redo-group"
-              className="hidden lg:flex items-center bg-zinc-100 dark:bg-[#151822] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-750 h-9 shrink-0"
+              className="flex items-center bg-zinc-100 dark:bg-[#151822] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-750 h-9 shrink-0"
             >
               <button
                 id="header-undo-btn"
                 type="button"
                 onClick={onUndo}
                 disabled={!canUndo}
-                title={canUndo ? `Undo [Ctrl+Z] · ${pastCount} step(s) left` : 'No steps to undo'}
+                title={canUndo ? `Undo [Ctrl+Z / ⌘Z] · ${pastCount} step(s)` : 'Nothing to undo'}
+                aria-label="Undo"
                 className="flex items-center justify-center p-1.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer h-7.5 w-7.5 shrink-0"
               >
                 <Undo2 className="w-3.5 h-3.5 shrink-0" />
@@ -296,7 +297,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 type="button"
                 onClick={onRedo}
                 disabled={!canRedo}
-                title={canRedo ? `Redo [Ctrl+Y] · ${futureCount} step(s) left` : 'No steps to redo'}
+                title={canRedo ? `Redo [Ctrl+Y / ⌘Shift+Z] · ${futureCount} step(s)` : 'Nothing to redo'}
+                aria-label="Redo"
                 className="flex items-center justify-center p-1.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer h-7.5 w-7.5 shrink-0"
               >
                 <Redo2 className="w-3.5 h-3.5 shrink-0" />

@@ -1,10 +1,13 @@
 import { useReducer, useCallback } from 'react';
 import { Song } from '@/types/song';
-import { createSongHistoryState, songHistoryReducer } from '@/lib/songHistory';
+import { createSongHistoryState, songHistoryReducer, SetSongActionOptions } from '@/lib/songHistory';
 
 export interface SongHistoryState {
   song: Song;
-  setSong: (newSong: Song | ((current: Song) => Song)) => void;
+  setSong: (
+    newSong: Song | ((current: Song) => Song),
+    options?: SetSongActionOptions
+  ) => void;
   loadNewSong: (newSong: Song, options?: { unsaved?: boolean }) => void;
   undo: () => boolean;
   redo: () => boolean;
@@ -24,8 +27,16 @@ export function useSongHistory(initialSong: Song): SongHistoryState {
   }, []);
 
   const setSong = useCallback(
-    (newSongOrUpdater: Song | ((current: Song) => Song)) => {
-      dispatch({ type: 'SET_SONG', payload: newSongOrUpdater });
+    (
+      newSongOrUpdater: Song | ((current: Song) => Song),
+      options?: SetSongActionOptions
+    ) => {
+      dispatch({
+        type: 'SET_SONG',
+        payload: newSongOrUpdater,
+        coalesce: options?.coalesce,
+        coalesceKey: options?.coalesceKey,
+      });
     },
     []
   );

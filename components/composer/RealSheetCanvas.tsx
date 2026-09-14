@@ -49,7 +49,7 @@ import {
 
 export interface RealSheetCanvasProps {
   song: Song;
-  onUpdateSong: (updatedSong: Song) => void;
+  onUpdateSong: (updatedSong: Song, options?: { coalesce?: boolean; coalesceKey?: string }) => void;
 
   // Selected coordinate [measureIndex, noteIndex]
   selectedMeasureIndex?: number | null;
@@ -65,7 +65,12 @@ export interface RealSheetCanvasProps {
   onTogglePlay?: () => void;
 
   // Direct editing operations
-  onUpdateNote?: (measureIndex: number, noteIndex: number, partialNote: Partial<NumberedNotationNote>) => void;
+  onUpdateNote?: (
+    measureIndex: number,
+    noteIndex: number,
+    partialNote: Partial<NumberedNotationNote>,
+    options?: { coalesce?: boolean; coalesceKey?: string }
+  ) => void;
   onInsertNoteAt?: (measureIndex: number, noteIndex: number) => void;
   onDeleteNoteAt?: (measureIndex: number, noteIndex: number) => void;
   onAddMeasure?: () => void;
@@ -89,6 +94,14 @@ export interface RealSheetCanvasProps {
   // Sheet Theme (Parchment Light vs Studio Dark)
   sheetTheme?: RealSheetTheme;
   onToggleSheetTheme?: () => void;
+
+  // Undo / Redo
+  onUndo?: () => boolean;
+  onRedo?: () => boolean;
+  canUndo?: boolean;
+  canRedo?: boolean;
+  pastCount?: number;
+  futureCount?: number;
 }
 
 const ALL_KEYS: KeySignature[] = [
@@ -123,6 +136,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   displayMode = 'hanlo_major_roman',
   sheetTheme: propSheetTheme,
   onToggleSheetTheme: propOnToggleSheetTheme,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  pastCount = 0,
+  futureCount = 0,
 }) => {
   // Theme state: light (parchment) vs dark (studio stage)
   const [internalSheetTheme, setInternalSheetTheme] = useState<RealSheetTheme>(() => getStoredRealSheetTheme('light'));
@@ -214,19 +233,23 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Helper to update current selected note
   const updateCurrentNote = useCallback(
-    (updater: (note: NumberedNotationNote) => NumberedNotationNote, shouldPreviewAudio = true) => {
+    (
+      updater: (note: NumberedNotationNote) => NumberedNotationNote,
+      shouldPreviewAudio = true,
+      options?: { coalesce?: boolean; coalesceKey?: string }
+    ) => {
       if (!currentMeasure || !currentNote) return;
       const updated = updater({ ...currentNote });
 
       if (onUpdateNote) {
-        onUpdateNote(currentMIdx, currentNIdx, updated);
+        onUpdateNote(currentMIdx, currentNIdx, updated, options);
       } else {
         const newMeasures = song.measures.map((m, mI) => {
           if (mI !== currentMIdx) return m;
           const notes = m.notes.map((n, nI) => (nI === currentNIdx ? updated : n));
           return { ...m, notes };
         });
-        onUpdateSong({ ...song, measures: newMeasures });
+        onUpdateSong({ ...song, measures: newMeasures }, options);
       }
 
       if (shouldPreviewAudio && previewNoteAudio && updated.pitch !== 0 && updated.pitch !== 'empty') {
@@ -569,6 +592,21 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         return;
       }
 
+      // Undo / Redo keyboard shortcuts
+      if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z') && !e.shiftKey) {
+        e.preventDefault();
+        onUndo?.();
+        return;
+      }
+      if (
+        ((e.ctrlKey || e.metaKey) && (e.key === 'y' || e.key === 'Y')) ||
+        ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'z' || e.key === 'Z'))
+      ) {
+        e.preventDefault();
+        onRedo?.();
+        return;
+      }
+
       // Space: Toggle play score
       if (e.code === 'Space') {
         e.preventDefault();
@@ -750,39 +788,45 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     handleToggleTie,
     handleSetAccidental,
     updateCurrentNote,
+    onUndo,
+    onRedo,
   ]);
 
   // Lyric direct input change handler
   const handleLyricInputChange = useCallback(
     (text: string, verseRow: number) => {
-      updateCurrentNote(note => {
-        if (verseRow === 1) {
-          const isHan = /[\u4e00-\u9fa5]/.test(text);
-          return {
-            ...note,
-            lyric: {
-              ...note.lyric,
-              hanlo: text,
-              hanji: isHan ? text : note.lyric.hanji,
-              custom: text,
-            },
-          };
-        } else {
-          const prevVerses = note.lyricsByVerse || {};
-          return {
-            ...note,
-            lyricsByVerse: {
-              ...prevVerses,
-              [verseRow]: {
+      updateCurrentNote(
+        note => {
+          if (verseRow === 1) {
+            const isHan = /[\u4e00-\u9fa5]/.test(text);
+            return {
+              ...note,
+              lyric: {
+                ...note.lyric,
                 hanlo: text,
+                hanji: isHan ? text : note.lyric.hanji,
                 custom: text,
               },
-            },
-          };
-        }
-      });
+            };
+          } else {
+            const prevVerses = note.lyricsByVerse || {};
+            return {
+              ...note,
+              lyricsByVerse: {
+                ...prevVerses,
+                [verseRow]: {
+                  hanlo: text,
+                  custom: text,
+                },
+              },
+            };
+          }
+        },
+        false,
+        { coalesce: true, coalesceKey: `note-lyric-${currentMIdx}-${currentNIdx}-v${verseRow}` }
+      );
     },
-    [updateCurrentNote]
+    [updateCurrentNote, currentMIdx, currentNIdx]
   );
 
   // In-place header editing commit
@@ -1763,6 +1807,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         onToggleActiveField={() => setActiveField(f => (f === 'pitch' ? 'lyric' : 'pitch'))}
         selectedVerseRow={activeVerseRow}
         onChangeVerseRow={row => setActiveVerseRow(row)}
+        onUndo={onUndo}
+        onRedo={onRedo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        pastCount={pastCount}
+        futureCount={futureCount}
       />
 
       {/* Inline Header Field Edit Modal */}
