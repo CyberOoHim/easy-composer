@@ -9,6 +9,19 @@ import {
   setStoredInstrument,
   getStoredAutoStepAdvance,
   setStoredAutoStepAdvance,
+  getStoredPianoOctaveView,
+  setStoredPianoOctaveView,
+  getStoredPianoLabelMode,
+  setStoredPianoLabelMode,
+  getStoredPianoQuantizeGrid,
+  setStoredPianoQuantizeGrid,
+  getStoredPianoAllowTriplets,
+  setStoredPianoAllowTriplets,
+  getStoredPianoDeckMode,
+  setStoredPianoDeckMode,
+  SETTINGS_RESET_EVENT,
+  PianoOctaveView,
+  PianoLabelMode,
 } from '@/lib/storage';
 import {
   quantizeDurationToBeats,
@@ -105,11 +118,15 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   onClose,
 }) => {
   // 1. Operational Mode: 'step' (Direct Pitch Selection) vs 'transcribe' (Live on-the-fly transcribe)
-  const [internalMode, setInternalMode] = useState<PianoDeckMode>('step');
+  const [internalMode, setInternalMode] = useState<PianoDeckMode>(() => {
+    if (typeof window !== 'undefined') return getStoredPianoDeckMode('step');
+    return 'step';
+  });
   const activeMode = propMode !== undefined ? propMode : internalMode;
 
   const handleSetMode = useCallback((newMode: PianoDeckMode) => {
     setInternalMode(newMode);
+    setStoredPianoDeckMode(newMode);
     onModeChange?.(newMode);
   }, [onModeChange]);
 
@@ -127,15 +144,63 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   }, [onProgressionModeChange]);
 
   // 3. Transcribe Quantization Settings
-  const [quantizeGrid, setQuantizeGrid] = useState<QuantizeGrid>('eighth');
-  const [allowTriplets, setAllowTriplets] = useState<boolean>(false);
+  const [quantizeGrid, setQuantizeGridState] = useState<QuantizeGrid>(() => {
+    if (typeof window !== 'undefined') return getStoredPianoQuantizeGrid('eighth');
+    return 'eighth';
+  });
+  const setQuantizeGrid = useCallback((grid: QuantizeGrid) => {
+    setQuantizeGridState(grid);
+    setStoredPianoQuantizeGrid(grid);
+  }, []);
+
+  const [allowTriplets, setAllowTripletsState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredPianoAllowTriplets(false);
+    return false;
+  });
+  const setAllowTriplets = useCallback((valOrUpdater: boolean | ((prev: boolean) => boolean)) => {
+    setAllowTripletsState(prev => {
+      const next = typeof valOrUpdater === 'function' ? valOrUpdater(prev) : valOrUpdater;
+      setStoredPianoAllowTriplets(next);
+      return next;
+    });
+  }, []);
+
   const [isMetronomeActive, setIsMetronomeActive] = useState<boolean>(false);
   const [metronomeBeat, setMetronomeBeat] = useState<number>(1);
   const [isMetronomePulse, setIsMetronomePulse] = useState<boolean>(false);
 
   // 4. Keyboard Display Settings
-  const [octaveView, setOctaveView] = useState<'low_mid' | 'mid_high' | 'all' | 'mid'>('low_mid');
-  const [labelMode, setLabelMode] = useState<'both' | 'numberedNotations' | 'note'>('both');
+  const [octaveView, setOctaveViewState] = useState<PianoOctaveView>(() => {
+    if (typeof window !== 'undefined') return getStoredPianoOctaveView('low_mid');
+    return 'low_mid';
+  });
+  const setOctaveView = useCallback((view: PianoOctaveView) => {
+    setOctaveViewState(view);
+    setStoredPianoOctaveView(view);
+  }, []);
+
+  const [labelMode, setLabelModeState] = useState<PianoLabelMode>(() => {
+    if (typeof window !== 'undefined') return getStoredPianoLabelMode('both');
+    return 'both';
+  });
+  const setLabelMode = useCallback((mode: PianoLabelMode) => {
+    setLabelModeState(mode);
+    setStoredPianoLabelMode(mode);
+  }, []);
+
+  // Listen for reset events
+  useEffect(() => {
+    const handleReset = () => {
+      setInternalMode(getStoredPianoDeckMode('step'));
+      setQuantizeGridState(getStoredPianoQuantizeGrid('eighth'));
+      setAllowTripletsState(getStoredPianoAllowTriplets(false));
+      setOctaveViewState(getStoredPianoOctaveView('low_mid'));
+      setLabelModeState(getStoredPianoLabelMode('both'));
+      setLocalInstrument(getStoredInstrument());
+    };
+    window.addEventListener(SETTINGS_RESET_EVENT, handleReset);
+    return () => window.removeEventListener(SETTINGS_RESET_EVENT, handleReset);
+  }, []);
 
   // 5. Active Instrument
   const [localInstrument, setLocalInstrument] = useState<InstrumentType>(() => {

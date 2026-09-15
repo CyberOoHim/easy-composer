@@ -19,6 +19,19 @@ import {
   saveSongToCustomLibrary,
   saveSongToCustomLibraryWithResult,
   deleteSongFromCustomLibrary,
+  getStoredExportFormat,
+  setStoredExportFormat,
+  getStoredMidiLyricType,
+  setStoredMidiLyricType,
+  getStoredMidiFormat,
+  setStoredMidiFormat,
+  getStoredMidiAccompaniment,
+  setStoredMidiAccompaniment,
+  getStoredMidiKaraokeTrack,
+  setStoredMidiKaraokeTrack,
+  getStoredMidiMelodyLyrics,
+  setStoredMidiMelodyLyrics,
+  ExportFormat,
 } from '@/lib/storage';
 import {
   Download,
@@ -72,15 +85,69 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const [activeTab, setActiveTab] = useState<'presets' | 'custom' | 'export' | 'import'>(
     () => initialTab || 'presets'
   );
-  const [exportFormat, setExportFormat] = useState<'json' | 'text' | 'midi'>(
-    () => initialExportFormat || 'json'
+  const [exportFormat, setExportFormatState] = useState<'json' | 'text' | 'midi'>(
+    () => initialExportFormat || (typeof window !== 'undefined' ? getStoredExportFormat('json') : 'json')
   );
-  const [midiAccompaniment, setMidiAccompaniment] = useState(true);
-  const [midiLyricType, setMidiLyricType] = useState<MidiLyricMode>('hanlo');
+  const setExportFormat = (fmt: ExportFormat) => {
+    setExportFormatState(fmt);
+    setStoredExportFormat(fmt);
+  };
+
+  const [midiAccompaniment, setMidiAccompanimentState] = useState(() => {
+    if (typeof window !== 'undefined') return getStoredMidiAccompaniment(true);
+    return true;
+  });
+  const setMidiAccompaniment = (valOrUpdater: boolean | ((prev: boolean) => boolean)) => {
+    setMidiAccompanimentState(prev => {
+      const next = typeof valOrUpdater === 'function' ? valOrUpdater(prev) : valOrUpdater;
+      setStoredMidiAccompaniment(next);
+      return next;
+    });
+  };
+
+  const [midiLyricType, setMidiLyricTypeState] = useState<MidiLyricMode>(() => {
+    if (typeof window !== 'undefined') return getStoredMidiLyricType('hanlo');
+    return 'hanlo';
+  });
+  const setMidiLyricType = (type: MidiLyricMode) => {
+    setMidiLyricTypeState(type);
+    setStoredMidiLyricType(type);
+  };
+
   const [midiInstrument, setMidiInstrument] = useState<InstrumentType>('piano');
-  const [midiFormat, setMidiFormat] = useState<'mid' | 'kar'>('mid');
-  const [midiKaraokeTrack, setMidiKaraokeTrack] = useState(true);
-  const [midiMelodyLyrics, setMidiMelodyLyrics] = useState(true);
+
+  const [midiFormat, setMidiFormatState] = useState<'mid' | 'kar'>(() => {
+    if (typeof window !== 'undefined') return getStoredMidiFormat('mid');
+    return 'mid';
+  });
+  const setMidiFormat = (fmt: 'mid' | 'kar') => {
+    setMidiFormatState(fmt);
+    setStoredMidiFormat(fmt);
+  };
+
+  const [midiKaraokeTrack, setMidiKaraokeTrackState] = useState(() => {
+    if (typeof window !== 'undefined') return getStoredMidiKaraokeTrack(true);
+    return true;
+  });
+  const setMidiKaraokeTrack = (valOrUpdater: boolean | ((prev: boolean) => boolean)) => {
+    setMidiKaraokeTrackState(prev => {
+      const next = typeof valOrUpdater === 'function' ? valOrUpdater(prev) : valOrUpdater;
+      setStoredMidiKaraokeTrack(next);
+      return next;
+    });
+  };
+
+  const [midiMelodyLyrics, setMidiMelodyLyricsState] = useState(() => {
+    if (typeof window !== 'undefined') return getStoredMidiMelodyLyrics(true);
+    return true;
+  });
+  const setMidiMelodyLyrics = (valOrUpdater: boolean | ((prev: boolean) => boolean)) => {
+    setMidiMelodyLyricsState(prev => {
+      const next = typeof valOrUpdater === 'function' ? valOrUpdater(prev) : valOrUpdater;
+      setStoredMidiMelodyLyrics(next);
+      return next;
+    });
+  };
   const [copied, setCopied] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);

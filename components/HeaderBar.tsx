@@ -24,12 +24,14 @@ import {
   SlidersHorizontal,
   Download,
   Search,
+  RotateCcw,
+  Sparkles,
 } from 'lucide-react';
 import { UiZoomControl } from '@/components/UiZoomControl';
 import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 import { MetronomePlaybackControl } from '@/components/MetronomePlaybackControl';
 import { KeyboardShortcutsModal } from '@/components/composer/KeyboardShortcutsModal';
-
+import { resetAllSettingsToDefault } from '@/lib/storage';
 
 interface HeaderBarProps {
   song: Song;
@@ -61,6 +63,10 @@ interface HeaderBarProps {
   instrument?: InstrumentType;
   onSetInstrument?: (instrument: InstrumentType) => void;
   isAnyModalOpen?: boolean;
+  onResetPreset?: (presetId: string) => void;
+  onResetAllPresets?: () => void;
+  onRestoreDefaultSong?: () => void;
+  onRestoreSettingsToDefault?: (options?: { restorePresetSong?: boolean }) => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -93,9 +99,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   instrument = 'piano',
   onSetInstrument,
   isAnyModalOpen = false,
+  onResetPreset,
+  onResetAllPresets,
+  onRestoreDefaultSong,
+  onRestoreSettingsToDefault,
 }) => {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [isStudioMenuOpen, setIsStudioMenuOpen] = useState<boolean>(false);
+  const [defaultRestoreNotice, setDefaultRestoreNotice] = useState<string | null>(null);
   const isStudioOpen = isStudioMenuOpen && !isAnyModalOpen;
 
   // Close Studio popup when Escape is pressed
@@ -568,6 +579,115 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <Keyboard className="w-4 h-4 text-zinc-500 dark:text-zinc-400 shrink-0" />
               <span>Keyboard Shortcuts Guide</span>
             </button>
+          </div>
+
+          {/* Section 4: System & Defaults */}
+          <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                System & Defaults / 系統與預設
+              </span>
+              {defaultRestoreNotice && (
+                <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 animate-in fade-in">
+                  <Check className="w-3 h-3" />
+                  {defaultRestoreNotice}
+                </span>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+              {/* Restore All Settings to Default */}
+              <button
+                id="header-restore-settings-btn"
+                type="button"
+                onClick={() => {
+                  if (window.confirm('確定要將所有工作台設定（樂器音色、音量、節拍器、版面縮放、編輯偏好）重設為原廠預設值嗎？(Restore all studio settings to default?)')) {
+                    if (onRestoreSettingsToDefault) {
+                      onRestoreSettingsToDefault();
+                    } else {
+                      resetAllSettingsToDefault();
+                    }
+                    setDefaultRestoreNotice('Settings restored to defaults!');
+                    setTimeout(() => setDefaultRestoreNotice(null), 3500);
+                  }
+                }}
+                className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[44px]"
+                title="Reset all studio, playback, input and display settings to defaults"
+              >
+                <div className="flex items-center gap-2">
+                  <RotateCcw className="w-4 h-4 text-amber-500 shrink-0" />
+                  <div className="flex flex-col text-left">
+                    <span className="font-bold">Restore Settings to Default</span>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      Reset volume, metronome, chord, zoom & input preferences
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              {/* Restore Preset Song(s) */}
+              <button
+                id="header-restore-preset-song-btn"
+                type="button"
+                onClick={() => {
+                  const matchingPreset = PRESET_SONGS.find(p => p.id === song.id || p.id === song.originalPresetId);
+                  if (matchingPreset) {
+                    if (window.confirm(`確定要將《${matchingPreset.title}》恢復為原廠預設嗎？這將會清除您在此曲上的所有修改。(Restore《${matchingPreset.title}》to factory preset?)`)) {
+                      if (onResetPreset) {
+                        onResetPreset(matchingPreset.id);
+                      }
+                      setDefaultRestoreNotice(`Restored《${matchingPreset.title}》to default!`);
+                      setTimeout(() => setDefaultRestoreNotice(null), 3500);
+                    }
+                  } else {
+                    if (window.confirm(`確定要載入出廠預設歌曲《望春風》嗎？(Load default preset song《Bāng Chhun-hong》?)`)) {
+                      if (onRestoreDefaultSong) {
+                        onRestoreDefaultSong();
+                      } else if (onResetPreset) {
+                        onResetPreset(PRESET_SONGS[0].id);
+                      }
+                      setDefaultRestoreNotice('Restored default song《望春風》!');
+                      setTimeout(() => setDefaultRestoreNotice(null), 3500);
+                    }
+                  }
+                }}
+                className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[44px]"
+                title="Restore preset song to original factory score"
+              >
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                  <div className="flex flex-col text-left">
+                    <span className="font-bold">
+                      {PRESET_SONGS.some(p => p.id === song.id) ? `Restore Preset Song (${song.title})` : 'Restore Default Song (望春風)'}
+                    </span>
+                    <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                      {PRESET_SONGS.some(p => p.id === song.id)
+                        ? 'Revert current preset song back to pristine factory score'
+                        : 'Load factory default preset score: Bāng Chhun-hong'}
+                    </span>
+                  </div>
+                </div>
+              </button>
+
+              {/* If any preset has been modified across library, offer Restore All Presets */}
+              {modifiedPresetIds && modifiedPresetIds.size > 0 && onResetAllPresets && (
+                <button
+                  id="header-restore-all-presets-btn"
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`確定要將全部 ${modifiedPresetIds.size} 首已修改的預設曲目皆恢復為原廠設定嗎？(Restore all ${modifiedPresetIds.size} modified preset songs to factory defaults?)`)) {
+                      onResetAllPresets();
+                      setDefaultRestoreNotice(`Restored all ${modifiedPresetIds.size} preset songs!`);
+                      setTimeout(() => setDefaultRestoreNotice(null), 3500);
+                    }
+                  }}
+                  className="flex items-center gap-2 p-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[40px]"
+                >
+                  <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                  <span>Restore All Preset Songs ({modifiedPresetIds.size} modified)</span>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

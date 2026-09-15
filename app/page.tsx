@@ -29,6 +29,7 @@ import {
   setStoredMetronomeVolume,
   getStoredInstrument,
   setStoredInstrument,
+  resetAllSettingsToDefault,
   STORAGE_KEYS,
   METRONOME_SETTINGS_EVENT,
 } from '@/lib/storage';
@@ -38,10 +39,12 @@ import {
   getCustomSongsFromDB,
   getModifiedPresetIds,
   resetPresetToFactory,
+  resetAllPresetsToFactory,
   saveActiveSongToDB,
   getActiveSongFromDB,
   migrateLocalStorageToDB,
 } from '@/lib/indexedDb';
+import { setUiZoomGlobal } from '@/hooks/useUiZoom';
 
 export default function Home() {
   const {
@@ -165,7 +168,10 @@ export default function Home() {
     });
   }, [isEcoMode, enableChords, metronomeEnabled, metronomeVolume, instrument]);
 
-  const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>('all');
+  const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>(() => {
+    if (typeof window !== 'undefined') return getStoredDisplayMode();
+    return 'roman_major_hanlo';
+  });
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [importExportTab, setImportExportTab] = useState<'presets' | 'custom' | 'export' | 'import'>('presets');
   const [importExportFormat, setImportExportFormat] = useState<'json' | 'text' | 'midi'>('json');
@@ -202,7 +208,7 @@ export default function Home() {
         if (!isMounted) return;
 
         const storedMode = getStoredDisplayMode();
-        if (storedMode && storedMode !== 'all') setDisplayModeState(storedMode);
+        setDisplayModeState(storedMode);
         const storedAutosave = getStoredAutosaveInterval(0);
         if (storedAutosave !== 0) setAutosaveIntervalState(storedAutosave);
         setCustomSongs(customList);
@@ -338,6 +344,63 @@ export default function Home() {
       console.error('[page] Failed to reset preset to factory:', err);
     }
   }, [song.id, loadNewSong]);
+
+  const handleResetAllPresets = useCallback(async () => {
+    try {
+      await resetAllPresetsToFactory();
+      const modifiedIds = await getModifiedPresetIds();
+      setModifiedPresetIds(modifiedIds);
+
+      // If current song is a preset, reload its pristine version
+      const matchingPreset = PRESET_SONGS.find(p => p.id === song.id);
+      if (matchingPreset) {
+        loadNewSong(matchingPreset);
+        setSavedRevision(0);
+        await saveActiveSongToDB(matchingPreset);
+      }
+    } catch (err) {
+      console.error('[page] Failed to reset all presets to factory:', err);
+    }
+  }, [song.id, loadNewSong]);
+
+  const handleRestoreDefaultSong = useCallback(async () => {
+    try {
+      const defaultSong = PRESET_SONGS[0];
+      await resetPresetToFactory(defaultSong.id);
+      const modifiedIds = await getModifiedPresetIds();
+      setModifiedPresetIds(modifiedIds);
+      loadNewSong(defaultSong);
+      setSavedRevision(0);
+      await saveActiveSongToDB(defaultSong);
+    } catch (err) {
+      console.error('[page] Failed to restore default song:', err);
+    }
+  }, [loadNewSong]);
+
+  const handleRestoreSettingsToDefault = useCallback(async (options?: { restorePresetSong?: boolean }) => {
+    resetAllSettingsToDefault();
+    setInstrumentState('piano');
+    setStoredInstrument('piano');
+    audioEngine.setOptions({ instrument: 'piano', metronomeVolume: 0.45, metronomeEnabled: true, chordEnabled: true });
+    setMetronomeEnabled(true);
+    setMetronomeVolume(0.45);
+    setEnableChords(true);
+    setDisplayModeState('roman_major_hanlo');
+    setAutosaveIntervalState(0);
+    setUiZoomGlobal(1.0);
+    if (isEcoMode) {
+      toggleEcoMode();
+    }
+
+    if (options?.restorePresetSong) {
+      const isPreset = PRESET_SONGS.some(p => p.id === song.id);
+      if (isPreset) {
+        await handleResetPreset(song.id);
+      } else {
+        await handleRestoreDefaultSong();
+      }
+    }
+  }, [isEcoMode, toggleEcoMode, song.id, handleResetPreset, handleRestoreDefaultSong]);
 
   const handleConfirmFreshSong = useCallback(async (saveCurrentFirst: boolean) => {
     if (saveCurrentFirst || isDirty) {
@@ -592,6 +655,10 @@ export default function Home() {
         instrument={instrument}
         onSetInstrument={handleSetInstrument}
         isAnyModalOpen={isAnyModalOpen}
+        onResetPreset={handleResetPreset}
+        onResetAllPresets={handleResetAllPresets}
+        onRestoreDefaultSong={handleRestoreDefaultSong}
+        onRestoreSettingsToDefault={handleRestoreSettingsToDefault}
       />
 
       {/* Main Studio Canvas - Consolidated WYSIWYG Sheet */}
@@ -616,6 +683,9 @@ export default function Home() {
           futureCount={futureCount}
           instrument={instrument}
           onSetInstrument={handleSetInstrument}
+          onResetPresetSong={handleResetPreset}
+          onRestoreDefaultSong={handleRestoreDefaultSong}
+          modifiedPresetIds={modifiedPresetIds}
         />
       </main>
 

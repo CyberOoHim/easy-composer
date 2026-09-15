@@ -34,6 +34,29 @@ export const STORAGE_KEYS = {
   KARAOKE_LAYOUT_MODE: 'taigi_karaoke_layout_mode',
   KARAOKE_LYRIC_ALIGN: 'taigi_karaoke_lyric_align',
   ECO_PROMPT_DISMISSED: 'taigi_composer_eco_prompt_dismissed',
+  // Piano Deck Selections
+  PIANO_OCTAVE_VIEW: 'taigi_composer_piano_octave_view',
+  PIANO_LABEL_MODE: 'taigi_composer_piano_label_mode',
+  PIANO_QUANTIZE_GRID: 'taigi_composer_piano_quantize_grid',
+  PIANO_ALLOW_TRIPLETS: 'taigi_composer_piano_allow_triplets',
+  PIANO_DECK_MODE: 'taigi_composer_piano_deck_mode',
+  // Score Sheet & Layout Selections
+  SHEET_ZOOM: 'taigi_composer_sheet_zoom',
+  HUD_DRAWER: 'taigi_composer_hud_drawer',
+  // Song Metadata Header Selections
+  AUTO_TRANSPOSE_CHORDS: 'taigi_composer_auto_transpose_chords',
+  SYNC_ALL_MEASURES: 'taigi_composer_sync_all_measures',
+  // MIDI & Score Export Selections
+  EXPORT_FORMAT: 'taigi_composer_export_format',
+  MIDI_LYRIC_TYPE: 'taigi_composer_midi_lyric_type',
+  MIDI_FORMAT: 'taigi_composer_midi_format',
+  MIDI_ACCOMPANIMENT: 'taigi_composer_midi_accompaniment',
+  MIDI_KARAOKE_TRACK: 'taigi_composer_midi_karaoke_track',
+  MIDI_MELODY_LYRICS: 'taigi_composer_midi_melody_lyrics',
+  // Search Preferences
+  SEARCH_SCOPE: 'taigi_composer_search_scope',
+  SEARCH_MATCH_FILTER: 'taigi_composer_search_match_filter',
+  IN_SONG_FILTER: 'taigi_composer_in_song_filter',
 } as const;
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -41,6 +64,16 @@ export type DeckTabMode = 'numpad' | 'piano' | 'chords' | 'ornaments' | 'lyrics'
 export type KaraokeStageTheme = 'dark' | 'daylight';
 export type KaraokeLayoutMode = 'two_line' | 'single_line';
 export type KaraokeLyricAlign = 'center' | 'left';
+export type PianoOctaveView = 'low_mid' | 'mid_high' | 'all' | 'mid';
+export type PianoLabelMode = 'both' | 'numberedNotations' | 'note';
+export type PianoQuantizeGrid = 'quarter' | 'eighth' | 'sixteenth' | 'thirtysecond';
+export type PianoDeckMode = 'step' | 'transcribe';
+export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit';
+export type ExportFormat = 'json' | 'text' | 'midi';
+export type MidiLyricMode = 'hanlo' | 'poj' | 'both' | 'none';
+export type SearchScope = 'all' | 'current';
+export type SearchMatchFilter = 'all' | 'measure' | 'verse';
+export type InSongFilter = 'all' | 'measure' | 'verse';
 export type { NoteInputMode };
 
 /**
@@ -544,5 +577,278 @@ export function setStoredShowRhythmWarnings(show: boolean): void {
   safeSetItem(STORAGE_KEYS.SHOW_RHYTHM_WARNINGS, String(show));
 }
 
+// ============================================================================
+// 11. PIANO KEYBOARD PREFERENCES
+// ============================================================================
+export function getStoredPianoOctaveView(defaultVal: PianoOctaveView = 'low_mid'): PianoOctaveView {
+  const val = safeGetItem(STORAGE_KEYS.PIANO_OCTAVE_VIEW);
+  if (val === 'low_mid' || val === 'mid_high' || val === 'all' || val === 'mid') {
+    return val;
+  }
+  return defaultVal;
+}
 
+export function setStoredPianoOctaveView(view: PianoOctaveView): void {
+  safeSetItem(STORAGE_KEYS.PIANO_OCTAVE_VIEW, view);
+}
 
+export function getStoredPianoLabelMode(defaultVal: PianoLabelMode = 'both'): PianoLabelMode {
+  const val = safeGetItem(STORAGE_KEYS.PIANO_LABEL_MODE);
+  if (val === 'both' || val === 'numberedNotations' || val === 'note') {
+    return val;
+  }
+  return defaultVal;
+}
+
+export function setStoredPianoLabelMode(mode: PianoLabelMode): void {
+  safeSetItem(STORAGE_KEYS.PIANO_LABEL_MODE, mode);
+}
+
+export function getStoredPianoQuantizeGrid(defaultVal: PianoQuantizeGrid = 'eighth'): PianoQuantizeGrid {
+  const val = safeGetItem(STORAGE_KEYS.PIANO_QUANTIZE_GRID);
+  if (val === 'quarter' || val === 'eighth' || val === 'sixteenth' || val === 'thirtysecond') {
+    return val;
+  }
+  return defaultVal;
+}
+
+export function setStoredPianoQuantizeGrid(grid: PianoQuantizeGrid): void {
+  safeSetItem(STORAGE_KEYS.PIANO_QUANTIZE_GRID, grid);
+}
+
+export function getStoredPianoAllowTriplets(defaultVal = false): boolean {
+  const val = safeGetItem(STORAGE_KEYS.PIANO_ALLOW_TRIPLETS);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredPianoAllowTriplets(allow: boolean): void {
+  safeSetItem(STORAGE_KEYS.PIANO_ALLOW_TRIPLETS, String(allow));
+}
+
+export function getStoredPianoDeckMode(defaultVal: PianoDeckMode = 'step'): PianoDeckMode {
+  const val = safeGetItem(STORAGE_KEYS.PIANO_DECK_MODE);
+  if (val === 'step' || val === 'transcribe') return val;
+  return defaultVal;
+}
+
+export function setStoredPianoDeckMode(mode: PianoDeckMode): void {
+  safeSetItem(STORAGE_KEYS.PIANO_DECK_MODE, mode);
+}
+
+// ============================================================================
+// 12. SCORE SHEET CANVAS ZOOM & HUD PREFERENCES
+// ============================================================================
+export const SHEET_ZOOM_EVENT = 'taigi_composer_sheet_zoom_change';
+
+export function getStoredSheetZoom(defaultVal = 1.0): number {
+  const val = safeGetItem(STORAGE_KEYS.SHEET_ZOOM);
+  if (val !== null) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0.7 && num <= 1.6) {
+      return Math.round(num * 10) / 10;
+    }
+  }
+  return defaultVal;
+}
+
+export function setStoredSheetZoom(zoom: number): void {
+  const clamped = Math.min(1.6, Math.max(0.7, Math.round(zoom * 10) / 10));
+  safeSetItem(STORAGE_KEYS.SHEET_ZOOM, String(clamped));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(SHEET_ZOOM_EVENT, { detail: { zoom: clamped } }));
+  }
+}
+
+export function getStoredHudDrawer(defaultVal: HudDrawerType = 'none'): HudDrawerType {
+  const val = safeGetItem(STORAGE_KEYS.HUD_DRAWER);
+  if (val === 'none' || val === 'piano' || val === 'ornaments' || val === 'chords' || val === 'edit') {
+    return val;
+  }
+  return defaultVal;
+}
+
+export function setStoredHudDrawer(drawer: HudDrawerType): void {
+  safeSetItem(STORAGE_KEYS.HUD_DRAWER, drawer);
+}
+
+// ============================================================================
+// 13. SONG METADATA HEADER PREFERENCES
+// ============================================================================
+export function getStoredAutoTransposeChords(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.AUTO_TRANSPOSE_CHORDS);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredAutoTransposeChords(val: boolean): void {
+  safeSetItem(STORAGE_KEYS.AUTO_TRANSPOSE_CHORDS, String(val));
+}
+
+export function getStoredSyncAllMeasures(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.SYNC_ALL_MEASURES);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredSyncAllMeasures(val: boolean): void {
+  safeSetItem(STORAGE_KEYS.SYNC_ALL_MEASURES, String(val));
+}
+
+// ============================================================================
+// 14. IMPORT / EXPORT & MIDI PREFERENCES
+// ============================================================================
+export function getStoredExportFormat(defaultVal: ExportFormat = 'json'): ExportFormat {
+  const val = safeGetItem(STORAGE_KEYS.EXPORT_FORMAT);
+  if (val === 'json' || val === 'text' || val === 'midi') return val;
+  return defaultVal;
+}
+
+export function setStoredExportFormat(format: ExportFormat): void {
+  safeSetItem(STORAGE_KEYS.EXPORT_FORMAT, format);
+}
+
+export function getStoredMidiLyricType(defaultVal: MidiLyricMode = 'hanlo'): MidiLyricMode {
+  const val = safeGetItem(STORAGE_KEYS.MIDI_LYRIC_TYPE);
+  if (val === 'hanlo' || val === 'poj' || val === 'both' || val === 'none') return val;
+  return defaultVal;
+}
+
+export function setStoredMidiLyricType(type: MidiLyricMode): void {
+  safeSetItem(STORAGE_KEYS.MIDI_LYRIC_TYPE, type);
+}
+
+export function getStoredMidiFormat(defaultVal: 'mid' | 'kar' = 'mid'): 'mid' | 'kar' {
+  const val = safeGetItem(STORAGE_KEYS.MIDI_FORMAT);
+  if (val === 'mid' || val === 'kar') return val;
+  return defaultVal;
+}
+
+export function setStoredMidiFormat(format: 'mid' | 'kar'): void {
+  safeSetItem(STORAGE_KEYS.MIDI_FORMAT, format);
+}
+
+export function getStoredMidiAccompaniment(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.MIDI_ACCOMPANIMENT);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredMidiAccompaniment(val: boolean): void {
+  safeSetItem(STORAGE_KEYS.MIDI_ACCOMPANIMENT, String(val));
+}
+
+export function getStoredMidiKaraokeTrack(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.MIDI_KARAOKE_TRACK);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredMidiKaraokeTrack(val: boolean): void {
+  safeSetItem(STORAGE_KEYS.MIDI_KARAOKE_TRACK, String(val));
+}
+
+export function getStoredMidiMelodyLyrics(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.MIDI_MELODY_LYRICS);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredMidiMelodyLyrics(val: boolean): void {
+  safeSetItem(STORAGE_KEYS.MIDI_MELODY_LYRICS, String(val));
+}
+
+// ============================================================================
+// 15. SEARCH PREFERENCES
+// ============================================================================
+export function getStoredSearchScope(defaultVal: SearchScope = 'all'): SearchScope {
+  const val = safeGetItem(STORAGE_KEYS.SEARCH_SCOPE);
+  if (val === 'all' || val === 'current') {
+    return val;
+  }
+  return defaultVal;
+}
+
+export function setStoredSearchScope(scope: SearchScope): void {
+  safeSetItem(STORAGE_KEYS.SEARCH_SCOPE, scope);
+}
+
+export function getStoredSearchMatchFilter(defaultVal: SearchMatchFilter = 'all'): SearchMatchFilter {
+  const val = safeGetItem(STORAGE_KEYS.SEARCH_MATCH_FILTER);
+  if (val === 'all' || val === 'measure' || val === 'verse') return val;
+  return defaultVal;
+}
+
+export function setStoredSearchMatchFilter(filter: SearchMatchFilter): void {
+  safeSetItem(STORAGE_KEYS.SEARCH_MATCH_FILTER, filter);
+}
+
+export function getStoredInSongFilter(defaultVal: InSongFilter = 'all'): InSongFilter {
+  const val = safeGetItem(STORAGE_KEYS.IN_SONG_FILTER);
+  if (val === 'all' || val === 'measure' || val === 'verse') return val;
+  return defaultVal;
+}
+
+export function setStoredInSongFilter(filter: InSongFilter): void {
+  safeSetItem(STORAGE_KEYS.IN_SONG_FILTER, filter);
+}
+
+// ============================================================================
+// 16. RESTORE TO DEFAULT (Reset All User Settings to Factory Defaults)
+// ============================================================================
+export const SETTINGS_RESET_EVENT = 'taigi_composer_settings_reset';
+
+export function resetAllSettingsToDefault(): void {
+  setStoredInstrument('piano');
+  setStoredMelodyVolume(0.85);
+  setStoredBackingVolume(0.6);
+  setStoredChordEnabled(true);
+  setStoredMetronomeEnabled(true);
+  setStoredMetronomeVolume(0.45);
+  setStoredTranspose(0);
+  setStoredTempoMultiplier(1.0);
+  setStoredShowMixer(false);
+  setStoredUiZoom(1.0);
+  setStoredSheetZoom(1.0);
+  setStoredAutosaveInterval(0);
+  setStoredDisplayMode('roman_major_hanlo');
+  setStoredRealSheetTheme('light');
+  setStoredNoteInputMode('progressive_replace');
+  setStoredShowRhythmWarnings(true);
+  setStoredAutoStepAdvance(false);
+  setStoredDeckTab('numpad');
+  setStoredLeadInEnabled(true);
+  setStoredStageTheme('dark');
+  setStoredShowNotation(true);
+  setStoredLayoutMode('two_line');
+  setStoredLyricAlign('center');
+  setStoredPianoOctaveView('low_mid');
+  setStoredPianoLabelMode('both');
+  setStoredPianoQuantizeGrid('eighth');
+  setStoredPianoAllowTriplets(false);
+  setStoredPianoDeckMode('step');
+  setStoredHudDrawer('none');
+  setStoredAutoTransposeChords(true);
+  setStoredSyncAllMeasures(true);
+  setStoredExportFormat('json');
+  setStoredMidiLyricType('hanlo');
+  setStoredMidiFormat('mid');
+  setStoredMidiAccompaniment(true);
+  setStoredMidiKaraokeTrack(true);
+  setStoredMidiMelodyLyrics(true);
+  setStoredSearchScope('all');
+  setStoredSearchMatchFilter('all');
+  setStoredInSongFilter('all');
+
+  // Reset DOM font scaling immediately
+  if (typeof document !== 'undefined') {
+    document.documentElement.style.fontSize = '100%';
+    document.documentElement.style.setProperty('--ui-text-zoom', '1');
+    document.documentElement.setAttribute('data-ui-zoom', '100');
+  }
+
+  // Notify listeners that global settings have been reset
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(SETTINGS_RESET_EVENT));
+  }
+}

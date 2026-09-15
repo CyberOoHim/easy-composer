@@ -85,6 +85,9 @@ interface ComposerEditorProps {
   suspendNoteHighlights?: boolean;
   instrument?: InstrumentType;
   onSetInstrument?: (inst: InstrumentType) => void;
+  onResetPresetSong?: (presetId: string) => void;
+  onRestoreDefaultSong?: () => void;
+  modifiedPresetIds?: Set<string>;
 }
 
 let uniqueIdCounter = 0;
@@ -117,6 +120,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   suspendNoteHighlights = false,
   instrument,
   onSetInstrument,
+  onResetPresetSong,
+  onRestoreDefaultSong,
+  modifiedPresetIds,
 }) => {
   const [internalSelectedCoord, setInternalSelectedCoord] = useState<[number, number] | null>([0, 0]);
   const selectedCoord = propCursor !== undefined ? propCursor : internalSelectedCoord;
@@ -2117,6 +2123,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         onStartFreshSong={onStartFreshSong}
         instrument={instrument}
         onSetInstrument={onSetInstrument}
+        onResetPresetSong={onResetPresetSong}
+        onRestoreDefaultSong={onRestoreDefaultSong}
+        modifiedPresetIds={modifiedPresetIds}
       />
 
       {/* Persistent Section Navigation Rail (Quick Section Jump) */}

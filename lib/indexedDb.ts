@@ -261,6 +261,15 @@ export async function resetPresetToFactory(presetId: string): Promise<Song | nul
 }
 
 /**
+ * Reset all preset songs to factory defaults (removes all preset modifications from IndexedDB)
+ */
+export async function resetAllPresetsToFactory(): Promise<void> {
+  for (const preset of PRESET_SONGS) {
+    await deleteSongFromDB(preset.id);
+  }
+}
+
+/**
  * Save current active song snapshot and ID to meta store
  */
 export async function saveActiveSongToDB(song: Song): Promise<void> {

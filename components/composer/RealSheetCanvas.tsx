@@ -53,6 +53,13 @@ import {
   setStoredNoteInputMode,
   getStoredShowRhythmWarnings,
   setStoredShowRhythmWarnings,
+  getStoredSheetZoom,
+  setStoredSheetZoom,
+  getStoredHudDrawer,
+  setStoredHudDrawer,
+  HudDrawerType,
+  SETTINGS_RESET_EVENT,
+  SHEET_ZOOM_EVENT,
 } from '@/lib/storage';
 import { getMeasureRhythmReport, autoRearrangeSongMeasures } from '@/lib/taigiUtils';
 
@@ -240,8 +247,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
   }, [propOnToggleShowRhythmWarnings]);
 
-  // Zoom scaling
-  const [zoomScale, setZoomScale] = useState<number>(1.0);
+  // Zoom scaling (Persisted in browser local storage)
+  const [zoomScale, setZoomScaleState] = useState<number>(() => {
+    if (typeof window !== 'undefined') return getStoredSheetZoom(1.0);
+    return 1.0;
+  });
+
+  const setZoomScale = useCallback((zoomOrUpdater: number | ((prev: number) => number)) => {
+    setZoomScaleState(prev => {
+      const next = typeof zoomOrUpdater === 'function' ? zoomOrUpdater(prev) : zoomOrUpdater;
+      const clamped = Math.min(1.6, Math.max(0.7, Math.round(next * 10) / 10));
+      setStoredSheetZoom(clamped);
+      return clamped;
+    });
+  }, []);
 
   // Active editing target: 'pitch' vs 'lyric'
   const [activeField, setActiveField] = useState<'pitch' | 'lyric'>('pitch');
@@ -268,7 +287,41 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   }, [activeSheetPicker]);
 
   // Mutually exclusive Floating HUD Drawer (Piano Bed, Ornaments, Chords, Edit Suite)
-  const [activeHudDrawer, setActiveHudDrawer] = useState<'none' | 'piano' | 'ornaments' | 'chords' | 'edit'>('none');
+  const [activeHudDrawer, setActiveHudDrawerState] = useState<HudDrawerType>(() => {
+    if (typeof window !== 'undefined') return getStoredHudDrawer('none');
+    return 'none';
+  });
+
+  const setActiveHudDrawer = useCallback((drawerOrUpdater: HudDrawerType | ((prev: HudDrawerType) => HudDrawerType)) => {
+    setActiveHudDrawerState(prev => {
+      const next = typeof drawerOrUpdater === 'function' ? drawerOrUpdater(prev) : drawerOrUpdater;
+      setStoredHudDrawer(next);
+      return next;
+    });
+  }, []);
+
+  // Listen for global settings reset and sheet zoom change events
+  useEffect(() => {
+    const handleReset = () => {
+      setZoomScaleState(getStoredSheetZoom(1.0));
+      setActiveHudDrawerState(getStoredHudDrawer('none'));
+      setInternalSheetTheme(getStoredRealSheetTheme('light'));
+      setInternalNoteInputMode(getStoredNoteInputMode('progressive_replace'));
+      setInternalShowRhythmWarnings(getStoredShowRhythmWarnings(true));
+    };
+    const handleZoomChange = (e: Event) => {
+      const ce = e as CustomEvent<{ zoom: number }>;
+      if (ce.detail && typeof ce.detail.zoom === 'number') {
+        setZoomScaleState(ce.detail.zoom);
+      }
+    };
+    window.addEventListener(SETTINGS_RESET_EVENT, handleReset);
+    window.addEventListener(SHEET_ZOOM_EVENT, handleZoomChange);
+    return () => {
+      window.removeEventListener(SETTINGS_RESET_EVENT, handleReset);
+      window.removeEventListener(SHEET_ZOOM_EVENT, handleZoomChange);
+    };
+  }, []);
 
   // References
   const canvasWrapperRef = useRef<HTMLDivElement>(null);

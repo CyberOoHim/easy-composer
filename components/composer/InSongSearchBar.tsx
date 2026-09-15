@@ -9,6 +9,7 @@ import {
   searchWithinSong,
   highlightMatch,
 } from '@/lib/lyricSearch';
+import { getStoredInSongFilter, setStoredInSongFilter } from '@/lib/storage';
 import {
   Search,
   X,
@@ -37,7 +38,14 @@ export const InSongSearchBar: React.FC<InSongSearchBarProps> = ({
   onActiveMatchChange,
 }) => {
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<InSongFilter>('all');
+  const [filter, setFilterState] = useState<InSongFilter>(() => {
+    if (typeof window !== 'undefined') return getStoredInSongFilter('all');
+    return 'all';
+  });
+  const setFilter = useCallback((newFilter: InSongFilter) => {
+    setFilterState(newFilter);
+    setStoredInSongFilter(newFilter);
+  }, []);
   const [currentMatchIndex, setCurrentMatchIndex] = useState(0);
 
   const inputRef = useRef<HTMLInputElement>(null);

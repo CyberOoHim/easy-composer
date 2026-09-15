@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { KeySignature, LyricDisplayMode, Song, TimeSignature, InstrumentType } from '@/types/song';
 import {
   AlignLeft,
@@ -17,7 +17,16 @@ import {
   X,
   SlidersHorizontal,
   Info,
+  RotateCcw,
 } from 'lucide-react';
+import { PRESET_SONGS } from '@/lib/presets';
+import {
+  getStoredAutoTransposeChords,
+  setStoredAutoTransposeChords,
+  getStoredSyncAllMeasures,
+  setStoredSyncAllMeasures,
+  SETTINGS_RESET_EVENT,
+} from '@/lib/storage';
 import {
   CHROMATIC_KEYS,
   STANDARD_TIME_SIGNATURES,
@@ -36,10 +45,13 @@ interface SongMetadataHeaderProps {
   ) => void;
   displayMode: LyricDisplayMode;
   setDisplayMode: (mode: LyricDisplayMode) => void;
-  onOpenAligner: () => void;
+  onOpenAligner?: () => void;
   onStartFreshSong?: () => void;
   instrument?: InstrumentType;
   onSetInstrument?: (inst: InstrumentType) => void;
+  onResetPresetSong?: (presetId: string) => void;
+  onRestoreDefaultSong?: () => void;
+  modifiedPresetIds?: Set<string>;
 }
 
 export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(({
@@ -51,17 +63,109 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   onStartFreshSong,
   instrument = 'piano',
   onSetInstrument,
+  onResetPresetSong,
+  onRestoreDefaultSong,
+  modifiedPresetIds = new Set(),
 }) => {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [restoreSuccessNotice, setRestoreSuccessNotice] = useState<string | null>(null);
 
   // Active inline popover for DAW LCD items: 'key' | 'timeSignature' | 'bpm' | 'displayMode' | null
   const [activePopover, setActivePopover] = useState<'key' | 'timeSignature' | 'bpm' | 'displayMode' | null>(null);
 
   // Key Signature Settings
-  const [autoTransposeChords, setAutoTransposeChords] = useState<boolean>(true);
+  const [autoTransposeChords, setAutoTransposeChordsState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredAutoTransposeChords(true);
+    return true;
+  });
+  const setAutoTransposeChords = useCallback((val: boolean) => {
+    setAutoTransposeChordsState(val);
+    setStoredAutoTransposeChords(val);
+  }, []);
 
   // Time Signature Settings
-  const [syncAllMeasures, setSyncAllMeasures] = useState<boolean>(true);
+  const [syncAllMeasures, setSyncAllMeasuresState] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredSyncAllMeasures(true);
+    return true;
+  });
+  const setSyncAllMeasures = useCallback((val: boolean) => {
+    setSyncAllMeasuresState(val);
+    setStoredSyncAllMeasures(val);
+  }, []);
+
+  // Preset detection & restore handlers
+  const matchingPreset = React.useMemo(() => {
+    return PRESET_SONGS.find(p => p.id === song.id || p.id === song.originalPresetId);
+  }, [song.id, song.originalPresetId]);
+  const isPresetSong = Boolean(matchingPreset);
+  const isModified = Boolean(
+    song.isPresetModified ||
+    (modifiedPresetIds && matchingPreset && modifiedPresetIds.has(matchingPreset.id)) ||
+    (matchingPreset && (
+      song.title !== matchingPreset.title ||
+      song.subtitle !== matchingPreset.subtitle ||
+      song.composer !== matchingPreset.composer ||
+      song.lyricist !== matchingPreset.lyricist ||
+      song.key !== matchingPreset.key ||
+      song.timeSignature !== matchingPreset.timeSignature ||
+      song.bpm !== matchingPreset.bpm ||
+      song.notesPerLine !== matchingPreset.notesPerLine ||
+      song.description !== matchingPreset.description ||
+      JSON.stringify(song.measures) !== JSON.stringify(matchingPreset.measures)
+    ))
+  );
+
+  const handleRestorePreset = useCallback(() => {
+    if (!matchingPreset) return;
+    if (window.confirm(`確定要將《${matchingPreset.title}》恢復為原廠預設嗎？這將會清除您在此曲上的所有修改與設定。(Restore《${matchingPreset.title}》to factory default?)`)) {
+      if (onResetPresetSong) {
+        onResetPresetSong(matchingPreset.id);
+      } else {
+        onUpdateSong(matchingPreset);
+      }
+      setRestoreSuccessNotice(`已將《${matchingPreset.title}》恢復為原廠預設！`);
+      setTimeout(() => setRestoreSuccessNotice(null), 3500);
+    }
+  }, [matchingPreset, onResetPresetSong, onUpdateSong]);
+
+  const handleRestoreDefaultSong = useCallback(() => {
+    const defaultPreset = PRESET_SONGS[0];
+    if (window.confirm(`確定要載入出廠預設歌曲《${defaultPreset.title}》嗎？(Restore default preset song《${defaultPreset.title}》?)`)) {
+      if (onRestoreDefaultSong) {
+        onRestoreDefaultSong();
+      } else if (onResetPresetSong) {
+        onResetPresetSong(defaultPreset.id);
+      } else {
+        onUpdateSong(defaultPreset);
+      }
+      setRestoreSuccessNotice(`已恢復為出廠預設曲目《${defaultPreset.title}》！`);
+      setTimeout(() => setRestoreSuccessNotice(null), 3500);
+    }
+  }, [onRestoreDefaultSong, onResetPresetSong, onUpdateSong]);
+
+  const handleRestoreSongLayoutDefaults = useCallback(() => {
+    onUpdateSong({
+      ...song,
+      notesPerLine: 4,
+    });
+    if (onSetInstrument) {
+      onSetInstrument('piano');
+    }
+    setAutoTransposeChords(true);
+    setSyncAllMeasures(true);
+    setRestoreSuccessNotice('已重設版面與音色設定為預設值！');
+    setTimeout(() => setRestoreSuccessNotice(null), 3500);
+  }, [song, onUpdateSong, onSetInstrument, setAutoTransposeChords, setSyncAllMeasures]);
+
+  // Listen to global settings reset event
+  useEffect(() => {
+    const handleReset = () => {
+      setAutoTransposeChordsState(getStoredAutoTransposeChords(true));
+      setSyncAllMeasuresState(getStoredSyncAllMeasures(true));
+    };
+    window.addEventListener(SETTINGS_RESET_EVENT, handleReset);
+    return () => window.removeEventListener(SETTINGS_RESET_EVENT, handleReset);
+  }, []);
 
   // Tap Tempo state
   const tapTimesRef = useRef<number[]>([]);
@@ -667,7 +771,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
             type="button"
             onClick={() => {
               setActivePopover(null);
-              onOpenAligner();
+              onOpenAligner?.();
             }}
             className="flex items-center gap-1 px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-xs rounded-lg border border-zinc-200/90 dark:border-zinc-750 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation h-6.5 sm:h-7.5"
             title="Lyric Aligner (Supports Roman and Han-lô)"
@@ -897,6 +1001,75 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               />
             </div>
 
+            {/* Section 5: Defaults & Factory Reset */}
+            <div className="flex flex-col gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+              <div className="flex items-center justify-between">
+                <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                  Defaults & Factory Reset / 恢復預設
+                </label>
+                {restoreSuccessNotice && (
+                  <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 animate-in fade-in">
+                    <Check className="w-3.5 h-3.5" />
+                    {restoreSuccessNotice}
+                  </span>
+                )}
+              </div>
+              <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-850/60 border border-zinc-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
+                      {isPresetSong ? `Preset Song: ${matchingPreset?.title}` : 'Current Song: Custom Composition'}
+                    </span>
+                    {isPresetSong && isModified && (
+                      <span className="px-1.5 py-0.2 text-[10px] font-extrabold rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-400/50">
+                        Modified
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {isPresetSong
+                      ? (isModified ? 'Has custom edits · Restore will revert back to pristine factory score' : 'Pristine factory preset score')
+                      : 'Custom user composition · Revert settings or load factory preset'}
+                  </span>
+                </div>
+                <div className="flex items-center gap-2 shrink-0 flex-wrap">
+                  {isPresetSong ? (
+                    <button
+                      id="song-settings-restore-preset-btn"
+                      type="button"
+                      onClick={handleRestorePreset}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[44px] bg-rose-500/10 hover:bg-rose-500/20 text-rose-700 dark:text-rose-300 border border-rose-300 dark:border-rose-800 active:scale-98"
+                      title="Revert this preset song to original factory score"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                      <span>Restore Preset Song</span>
+                    </button>
+                  ) : (
+                    <button
+                      id="song-settings-restore-default-song-btn"
+                      type="button"
+                      onClick={handleRestoreDefaultSong}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[44px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 active:scale-98"
+                      title="Load factory default preset song (望春風)"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 shrink-0" />
+                      <span>Restore Default Song</span>
+                    </button>
+                  )}
+                  <button
+                    id="song-settings-restore-layout-btn"
+                    type="button"
+                    onClick={handleRestoreSongLayoutDefaults}
+                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[44px] bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 active:scale-98"
+                    title="Reset measures per line to 4 and melody instrument to Piano"
+                  >
+                    <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
+                    <span>Reset Layout & Tone</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Modal Actions */}
             <div className="flex items-center justify-between pt-3 border-t border-zinc-200 dark:border-zinc-800">
               <div className="flex items-center gap-2">
@@ -907,7 +1080,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                       setIsSettingsModalOpen(false);
                       onStartFreshSong();
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white rounded-xl text-xs font-bold transition-colors cursor-pointer touch-manipulation min-h-[44px]"
                   >
                     <FilePlus2 className="w-3.5 h-3.5 text-amber-500" />
                     <span>New Blank Song</span>
@@ -918,7 +1091,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               <button
                 type="button"
                 onClick={() => setIsSettingsModalOpen(false)}
-                className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black text-xs rounded-xl shadow-xs transition-colors cursor-pointer touch-manipulation min-h-[44px]"
               >
                 Done
               </button>

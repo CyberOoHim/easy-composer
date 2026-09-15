@@ -10,6 +10,12 @@ import {
   highlightMatch,
 } from '@/lib/lyricSearch';
 import {
+  getStoredSearchScope,
+  setStoredSearchScope,
+  getStoredSearchMatchFilter,
+  setStoredSearchMatchFilter,
+} from '@/lib/storage';
+import {
   Search,
   X,
   Mic2,
@@ -56,8 +62,23 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
   onJumpToMeasure,
 }) => {
   const [query, setQuery] = useState('');
-  const [scope, setScope] = useState<SearchScope>(initialScope);
-  const [matchFilter, setMatchFilter] = useState<'all' | 'measure' | 'verse'>('all');
+  const [scope, setScopeState] = useState<SearchScope>(() => {
+    if (typeof window !== 'undefined') return getStoredSearchScope(initialScope);
+    return initialScope;
+  });
+  const setScope = useCallback((newScope: SearchScope) => {
+    setScopeState(newScope);
+    setStoredSearchScope(newScope);
+  }, []);
+
+  const [matchFilter, setMatchFilterState] = useState<'all' | 'measure' | 'verse'>(() => {
+    if (typeof window !== 'undefined') return getStoredSearchMatchFilter('all');
+    return 'all';
+  });
+  const setMatchFilter = useCallback((newFilter: 'all' | 'measure' | 'verse') => {
+    setMatchFilterState(newFilter);
+    setStoredSearchMatchFilter(newFilter);
+  }, []);
   const [selectedIndex, setSelectedIndex] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsContainerRef = useRef<HTMLDivElement>(null);
