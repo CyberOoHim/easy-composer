@@ -11,6 +11,8 @@ import type {
   TimeSignature,
   VerseItem,
   VerseNoteRef,
+  LyricSyllable,
+  VerseDisplayOption,
 } from '../types/song.ts';
 
 // Semitones relative to C4 (MIDI note 60)
@@ -1837,5 +1839,66 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
  */
 export function autoRearrangeSongMeasures(song: Song): Song {
   return smartRebarSong(song, song.timeSignature || '4/4');
+}
+
+/**
+ * Calculates how many parallel verses (1 to 5) are active/present in the song.
+ */
+export function getSongVerseCount(song: Song): number {
+  if (typeof song.verseCount === 'number' && song.verseCount >= 1) {
+    return Math.min(5, Math.max(1, Math.round(song.verseCount)));
+  }
+
+  let maxVerse = 1;
+  for (const m of song.measures || []) {
+    for (const n of m.notes || []) {
+      if (n.lyricsByVerse) {
+        for (const k of Object.keys(n.lyricsByVerse)) {
+          const vNum = parseInt(k, 10);
+          if (!isNaN(vNum) && vNum >= 1 && vNum <= 5) {
+            const syl = n.lyricsByVerse[vNum];
+            if (syl && (syl.hanlo?.trim() || syl.poj?.trim() || syl.hanji?.trim() || syl.custom?.trim())) {
+              if (vNum > maxVerse) maxVerse = vNum;
+            }
+          }
+        }
+      }
+    }
+  }
+  return Math.min(5, maxVerse);
+}
+
+/**
+ * Retrieves the display option for verses: 'hanlo', 'poj', 'both_poj_top' (POJ on top), or 'both_hanlo_top' (Hàn-lô on top).
+ * All verses share the same unified setting.
+ * Defaults to 'both_poj_top'.
+ */
+export function getVerseDisplayOption(song: Song, _verseIndex?: number): VerseDisplayOption {
+  const globalSetting = song.verseDisplayOption;
+  if (globalSetting) {
+    if (globalSetting === 'both') return 'both_poj_top';
+    return globalSetting;
+  }
+  const legacySetting = song.verseSettings?.[1]?.displayOption;
+  if (legacySetting) {
+    if (legacySetting === 'both') return 'both_poj_top';
+    return legacySetting;
+  }
+  return 'both_poj_top';
+}
+
+/**
+ * Retrieves the LyricSyllable for a specific verse index (1 to 5) from a note.
+ */
+export function getNoteVerseSyllable(note: NumberedNotationNote, verseIndex: number): LyricSyllable {
+  if (verseIndex === 1) {
+    return {
+      ...(note.lyric || {}),
+      ...(note.lyricsByVerse?.[1] || {}),
+      hanlo: note.lyricsByVerse?.[1]?.hanlo ?? note.lyric?.hanlo ?? note.lyric?.hanji ?? note.lyric?.custom ?? '',
+      poj: note.lyricsByVerse?.[1]?.poj ?? note.lyric?.poj ?? note.lyric?.tl ?? '',
+    };
+  }
+  return note.lyricsByVerse?.[verseIndex] || {};
 }
 

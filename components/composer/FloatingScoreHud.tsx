@@ -36,7 +36,7 @@ import {
   Command,
   Keyboard,
 } from 'lucide-react';
-import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode } from '@/types/song';
+import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode, VerseDisplayOption } from '@/types/song';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 
 export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit';
@@ -146,6 +146,10 @@ export interface FloatingScoreHudProps {
   selectedVerseRow: number;
   onChangeVerseRow: (row: number) => void;
   availableVerseRows?: number[];
+  currentVerseDisplayOption?: VerseDisplayOption;
+  onChangeVerseDisplayOption?: (option: VerseDisplayOption) => void;
+  onAddVerse?: () => void;
+  onRemoveVerse?: (verseRow: number) => void;
   onStepNextNote?: () => void;
   onStepPrevNote?: () => void;
 
@@ -236,7 +240,11 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   onToggleActiveField,
   selectedVerseRow,
   onChangeVerseRow,
-  availableVerseRows = [1, 2, 3],
+  availableVerseRows = [1],
+  currentVerseDisplayOption = 'both',
+  onChangeVerseDisplayOption,
+  onAddVerse,
+  onRemoveVerse,
   onStepNextNote,
   onStepPrevNote,
   onUndo,
@@ -876,7 +884,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
           {/* Verse Selector when in Lyric mode */}
           {activeField === 'lyric' && (
-            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold">
+            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold shrink-0">
               <span className="text-zinc-500 text-[11px]">Verse:</span>
               {availableVerseRows.map(row => (
                 <button
@@ -888,10 +896,97 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                       ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                   }`}
+                  title={`Select Verse ${row}`}
                 >
                   {row}
                 </button>
               ))}
+              {onAddVerse && availableVerseRows.length < 5 && (
+                <button
+                  type="button"
+                  onClick={onAddVerse}
+                  className="w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center bg-zinc-200/90 dark:bg-zinc-700/80 hover:bg-amber-500 hover:text-zinc-950 text-zinc-700 dark:text-zinc-300 transition-all cursor-pointer"
+                  title="Add parallel verse (up to 5 verses allowed)"
+                >
+                  +
+                </button>
+              )}
+              {onRemoveVerse && availableVerseRows.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => onRemoveVerse(selectedVerseRow)}
+                  className="w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
+                  title={`Delete Verse ${selectedVerseRow}`}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Unified Lyric Display Format for all verses (Hàn-lô, POJ, POJ/Hàn top, Hàn/POJ top) */}
+          {onChangeVerseDisplayOption && (
+            <div
+              id="floating-hud-lyric-format-group"
+              className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold shrink-0"
+            >
+              <span className="text-zinc-400 dark:text-zinc-500 text-[10px] px-1.5 hidden sm:inline select-none uppercase tracking-wider">
+                Format:
+              </span>
+              <button
+                id="floating-hud-format-hanlo-btn"
+                type="button"
+                onClick={() => onChangeVerseDisplayOption('hanlo')}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer touch-manipulation ${
+                  currentVerseDisplayOption === 'hanlo'
+                    ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+                title="Display Hàn-lô lyrics only across all verses"
+              >
+                Hàn-lô
+              </button>
+              <button
+                id="floating-hud-format-poj-btn"
+                type="button"
+                onClick={() => onChangeVerseDisplayOption('poj')}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold font-serif italic transition-all cursor-pointer touch-manipulation ${
+                  currentVerseDisplayOption === 'poj'
+                    ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+                title="Display POJ Romanization only across all verses"
+              >
+                POJ
+              </button>
+              <button
+                id="floating-hud-format-both-poj-top-btn"
+                type="button"
+                onClick={() => onChangeVerseDisplayOption('both_poj_top')}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer touch-manipulation flex items-center gap-1 ${
+                  currentVerseDisplayOption === 'both_poj_top' || currentVerseDisplayOption === 'both'
+                    ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+                title="Both: POJ Romanization on top, Hàn-lô below (applies to all verses)"
+              >
+                <span>POJ / Hàn</span>
+                <span className="text-[9px] opacity-75 font-normal hidden md:inline">(POJ top)</span>
+              </button>
+              <button
+                id="floating-hud-format-both-hanlo-top-btn"
+                type="button"
+                onClick={() => onChangeVerseDisplayOption('both_hanlo_top')}
+                className={`px-2 py-1 rounded-lg text-[11px] font-bold transition-all cursor-pointer touch-manipulation flex items-center gap-1 ${
+                  currentVerseDisplayOption === 'both_hanlo_top'
+                    ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                    : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+                title="Both: Hàn-lô on top, POJ Romanization below (applies to all verses)"
+              >
+                <span>Hàn / POJ</span>
+                <span className="text-[9px] opacity-75 font-normal hidden md:inline">(Hàn top)</span>
+              </button>
             </div>
           )}
 

@@ -469,74 +469,78 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
 
       {/* LOWER ZONE: DIRECT IN-SCORE EDITABLE LYRIC INPUTS (ROMAN AND HANLO) */}
       <div className="w-full flex flex-col gap-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80 shrink-0">
-        {/* Roman Lyric Input */}
-        <div className="w-full flex flex-col shrink-0">
-          <input
-            id={`lyric-input-${mIdx}-${nIdx}-roman`}
-            type="text"
-            value={note.lyric.poj || note.lyric.tl || ''}
-            onClick={e => e.stopPropagation()}
-            onFocus={() => {
-              onSelectNote(mIdx, nIdx);
-              setFocusedField('roman');
-            }}
-            onBlur={() => setFocusedField(null)}
-            onChange={e =>
-              onUpdateLyric(mIdx, nIdx, 'roman', e.target.value)
-            }
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === '-') {
-                if (!e.shiftKey) {
-                  e.preventDefault();
-                  if (e.key === '-') {
-                    const currentVal = e.currentTarget.value;
-                    const updated = currentVal.endsWith('-') ? currentVal : currentVal + '-';
-                    onUpdateLyric(mIdx, nIdx, 'roman', updated);
+        {/* Roman (POJ) Lyric Input - on top */}
+        {displayMode !== 'hanlo' && displayMode !== 'hanji_only' && displayMode !== 'custom_only' && (
+          <div className="w-full flex flex-col shrink-0">
+            <input
+              id={`lyric-input-${mIdx}-${nIdx}-roman`}
+              type="text"
+              value={note.lyric.poj || note.lyric.tl || ''}
+              onClick={e => e.stopPropagation()}
+              onFocus={() => {
+                onSelectNote(mIdx, nIdx);
+                setFocusedField('roman');
+              }}
+              onBlur={() => setFocusedField(null)}
+              onChange={e =>
+                onUpdateLyric(mIdx, nIdx, 'roman', e.target.value)
+              }
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === '-') {
+                  if (!e.shiftKey) {
+                    e.preventDefault();
+                    if (e.key === '-') {
+                      const currentVal = e.currentTarget.value;
+                      const updated = currentVal.endsWith('-') ? currentVal : currentVal + '-';
+                      onUpdateLyric(mIdx, nIdx, 'roman', updated);
+                    }
+                    onGoToNextNote(mIdx, nIdx, 'roman');
+                  } else {
+                    e.preventDefault();
+                    onGoToPrevNote(mIdx, nIdx, 'roman');
                   }
-                  onGoToNextNote(mIdx, nIdx, 'roman');
-                } else {
-                  e.preventDefault();
-                  onGoToPrevNote(mIdx, nIdx, 'roman');
                 }
-              }
-            }}
-            placeholder="Roman (POJ)"
-            className="w-full text-center font-serif italic text-[22px] leading-tight font-semibold px-1 py-1 rounded-lg bg-emerald-50/60 dark:bg-[#0c1410] border border-emerald-200/90 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 h-[42px] min-h-[42px] placeholder:text-[13px] placeholder:font-normal placeholder:not-italic placeholder:text-emerald-700/50 dark:placeholder:text-emerald-400/40 touch-manipulation"
-            title="Romanization (POJ) - Space, hyphen, or Tab moves to next note"
-          />
-        </div>
+              }}
+              placeholder="Roman (POJ)"
+              className="w-full text-center font-serif italic text-[22px] leading-tight font-semibold px-1 py-1 rounded-lg bg-emerald-50/60 dark:bg-[#0c1410] border border-emerald-200/90 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 h-[42px] min-h-[42px] placeholder:text-[13px] placeholder:font-normal placeholder:not-italic placeholder:text-emerald-700/50 dark:placeholder:text-emerald-400/40 touch-manipulation"
+              title="Romanization (POJ) - Space, hyphen, or Tab moves to next note"
+            />
+          </div>
+        )}
 
-        {/* Hanlo Lyric Input */}
-        <div className="w-full flex flex-col shrink-0">
-          <input
-            id={`lyric-input-${mIdx}-${nIdx}-hanlo`}
-            type="text"
-            value={note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || ''}
-            onClick={e => e.stopPropagation()}
-            onFocus={() => {
-              onSelectNote(mIdx, nIdx);
-              setFocusedField('hanlo');
-            }}
-            onBlur={() => setFocusedField(null)}
-            onChange={e =>
-              onUpdateLyric(mIdx, nIdx, 'hanlo', e.target.value)
-            }
-            onKeyDown={e => {
-              if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ') {
-                if (!e.shiftKey) {
-                  e.preventDefault();
-                  onGoToNextNote(mIdx, nIdx, 'hanlo');
-                } else {
-                  e.preventDefault();
-                  onGoToPrevNote(mIdx, nIdx, 'hanlo');
-                }
+        {/* Hanlo Lyric Input - below Roman (POJ) */}
+        {displayMode !== 'roman' && displayMode !== 'poj_only' && (
+          <div className="w-full flex flex-col shrink-0">
+            <input
+              id={`lyric-input-${mIdx}-${nIdx}-hanlo`}
+              type="text"
+              value={note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || ''}
+              onClick={e => e.stopPropagation()}
+              onFocus={() => {
+                onSelectNote(mIdx, nIdx);
+                setFocusedField('hanlo');
+              }}
+              onBlur={() => setFocusedField(null)}
+              onChange={e =>
+                onUpdateLyric(mIdx, nIdx, 'hanlo', e.target.value)
               }
-            }}
-            placeholder="Han-lô"
-            className="w-full text-center font-bold text-[25px] leading-tight px-1 py-1 rounded-lg bg-zinc-50 dark:bg-[#0a0c10] border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 h-[46px] min-h-[46px] placeholder:text-[14px] placeholder:font-normal placeholder:text-zinc-400 dark:placeholder:text-zinc-500 touch-manipulation"
-            title="Han-lô / Lyrics - Space or Tab moves to next note"
-          />
-        </div>
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ') {
+                  if (!e.shiftKey) {
+                    e.preventDefault();
+                    onGoToNextNote(mIdx, nIdx, 'hanlo');
+                  } else {
+                    e.preventDefault();
+                    onGoToPrevNote(mIdx, nIdx, 'hanlo');
+                  }
+                }
+              }}
+              placeholder="Han-lô"
+              className="w-full text-center font-bold text-[25px] leading-tight px-1 py-1 rounded-lg bg-zinc-50 dark:bg-[#0a0c10] border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 h-[46px] min-h-[46px] placeholder:text-[14px] placeholder:font-normal placeholder:text-zinc-400 dark:placeholder:text-zinc-500 touch-manipulation"
+              title="Han-lô / Lyrics - Space or Tab moves to next note"
+            />
+          </div>
+        )}
       </div>
     </div>
   );

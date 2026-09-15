@@ -83,6 +83,9 @@ export interface Song {
   updatedAt?: number;       // Last modified timestamp
   isPresetModified?: boolean; // True if this song is an edited version of a built-in preset
   originalPresetId?: string;  // ID of the original preset if modified
+  verseCount?: number;        // Number of parallel verses under melody (1 to 5, default determined by song content or 1)
+  verseDisplayOption?: VerseDisplayOption; // Unified lyric format setting across all verses ('hanlo', 'poj', 'both_poj_top', 'both_hanlo_top')
+  verseSettings?: { [verseIndex: number]: VerseSettings }; // Optional per-verse overrides
 }
 
 export type LyricDisplayMode =
@@ -95,6 +98,17 @@ export type LyricDisplayMode =
   | 'hanji_only'
   | 'poj_only'
   | 'custom_only';
+
+export type VerseDisplayOption =
+  | 'hanlo'             // Hàn-lô only
+  | 'poj'               // POJ only
+  | 'both_poj_top'      // POJ / Hàn-lô (POJ on the top, Hàn-lô below)
+  | 'both_hanlo_top'    // Hàn-lô / POJ (Hàn-lô on the top, POJ below)
+  | 'both';             // Backward-compatible alias for both_poj_top
+
+export interface VerseSettings {
+  displayOption?: VerseDisplayOption; // 'hanlo' | 'poj' | 'both_poj_top' | 'both_hanlo_top'
+}
 
 export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell' | 'cello';
 

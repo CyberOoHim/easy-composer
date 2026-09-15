@@ -13,6 +13,8 @@ import {
   LyricDisplayMode,
   GraceNote,
   ArticulationType,
+  LyricSyllable,
+  VerseDisplayOption,
 } from '@/types/song';
 import {
   engraveMeasure,
@@ -61,7 +63,13 @@ import {
   SETTINGS_RESET_EVENT,
   SHEET_ZOOM_EVENT,
 } from '@/lib/storage';
-import { getMeasureRhythmReport, autoRearrangeSongMeasures } from '@/lib/taigiUtils';
+import {
+  getMeasureRhythmReport,
+  autoRearrangeSongMeasures,
+  getSongVerseCount,
+  getVerseDisplayOption,
+  getNoteVerseSyllable,
+} from '@/lib/taigiUtils';
 
 export interface RealSheetCanvasProps {
   song: Song;
@@ -264,7 +272,18 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Active editing target: 'pitch' vs 'lyric'
   const [activeField, setActiveField] = useState<'pitch' | 'lyric'>('pitch');
-  const [activeVerseRow, setActiveVerseRow] = useState<number>(1);
+  const [activeVerseRowState, setActiveVerseRow] = useState<number>(1);
+  const [activeLyricSubfield, setActiveLyricSubfield] = useState<'hanlo' | 'poj'>('hanlo');
+
+  // Verse count & available verses (1 to 5)
+  const verseCount = useMemo(() => getSongVerseCount(song), [song]);
+  const hasMultipleVerses = verseCount > 1;
+  const availableVerseRows = useMemo(() => {
+    return Array.from({ length: verseCount }, (_, i) => i + 1);
+  }, [verseCount]);
+
+  // Ensure activeVerseRow is strictly within [1, verseCount] without cascading render effect
+  const activeVerseRow = Math.min(Math.max(1, activeVerseRowState), verseCount);
 
   // In-place editable header modal / inline editors
   const [editingHeaderField, setEditingHeaderField] = useState<string | null>(null);
@@ -343,15 +362,32 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Handle Note Selection
   const handleNoteClick = useCallback(
-    (mIdx: number, nIdx: number, targetField: 'pitch' | 'lyric' = 'pitch', verseRow = 1, previewAudio = true) => {
+    (
+      mIdx: number,
+      nIdx: number,
+      targetField: 'pitch' | 'lyric' = 'pitch',
+      verseRow = 1,
+      previewAudio = true,
+      subField?: 'hanlo' | 'poj'
+    ) => {
       onSelectNote?.(mIdx, nIdx, previewAudio);
       onSelectMeasure?.(mIdx);
       setActiveField(targetField);
       if (targetField === 'lyric') {
         setActiveVerseRow(verseRow);
+        if (subField) {
+          setActiveLyricSubfield(subField);
+        } else {
+          const opt = getVerseDisplayOption(song, verseRow);
+          if (opt === 'poj' || opt === 'both_poj_top' || opt === 'both') {
+            setActiveLyricSubfield('poj');
+          } else {
+            setActiveLyricSubfield('hanlo');
+          }
+        }
       }
     },
-    [onSelectNote, onSelectMeasure]
+    [onSelectNote, onSelectMeasure, song]
   );
 
   // Scroll active note into view smoothly when navigating
@@ -1135,17 +1171,51 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         if (activeField === 'pitch') {
           setActiveField('lyric');
           setActiveVerseRow(1);
-        } else if (activeField === 'lyric' && activeVerseRow < 3) {
-          setActiveVerseRow(prev => prev + 1);
+          const opt = getVerseDisplayOption(song, 1);
+          const isPojTop = opt === 'both' || opt === 'both_poj_top';
+          setActiveLyricSubfield(opt === 'poj' || isPojTop ? 'poj' : 'hanlo');
+        } else if (activeField === 'lyric') {
+          const opt = getVerseDisplayOption(song, activeVerseRow);
+          const isPojTop = opt === 'both' || opt === 'both_poj_top';
+          const isHanloTop = opt === 'both_hanlo_top';
+
+          if (isPojTop && activeLyricSubfield === 'poj') {
+            setActiveLyricSubfield('hanlo');
+          } else if (isHanloTop && activeLyricSubfield === 'hanlo') {
+            setActiveLyricSubfield('poj');
+          } else if (activeVerseRow < verseCount) {
+            const nextRow = activeVerseRow + 1;
+            setActiveVerseRow(nextRow);
+            const nextOpt = getVerseDisplayOption(song, nextRow);
+            const nextIsPojTop = nextOpt === 'both' || nextOpt === 'both_poj_top';
+            setActiveLyricSubfield(nextOpt === 'poj' || nextIsPojTop ? 'poj' : 'hanlo');
+          }
         }
         return;
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
-        if (activeField === 'lyric' && activeVerseRow > 1) {
-          setActiveVerseRow(prev => prev - 1);
-        } else {
-          setActiveField('pitch');
+        if (activeField === 'lyric') {
+          const opt = getVerseDisplayOption(song, activeVerseRow);
+          const isPojTop = opt === 'both' || opt === 'both_poj_top';
+          const isHanloTop = opt === 'both_hanlo_top';
+
+          if (isPojTop && activeLyricSubfield === 'hanlo') {
+            setActiveLyricSubfield('poj');
+          } else if (isHanloTop && activeLyricSubfield === 'poj') {
+            setActiveLyricSubfield('hanlo');
+          } else if (activeVerseRow > 1) {
+            const prevRow = activeVerseRow - 1;
+            setActiveVerseRow(prevRow);
+            const prevOpt = getVerseDisplayOption(song, prevRow);
+            const prevIsPojTop = prevOpt === 'both' || prevOpt === 'both_poj_top';
+            const prevIsHanloTop = prevOpt === 'both_hanlo_top';
+            setActiveLyricSubfield(
+              prevIsPojTop ? 'hanlo' : prevIsHanloTop ? 'poj' : prevOpt === 'poj' ? 'poj' : 'hanlo'
+            );
+          } else {
+            setActiveField('pitch');
+          }
         }
         return;
       }
@@ -1247,22 +1317,27 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         if (e.key === 'Backspace') {
           e.preventDefault();
           updateCurrentNote(note => {
+            const isHanlo = activeLyricSubfield === 'hanlo';
+            const prevVerses = note.lyricsByVerse || {};
+            const currentSyl = prevVerses[activeVerseRow] || (activeVerseRow === 1 ? note.lyric : {}) || {};
+            const updatedSyl: LyricSyllable = isHanlo
+              ? { ...currentSyl, hanlo: '', hanji: '', custom: '' }
+              : { ...currentSyl, poj: '', tl: '' };
+
+            const updatedVerses = { ...prevVerses, [activeVerseRow]: updatedSyl };
             if (activeVerseRow === 1) {
               return {
                 ...note,
                 lyric: {
                   ...note.lyric,
-                  hanlo: '',
-                  hanji: '',
-                  custom: '',
+                  ...updatedSyl,
                 },
+                lyricsByVerse: updatedVerses,
               };
             } else {
-              const currentVerses = { ...(note.lyricsByVerse || {}) };
-              delete currentVerses[activeVerseRow];
               return {
                 ...note,
-                lyricsByVerse: currentVerses,
+                lyricsByVerse: updatedVerses,
               };
             }
           });
@@ -1282,6 +1357,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     editingHeaderField,
     activeField,
     activeVerseRow,
+    activeLyricSubfield,
+    verseCount,
+    song,
     onTogglePlay,
     stepToNextNote,
     stepToPrevNote,
@@ -1299,39 +1377,189 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Lyric direct input change handler
   const handleLyricInputChange = useCallback(
-    (text: string, verseRow: number) => {
+    (text: string, verseRow: number, subField: 'hanlo' | 'poj' = 'hanlo') => {
       updateCurrentNote(
         note => {
+          const isHan = /[\u4e00-\u9fa5]/.test(text);
+          const prevVerses = note.lyricsByVerse || {};
+          const currentSyl = prevVerses[verseRow] || (verseRow === 1 ? note.lyric : {}) || {};
+
+          let updatedSyl: LyricSyllable;
+          if (subField === 'poj') {
+            updatedSyl = {
+              ...currentSyl,
+              poj: text,
+            };
+          } else {
+            updatedSyl = {
+              ...currentSyl,
+              hanlo: text,
+              hanji: isHan ? text : currentSyl.hanji || text,
+              custom: text,
+            };
+          }
+
+          const updatedVerses = {
+            ...prevVerses,
+            [verseRow]: updatedSyl,
+          };
+
           if (verseRow === 1) {
-            const isHan = /[\u4e00-\u9fa5]/.test(text);
             return {
               ...note,
               lyric: {
                 ...note.lyric,
-                hanlo: text,
-                hanji: isHan ? text : note.lyric.hanji,
-                custom: text,
+                ...updatedSyl,
               },
+              lyricsByVerse: updatedVerses,
             };
           } else {
-            const prevVerses = note.lyricsByVerse || {};
             return {
               ...note,
-              lyricsByVerse: {
-                ...prevVerses,
-                [verseRow]: {
-                  hanlo: text,
-                  custom: text,
-                },
-              },
+              lyricsByVerse: updatedVerses,
             };
           }
         },
         false,
-        { coalesce: true, coalesceKey: `note-lyric-${currentMIdx}-${currentNIdx}-v${verseRow}` }
+        { coalesce: true, coalesceKey: `note-lyric-${currentMIdx}-${currentNIdx}-v${verseRow}-${subField}` }
       );
     },
     [updateCurrentNote, currentMIdx, currentNIdx]
+  );
+
+  // Key navigation within note lyric input (Space, Tab, Hyphen to step to next note, ArrowUp/ArrowDown to switch lines)
+  const handleLyricKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLInputElement>, verseRow: number, subField: 'hanlo' | 'poj') => {
+      if (e.key === ' ' || e.key === 'Tab' || e.key === '-') {
+        e.preventDefault();
+        if (e.key === '-') {
+          const cur = e.currentTarget.value;
+          const updated = cur.endsWith('-') ? cur : cur + '-';
+          handleLyricInputChange(updated, verseRow, subField);
+        }
+        stepToNextNote();
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        const opt = getVerseDisplayOption(song, verseRow);
+        const isPojTop = opt === 'both' || opt === 'both_poj_top';
+        const isHanloTop = opt === 'both_hanlo_top';
+        if (isPojTop && subField === 'poj') {
+          e.preventDefault();
+          setActiveLyricSubfield('hanlo');
+        } else if (isHanloTop && subField === 'hanlo') {
+          e.preventDefault();
+          setActiveLyricSubfield('poj');
+        } else if (verseRow < verseCount) {
+          e.preventDefault();
+          setActiveVerseRow(verseRow + 1);
+          const nextOpt = getVerseDisplayOption(song, verseRow + 1);
+          const nextIsPojTop = nextOpt === 'both' || nextOpt === 'both_poj_top';
+          setActiveLyricSubfield(nextOpt === 'poj' || nextIsPojTop ? 'poj' : 'hanlo');
+        }
+      } else if (e.key === 'ArrowUp') {
+        const opt = getVerseDisplayOption(song, verseRow);
+        const isPojTop = opt === 'both' || opt === 'both_poj_top';
+        const isHanloTop = opt === 'both_hanlo_top';
+        if (isPojTop && subField === 'hanlo') {
+          e.preventDefault();
+          setActiveLyricSubfield('poj');
+        } else if (isHanloTop && subField === 'poj') {
+          e.preventDefault();
+          setActiveLyricSubfield('hanlo');
+        } else if (verseRow > 1) {
+          e.preventDefault();
+          setActiveVerseRow(verseRow - 1);
+          const prevOpt = getVerseDisplayOption(song, verseRow - 1);
+          const prevIsPojTop = prevOpt === 'both' || prevOpt === 'both_poj_top';
+          const prevIsHanloTop = prevOpt === 'both_hanlo_top';
+          setActiveLyricSubfield(
+            prevIsPojTop ? 'hanlo' : prevIsHanloTop ? 'poj' : prevOpt === 'poj' ? 'poj' : 'hanlo'
+          );
+        } else {
+          e.preventDefault();
+          setActiveField('pitch');
+        }
+      }
+    },
+    [handleLyricInputChange, stepToNextNote, song, verseCount]
+  );
+
+  // Global verse formatting (unified across all verses)
+  const handleUpdateGlobalLyricDisplayOption = useCallback(
+    (option: VerseDisplayOption) => {
+      const updated = {
+        ...song,
+        verseDisplayOption: option,
+      };
+      onUpdateSong(updated);
+    },
+    [song, onUpdateSong]
+  );
+
+  const handleAddVerse = useCallback(() => {
+    const currentCount = getSongVerseCount(song);
+    if (currentCount >= 5) return;
+    const newCount = currentCount + 1;
+    const currentConfigs = song.verseSettings || {};
+    const updated = {
+      ...song,
+      verseCount: newCount,
+      verseSettings: {
+        ...currentConfigs,
+        [newCount]: {
+          displayOption: currentConfigs[newCount]?.displayOption || currentConfigs[1]?.displayOption || 'both',
+        },
+      },
+    };
+    onUpdateSong(updated);
+    setActiveVerseRow(newCount);
+    setActiveField('lyric');
+  }, [song, onUpdateSong]);
+
+  const handleRemoveVerse = useCallback(
+    (targetVerse?: number) => {
+      const currentCount = getSongVerseCount(song);
+      if (currentCount <= 1) return;
+      const verseToRemove = targetVerse ?? currentCount;
+      const newCount = currentCount - 1;
+
+      const newMeasures = song.measures.map(m => ({
+        ...m,
+        notes: m.notes.map(n => {
+          if (!n.lyricsByVerse) return n;
+          const newVerses: { [k: number]: LyricSyllable } = {};
+          let newIdx = 1;
+          for (let v = 1; v <= currentCount; v++) {
+            if (v === verseToRemove) continue;
+            if (n.lyricsByVerse[v]) {
+              newVerses[newIdx] = n.lyricsByVerse[v];
+            }
+            newIdx++;
+          }
+          return {
+            ...n,
+            lyricsByVerse: newVerses,
+            lyric: verseToRemove === 1 && newVerses[1] ? { ...n.lyric, ...newVerses[1] } : n.lyric,
+          };
+        }),
+      }));
+
+      const currentConfigs = { ...(song.verseSettings || {}) };
+      delete currentConfigs[verseToRemove];
+
+      const updated = {
+        ...song,
+        verseCount: newCount,
+        verseSettings: currentConfigs,
+        measures: newMeasures,
+      };
+      onUpdateSong(updated);
+      if (activeVerseRow > newCount) {
+        setActiveVerseRow(newCount);
+      }
+    },
+    [song, onUpdateSong, activeVerseRow]
   );
 
 
@@ -2050,140 +2278,194 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     </div>
 
                     {/* Multi-Verse Stacked Lyrics Aligned Under Notes */}
-                    <div className={`w-full flex flex-col gap-1 mt-2 pt-1 border-t ${
+                    <div className={`w-full flex flex-col gap-1.5 mt-2 pt-1.5 border-t ${
                       sheetTheme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'
                     }`}>
-                      {/* Verse 1 Line */}
-                      <div className={`flex items-center justify-around w-full text-xs sm:text-sm font-sans font-medium ${
-                        sheetTheme === 'dark' ? 'text-zinc-200' : 'text-zinc-900'
-                      }`}>
-                        {isFirstInSystem && (
-                          <span className="text-[10px] font-mono text-zinc-400 -ml-1 mr-1 select-none font-bold">
-                            1.
-                          </span>
-                        )}
-                        {engravedM.notes.map((engNote, nIdx) => {
-                          const isSelectedLyric1 =
-                            isSelectedMeasure &&
-                            nIdx === currentNIdx &&
-                            activeField === 'lyric' &&
-                            activeVerseRow === 1;
+                      {availableVerseRows.map(vNum => {
+                        const vDisplayOption = getVerseDisplayOption(song, vNum);
 
-                          const syllable =
-                            engNote.note.lyric?.hanlo ||
-                            engNote.note.lyric?.hanji ||
-                            engNote.note.lyric?.custom ||
-                            engNote.note.lyric?.poj ||
-                            '';
+                        return (
+                          <div
+                            key={`measure-${engravedM.measureIndex}-v${vNum}`}
+                            className={`flex items-center w-full text-xs sm:text-sm font-sans font-medium relative group/vrow ${
+                              sheetTheme === 'dark' ? 'text-zinc-200' : 'text-zinc-900'
+                            }`}
+                          >
+                            {/* Verse Numbering at Start of System (Requirement 1: Only show numbering when > 1 verse in parallel; no in-sheet toggle) */}
+                            {isFirstInSystem && hasMultipleVerses && (
+                              <div className="flex items-center shrink-0 -ml-1 mr-1.5 select-none">
+                                <span className="text-[11px] font-serif text-zinc-500 dark:text-zinc-400 font-bold min-w-[14px] text-right">
+                                  {vNum}.
+                                </span>
+                              </div>
+                            )}
 
-                          return (
-                            <div
-                              key={`lyric-v1-${engNote.note.id}`}
-                              onClick={e => {
-                                e.stopPropagation();
-                                handleNoteClick(engravedM.measureIndex, nIdx, 'lyric', 1);
-                              }}
-                              className={`flex-1 text-center min-w-[24px] min-h-[36px] flex items-center justify-center px-0.5 py-0.5 rounded cursor-text touch-manipulation ${
-                                isSelectedLyric1
-                                  ? sheetTheme === 'dark'
-                                    ? 'bg-amber-950 ring-2 ring-amber-400 font-bold text-amber-200'
-                                    : 'bg-amber-200 ring-2 ring-amber-500 font-bold text-zinc-950'
-                                  : sheetTheme === 'dark'
-                                  ? 'hover:bg-zinc-800'
-                                  : 'hover:bg-zinc-100'
-                              }`}
-                            >
-                              {isSelectedLyric1 ? (
-                                <input
-                                  type="text"
-                                  autoFocus
-                                  value={syllable}
-                                  onChange={e => handleLyricInputChange(e.target.value, 1)}
-                                  onKeyDown={e => {
-                                    if (e.key === ' ' || e.key === 'Tab' || e.key === '-') {
-                                      e.preventDefault();
-                                      if (e.key === '-') {
-                                        const cur = e.currentTarget.value;
-                                        const updated = cur.endsWith('-') ? cur : cur + '-';
-                                        handleLyricInputChange(updated, 1);
-                                      }
-                                      stepToNextNote();
-                                    }
-                                  }}
-                                  className="w-full text-center bg-transparent border-none outline-none font-bold touch-manipulation"
-                                />
-                              ) : (
-                                <span>{syllable || ' '}</span>
-                              )}
+                            {/* Aligned notes container */}
+                            <div className="flex-1 flex items-center justify-around">
+                              {engravedM.notes.map((engNote, nIdx) => {
+                                const isSelectedLyric =
+                                  isSelectedMeasure &&
+                                  nIdx === currentNIdx &&
+                                  activeField === 'lyric' &&
+                                  activeVerseRow === vNum;
+
+                                const syl = getNoteVerseSyllable(engNote.note, vNum);
+                                const hanloText = syl.hanlo || syl.hanji || syl.custom || '';
+                                const pojText = syl.poj || syl.tl || '';
+
+                                return (
+                                  <div
+                                    key={`lyric-v${vNum}-${engNote.note.id}`}
+                                    onClick={e => {
+                                      e.stopPropagation();
+                                      handleNoteClick(engravedM.measureIndex, nIdx, 'lyric', vNum);
+                                    }}
+                                    className={`flex-1 text-center min-w-[24px] min-h-[34px] flex items-center justify-center px-0.5 py-0.5 rounded cursor-text touch-manipulation transition-colors ${
+                                      isSelectedLyric
+                                        ? sheetTheme === 'dark'
+                                          ? 'bg-amber-950/80 ring-2 ring-amber-400 font-bold text-amber-200'
+                                          : 'bg-amber-100 ring-2 ring-amber-500 font-bold text-zinc-950'
+                                        : sheetTheme === 'dark'
+                                        ? 'hover:bg-zinc-800/80'
+                                        : 'hover:bg-zinc-100'
+                                    }`}
+                                  >
+                                    {/* Option 1: Hàn-lô only */}
+                                    {vDisplayOption === 'hanlo' &&
+                                      (isSelectedLyric ? (
+                                        <input
+                                          type="text"
+                                          autoFocus
+                                          value={hanloText}
+                                          onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
+                                          onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
+                                          placeholder="Hàn-lô"
+                                          className="w-full text-center bg-transparent border-none outline-none font-bold touch-manipulation"
+                                        />
+                                      ) : (
+                                        <span className="truncate">{hanloText || ' '}</span>
+                                      ))}
+
+                                    {/* Option 2: POJ only */}
+                                    {vDisplayOption === 'poj' &&
+                                      (isSelectedLyric ? (
+                                        <input
+                                          type="text"
+                                          autoFocus
+                                          value={pojText}
+                                          onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
+                                          onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
+                                          placeholder="POJ"
+                                          className="w-full text-center font-serif italic bg-transparent border-none outline-none font-semibold touch-manipulation"
+                                        />
+                                      ) : (
+                                        <span className="font-serif italic font-medium truncate">
+                                          {pojText || ' '}
+                                        </span>
+                                      ))}
+
+                                    {/* Option 3: Both (POJ on the top, Hàn-lô below) */}
+                                    {(vDisplayOption === 'both_poj_top' || vDisplayOption === 'both') &&
+                                      (isSelectedLyric ? (
+                                        <div className="flex flex-col items-center justify-center w-full gap-0.5">
+                                          {/* Top: POJ */}
+                                          <input
+                                            type="text"
+                                            autoFocus={activeLyricSubfield === 'poj'}
+                                            value={pojText}
+                                            onFocus={() => setActiveLyricSubfield('poj')}
+                                            onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
+                                            onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
+                                            placeholder="POJ"
+                                            className={`w-full text-center font-serif italic text-[11px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                              activeLyricSubfield === 'poj'
+                                                ? 'ring-1 ring-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200'
+                                                : 'text-emerald-800 dark:text-emerald-300'
+                                            }`}
+                                            title="POJ Romanization (top)"
+                                          />
+                                          {/* Bottom: Hàn-lô */}
+                                          <input
+                                            type="text"
+                                            autoFocus={activeLyricSubfield === 'hanlo'}
+                                            value={hanloText}
+                                            onFocus={() => setActiveLyricSubfield('hanlo')}
+                                            onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
+                                            onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
+                                            placeholder="Hàn-lô"
+                                            className={`w-full text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                              activeLyricSubfield === 'hanlo'
+                                                ? 'ring-1 ring-amber-500 bg-amber-50/70 dark:bg-amber-950/60 text-zinc-950 dark:text-zinc-100'
+                                                : 'text-zinc-900 dark:text-zinc-100'
+                                            }`}
+                                            title="Hàn-lô text (bottom)"
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div className="flex flex-col items-center justify-center leading-tight py-0.5 max-w-full">
+                                          <span className="font-serif italic text-[11px] sm:text-xs font-semibold text-emerald-800 dark:text-emerald-300 truncate max-w-full leading-none mb-0.5">
+                                            {pojText || ' '}
+                                          </span>
+                                          <span className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-full leading-none">
+                                            {hanloText || ' '}
+                                          </span>
+                                        </div>
+                                      ))}
+
+                                    {/* Option 4: Both (Hàn-lô on the top, POJ below) */}
+                                    {vDisplayOption === 'both_hanlo_top' &&
+                                      (isSelectedLyric ? (
+                                        <div className="flex flex-col items-center justify-center w-full gap-0.5">
+                                          {/* Top: Hàn-lô */}
+                                          <input
+                                            type="text"
+                                            autoFocus={activeLyricSubfield === 'hanlo'}
+                                            value={hanloText}
+                                            onFocus={() => setActiveLyricSubfield('hanlo')}
+                                            onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
+                                            onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
+                                            placeholder="Hàn-lô"
+                                            className={`w-full text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                              activeLyricSubfield === 'hanlo'
+                                                ? 'ring-1 ring-amber-500 bg-amber-50/70 dark:bg-amber-950/60 text-zinc-950 dark:text-zinc-100'
+                                                : 'text-zinc-900 dark:text-zinc-100'
+                                            }`}
+                                            title="Hàn-lô text (top)"
+                                          />
+                                          {/* Bottom: POJ */}
+                                          <input
+                                            type="text"
+                                            autoFocus={activeLyricSubfield === 'poj'}
+                                            value={pojText}
+                                            onFocus={() => setActiveLyricSubfield('poj')}
+                                            onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
+                                            onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
+                                            placeholder="POJ"
+                                            className={`w-full text-center font-serif italic text-[11px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                              activeLyricSubfield === 'poj'
+                                                ? 'ring-1 ring-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200'
+                                                : 'text-emerald-800 dark:text-emerald-300'
+                                            }`}
+                                            title="POJ Romanization (bottom)"
+                                          />
+                                        </div>
+                                      ) : (
+                                        <div className="flex flex-col items-center justify-center leading-tight py-0.5 max-w-full">
+                                          <span className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-full leading-none mb-0.5">
+                                            {hanloText || ' '}
+                                          </span>
+                                          <span className="font-serif italic text-[11px] sm:text-xs font-semibold text-emerald-800 dark:text-emerald-300 truncate max-w-full leading-none">
+                                            {pojText || ' '}
+                                          </span>
+                                        </div>
+                                      ))}
+                                  </div>
+                                );
+                              })}
                             </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Verse 2 Line (if present or in multi-verse mode) */}
-                      <div className={`flex items-center justify-around w-full text-xs sm:text-sm font-sans font-medium ${
-                        sheetTheme === 'dark' ? 'text-zinc-400' : 'text-zinc-700'
-                      }`}>
-                        {isFirstInSystem && (
-                          <span className="text-[10px] font-mono text-zinc-400 -ml-1 mr-1 select-none font-bold">
-                            2.
-                          </span>
-                        )}
-                        {engravedM.notes.map((engNote, nIdx) => {
-                          const isSelectedLyric2 =
-                            isSelectedMeasure &&
-                            nIdx === currentNIdx &&
-                            activeField === 'lyric' &&
-                            activeVerseRow === 2;
-
-                          const v2Syllable =
-                            engNote.note.lyricsByVerse?.[2]?.hanlo ||
-                            engNote.note.lyricsByVerse?.[2]?.custom ||
-                            '';
-
-                          return (
-                            <div
-                              key={`lyric-v2-${engNote.note.id}`}
-                              onClick={e => {
-                                e.stopPropagation();
-                                handleNoteClick(engravedM.measureIndex, nIdx, 'lyric', 2);
-                              }}
-                              className={`flex-1 text-center min-w-[24px] min-h-[36px] flex items-center justify-center px-0.5 py-0.5 rounded cursor-text touch-manipulation ${
-                                isSelectedLyric2
-                                  ? sheetTheme === 'dark'
-                                    ? 'bg-amber-950 ring-2 ring-amber-400 font-bold text-amber-200'
-                                    : 'bg-amber-200 ring-2 ring-amber-500 font-bold text-zinc-950'
-                                  : sheetTheme === 'dark'
-                                  ? 'hover:bg-zinc-800'
-                                  : 'hover:bg-zinc-100'
-                              }`}
-                            >
-                              {isSelectedLyric2 ? (
-                                <input
-                                  type="text"
-                                  autoFocus
-                                  value={v2Syllable}
-                                  onChange={e => handleLyricInputChange(e.target.value, 2)}
-                                  onKeyDown={e => {
-                                    if (e.key === ' ' || e.key === 'Tab' || e.key === '-') {
-                                      e.preventDefault();
-                                      if (e.key === '-') {
-                                        const cur = e.currentTarget.value;
-                                        const updated = cur.endsWith('-') ? cur : cur + '-';
-                                        handleLyricInputChange(updated, 2);
-                                      }
-                                      stepToNextNote();
-                                    }
-                                  }}
-                                  className="w-full text-center bg-transparent border-none outline-none font-bold touch-manipulation"
-                                />
-                              ) : (
-                                <span>{v2Syllable || ' '}</span>
-                              )}
-                            </div>
-                          );
-                        })}
-                      </div>
+                          </div>
+                        );
+                      })}
                     </div>
 
                     {/* Barline at right edge */}
@@ -2330,6 +2612,11 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         onToggleActiveField={() => setActiveField(f => (f === 'pitch' ? 'lyric' : 'pitch'))}
         selectedVerseRow={activeVerseRow}
         onChangeVerseRow={row => setActiveVerseRow(row)}
+        availableVerseRows={availableVerseRows}
+        currentVerseDisplayOption={getVerseDisplayOption(song)}
+        onChangeVerseDisplayOption={handleUpdateGlobalLyricDisplayOption}
+        onAddVerse={verseCount < 5 ? handleAddVerse : undefined}
+        onRemoveVerse={verseCount > 1 ? handleRemoveVerse : undefined}
         onStepNextNote={stepToNextNote}
         onStepPrevNote={stepToPrevNote}
         onUndo={onUndo}
