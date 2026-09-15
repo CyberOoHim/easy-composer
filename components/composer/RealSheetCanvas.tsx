@@ -1334,18 +1334,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     [updateCurrentNote, currentMIdx, currentNIdx]
   );
 
-  // Quick insert diacritics/hyphen/character into lyric for touch & iPad controls
-  const handleInsertLyricChar = useCallback(
-    (char: string) => {
-      if (!currentNote) return;
-      const curText =
-        activeVerseRow === 1
-          ? currentNote.lyric.hanlo || currentNote.lyric.poj || currentNote.lyric.custom || ''
-          : currentNote.lyricsByVerse?.[activeVerseRow]?.hanlo || '';
-      handleLyricInputChange(curText + char, activeVerseRow);
-    },
-    [currentNote, activeVerseRow, handleLyricInputChange]
-  );
 
   // In-place header editing commit
   const commitHeaderEdit = () => {
@@ -2342,7 +2330,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         onToggleActiveField={() => setActiveField(f => (f === 'pitch' ? 'lyric' : 'pitch'))}
         selectedVerseRow={activeVerseRow}
         onChangeVerseRow={row => setActiveVerseRow(row)}
-        onInsertLyricChar={handleInsertLyricChar}
         onStepNextNote={stepToNextNote}
         onStepPrevNote={stepToPrevNote}
         onUndo={onUndo}

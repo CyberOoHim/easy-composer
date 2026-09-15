@@ -146,7 +146,6 @@ export interface FloatingScoreHudProps {
   selectedVerseRow: number;
   onChangeVerseRow: (row: number) => void;
   availableVerseRows?: number[];
-  onInsertLyricChar?: (char: string) => void;
   onStepNextNote?: () => void;
   onStepPrevNote?: () => void;
 
@@ -238,7 +237,6 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   selectedVerseRow,
   onChangeVerseRow,
   availableVerseRows = [1, 2, 3],
-  onInsertLyricChar,
   onStepNextNote,
   onStepPrevNote,
   onUndo,
@@ -897,76 +895,30 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             </div>
           )}
 
-          {/* POJ Diacritics & Syllable Hyphen Palette for iPad & Mobile Touch */}
-          {activeField === 'lyric' && (
-            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
-              {/* Syllable hyphen buttons */}
-              <div className="flex items-center gap-0.5 pr-1 border-r border-zinc-300 dark:border-zinc-700">
+          {/* Step Prev / Next note navigation when in Lyric mode */}
+          {activeField === 'lyric' && (onStepPrevNote || onStepNextNote) && (
+            <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+              {onStepPrevNote && (
                 <button
+                  id="floating-hud-lyric-prev-note-btn"
                   type="button"
-                  onClick={() => onInsertLyricChar?.('-')}
-                  className="px-2 h-7 sm:h-8 rounded-lg font-mono font-bold text-xs sm:text-sm flex items-center justify-center bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-95 cursor-pointer touch-manipulation shadow-2xs"
-                  title="Insert POJ Syllable Hyphen (-)"
+                  onClick={onStepPrevNote}
+                  className="px-2.5 h-7 sm:h-8 rounded-lg font-sans font-bold text-xs flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer touch-manipulation"
+                  title="Previous Note"
                 >
-                  - (hyphen)
+                  ←
                 </button>
+              )}
+              {onStepNextNote && (
                 <button
+                  id="floating-hud-lyric-next-note-btn"
                   type="button"
-                  onClick={() => onInsertLyricChar?.('--')}
-                  className="px-2 h-7 sm:h-8 rounded-lg font-mono font-bold text-xs sm:text-sm flex items-center justify-center bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-95 cursor-pointer touch-manipulation shadow-2xs"
-                  title="Insert POJ Double Hyphen (--)"
+                  onClick={onStepNextNote}
+                  className="px-2.5 h-7 sm:h-8 rounded-lg font-sans font-bold text-xs flex items-center justify-center bg-amber-500 text-zinc-950 font-bold hover:bg-amber-400 transition-all cursor-pointer touch-manipulation shadow-2xs"
+                  title="Next Note"
                 >
-                  --
+                  Next →
                 </button>
-              </div>
-
-              {/* Tonal & Special Vowels */}
-              <div className="flex items-center gap-0.5">
-                {[
-                  { label: 'á', title: 'Tone 2 (á) - Sióng-siaⁿ' },
-                  { label: 'à', title: 'Tone 3 (à) - Khì-siaⁿ' },
-                  { label: 'â', title: 'Tone 5 (â) - Iông-pîng' },
-                  { label: 'ā', title: 'Tone 7 (ā) - Iông-khì' },
-                  { label: 'a̍', title: 'Tone 8 (a̍) - Iông-ji̍p' },
-                  { label: 'o͘', title: 'Open O (o͘)' },
-                  { label: 'ⁿ', title: 'Nasal Superscript (ⁿ)' },
-                ].map(item => (
-                  <button
-                    key={item.label}
-                    type="button"
-                    onClick={() => onInsertLyricChar?.(item.label)}
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-serif font-bold text-xs sm:text-sm flex items-center justify-center bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-95 cursor-pointer touch-manipulation shadow-2xs"
-                    title={item.title}
-                  >
-                    {item.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Step Prev / Next note */}
-              {(onStepPrevNote || onStepNextNote) && (
-                <div className="flex items-center gap-0.5 pl-1 border-l border-zinc-300 dark:border-zinc-700">
-                  {onStepPrevNote && (
-                    <button
-                      type="button"
-                      onClick={onStepPrevNote}
-                      className="px-2 h-7 sm:h-8 rounded-lg font-sans font-bold text-xs flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer touch-manipulation"
-                      title="Previous Note"
-                    >
-                      ←
-                    </button>
-                  )}
-                  {onStepNextNote && (
-                    <button
-                      type="button"
-                      onClick={onStepNextNote}
-                      className="px-2 h-7 sm:h-8 rounded-lg font-sans font-bold text-xs flex items-center justify-center bg-amber-500 text-zinc-950 font-bold hover:bg-amber-400 transition-all cursor-pointer touch-manipulation shadow-2xs"
-                      title="Next Note"
-                    >
-                      Next →
-                    </button>
-                  )}
-                </div>
               )}
             </div>
           )}
