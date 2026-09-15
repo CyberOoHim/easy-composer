@@ -23,6 +23,7 @@ export interface AudioEngineOptions {
   backingVolume?: number;   // 0 to 1 (chord accompaniment volume)
   chordEnabled?: boolean;   // chord accompaniment toggle (default true)
   metronomeVolume?: number; // 0 to 1
+  metronomeEnabled?: boolean; // metronome click toggle (default true)
   transpose?: number;       // Semitones (-12 to +12)
   tempoMultiplier?: number; // 0.5 to 2.0
   loopMeasure?: number | null; // index of measure to loop, or null
@@ -63,6 +64,7 @@ export class AudioEngine {
     backingVolume: 0.6,
     chordEnabled: true,
     metronomeVolume: 0.45,
+    metronomeEnabled: true,
     transpose: 0,
     tempoMultiplier: 1.0,
     loopMeasure: null,
@@ -246,6 +248,18 @@ export class AudioEngine {
         const savedChord = localStorage.getItem('taigi_composer_chord_enabled');
         if (savedChord !== null) {
           this.options.chordEnabled = savedChord === 'true';
+        }
+        const savedMetronome = localStorage.getItem('taigi_composer_metronome_enabled');
+        if (savedMetronome !== null) {
+          this.options.metronomeEnabled = savedMetronome === 'true';
+        }
+        const savedMetronomeVol = localStorage.getItem('taigi_composer_metronome_volume');
+        if (savedMetronomeVol !== null) {
+          const num = parseFloat(savedMetronomeVol);
+          if (!isNaN(num) && num >= 0 && num <= 1) {
+            if (Math.abs(num - 0.15) < 0.01) this.options.metronomeVolume = 0.45;
+            else this.options.metronomeVolume = num;
+          }
         }
         const savedBacking = localStorage.getItem('taigi_composer_backing_volume');
         if (savedBacking !== null) {
@@ -456,7 +470,8 @@ export class AudioEngine {
         this.backingGain.connect(this.masterGain);
 
         this.metronomeGain = this.ctx.createGain();
-        this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
+        const effectiveMetronome = this.options.metronomeEnabled !== false ? this.options.metronomeVolume : 0;
+        this.metronomeGain.gain.setValueAtTime(effectiveMetronome, this.ctx.currentTime);
         this.metronomeGain.connect(this.masterGain);
       } catch (e) {
         console.warn('[AudioEngine] Gain node initialization warning:', e);
@@ -465,7 +480,8 @@ export class AudioEngine {
       if (!this.metronomeGain) {
         try {
           this.metronomeGain = this.ctx.createGain();
-          this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
+          const effectiveMetronome = this.options.metronomeEnabled !== false ? this.options.metronomeVolume : 0;
+          this.metronomeGain.gain.setValueAtTime(effectiveMetronome, this.ctx.currentTime);
           this.metronomeGain.connect(this.masterGain);
         } catch {}
       }
@@ -537,8 +553,9 @@ export class AudioEngine {
         const effectiveBacking = this.options.chordEnabled !== false ? this.options.backingVolume : 0;
         this.backingGain.gain.setValueAtTime(effectiveBacking, this.ctx.currentTime);
       }
-      if (this.metronomeGain && this.options.metronomeVolume !== undefined) {
-        this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
+      if (this.metronomeGain && (this.options.metronomeVolume !== undefined || this.options.metronomeEnabled !== undefined)) {
+        const effectiveMetronome = this.options.metronomeEnabled !== false ? this.options.metronomeVolume : 0;
+        this.metronomeGain.gain.setValueAtTime(effectiveMetronome, this.ctx.currentTime);
       }
     }
     // Seamlessly re-seek if primary instrument changed during active playback so subsequent notes use the new sound tone
@@ -1756,19 +1773,21 @@ export class AudioEngine {
   /**
    * Play a metronome click (punchy woodblock tone with crisp transient)
    */
-  private playMetronomeClick(startTime: number, isDownbeat: boolean) {
+  public playMetronomeClick(startTime?: number, isDownbeat: boolean = false) {
+    if (this.options.metronomeEnabled === false) return;
     if (!this.ctx || !this.metronomeGain || this.options.metronomeVolume <= 0.01) return;
 
     try {
+      const clickTime = startTime !== undefined ? startTime : this.ctx.currentTime;
       const startFreq = isDownbeat ? 2200 : 1400;
       const targetFreq = isDownbeat ? 1600 : 1000;
-      const osc = this.createVoiceOsc('triangle', startFreq, startTime, startTime + 0.05);
-      osc.frequency.exponentialRampToValueAtTime(targetFreq, startTime + 0.008);
+      const osc = this.createVoiceOsc('triangle', startFreq, clickTime, clickTime + 0.05);
+      osc.frequency.exponentialRampToValueAtTime(targetFreq, clickTime + 0.008);
 
       const peakGain = isDownbeat ? 0.95 : 0.75;
-      const gain = this.createVoiceGain(startTime, 0.0001);
-      gain.gain.linearRampToValueAtTime(peakGain, startTime + 0.001);
-      gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.045);
+      const gain = this.createVoiceGain(clickTime, 0.0001);
+      gain.gain.linearRampToValueAtTime(peakGain, clickTime + 0.001);
+      gain.gain.exponentialRampToValueAtTime(0.0001, clickTime + 0.045);
 
       osc.connect(gain);
       gain.connect(this.metronomeGain);
@@ -3047,7 +3066,8 @@ export class AudioEngine {
       this.backingGain.connect(this.masterGain);
 
       this.metronomeGain = this.ctx.createGain();
-      this.metronomeGain.gain.setValueAtTime(this.options.metronomeVolume, this.ctx.currentTime);
+      const effectiveMetronome = this.options.metronomeEnabled !== false ? this.options.metronomeVolume : 0;
+      this.metronomeGain.gain.setValueAtTime(effectiveMetronome, this.ctx.currentTime);
       this.metronomeGain.connect(this.masterGain);
     }
   }

@@ -54,7 +54,7 @@ export interface RealSheetCanvasProps {
   // Selected coordinate [measureIndex, noteIndex]
   selectedMeasureIndex?: number | null;
   selectedNoteIndex?: number | null;
-  onSelectNote?: (measureIndex: number, noteIndex: number) => void;
+  onSelectNote?: (measureIndex: number, noteIndex: number, preview?: boolean) => void;
   onSelectMeasure?: (measureIndex: number) => void;
 
   // Active playing note ID
@@ -83,8 +83,7 @@ export interface RealSheetCanvasProps {
   audioEngine?: AudioEngine;
   previewNoteAudio?: (key: KeySignature, note: NumberedNotationNote) => void;
 
-  // Modals & Advanced Tools
-  onOpenKeyboardModal?: () => void;
+  // Advanced Tools
   onAutoHarmonize?: () => void;
   onUpdateMeasureChord?: (measureIndex: number, chord: string) => void;
 
@@ -130,7 +129,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   onAutoFillRest,
   audioEngine,
   previewNoteAudio,
-  onOpenKeyboardModal,
   onAutoHarmonize,
   onUpdateMeasureChord,
   displayMode = 'hanlo_major_roman',
@@ -209,8 +207,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Handle Note Selection
   const handleNoteClick = useCallback(
-    (mIdx: number, nIdx: number, targetField: 'pitch' | 'lyric' = 'pitch', verseRow = 1) => {
-      onSelectNote?.(mIdx, nIdx);
+    (mIdx: number, nIdx: number, targetField: 'pitch' | 'lyric' = 'pitch', verseRow = 1, previewAudio = true) => {
+      onSelectNote?.(mIdx, nIdx, previewAudio);
       onSelectMeasure?.(mIdx);
       setActiveField(targetField);
       if (targetField === 'lyric') {
@@ -498,23 +496,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
   }, [onAutoHarmonize, song, onUpdateSong]);
 
-  // Virtual Piano key pitch selection (updates selected note without jumping or duplicate sound)
-  const handleSelectPitchFromPiano = useCallback(
-    (pitch: PitchNumber, octave: number, accidental: '' | '#' | 'b') => {
-      updateCurrentNote(
-        note => ({
-          ...note,
-          pitch,
-          octave,
-          accidental,
-        }),
-        false // PianoKeyboard plays live sound directly; avoid duplicate sound
-      );
-      // Keeps focus on current note so user can hear pitch and inspect without unexpected jumps
-    },
-    [updateCurrentNote]
-  );
-
   // Measure operations
   const handleAddMeasureClick = useCallback(() => {
     if (onAddMeasure) {
@@ -534,6 +515,72 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       onUpdateSong({ ...song, measures: [...song.measures, newM] });
     }
   }, [onAddMeasure, song, onUpdateSong]);
+
+  // Virtual Piano deck mode: 'step' (direct pitch) vs 'transcribe' (live on-the-fly transcribe)
+  const [pianoDeckMode, setPianoDeckMode] = useState<'step' | 'transcribe'>('step');
+
+  // Virtual Piano key pitch selection (updates selected note with optional progression)
+  const handleSelectPitchFromPiano = useCallback(
+    (pitch: PitchNumber, octave: number, accidental: '' | '#' | 'b', shouldAdvance: boolean = false) => {
+      updateCurrentNote(
+        note => ({
+          ...note,
+          pitch,
+          octave,
+          accidental,
+        }),
+        false // PianoKeyboard plays live sound directly; avoid duplicate sound
+      );
+
+      if (shouldAdvance) {
+        if (currentMeasure && currentNIdx < currentMeasure.notes.length - 1) {
+          handleNoteClick(currentMIdx, currentNIdx + 1, activeField, activeVerseRow, false);
+        } else if (currentMIdx < song.measures.length - 1) {
+          handleNoteClick(currentMIdx + 1, 0, activeField, activeVerseRow, false);
+        } else {
+          handleAddMeasureClick();
+        }
+      }
+    },
+    [updateCurrentNote, currentMeasure, currentNIdx, currentMIdx, song.measures.length, handleNoteClick, activeField, activeVerseRow, handleAddMeasureClick]
+  );
+
+  // Live on-the-fly transcribe handler from PianoKeyboard
+  const handleTranscribeFromPiano = useCallback(
+    (
+      pitch: PitchNumber,
+      octave: number,
+      accidental: '' | '#' | 'b',
+      duration: NoteDuration,
+      isDotted: boolean = false,
+      isTriplet: boolean = false,
+      shouldAdvance: boolean = false
+    ) => {
+      updateCurrentNote(
+        note => ({
+          ...note,
+          pitch,
+          octave,
+          accidental,
+          duration,
+          isDotted,
+          isTriplet,
+        }),
+        false
+      );
+
+      if (shouldAdvance) {
+        if (currentMeasure && currentNIdx < currentMeasure.notes.length - 1) {
+          handleNoteClick(currentMIdx, currentNIdx + 1, activeField, activeVerseRow, false);
+        } else if (currentMIdx < song.measures.length - 1) {
+          handleNoteClick(currentMIdx + 1, 0, activeField, activeVerseRow, false);
+        } else {
+          handleAddMeasureClick();
+        }
+      }
+    },
+    [updateCurrentNote, currentMeasure, currentNIdx, currentMIdx, song.measures.length, handleNoteClick, activeField, activeVerseRow, handleAddMeasureClick]
+  );
 
   const handleDeleteMeasureClick = useCallback(() => {
     if (song.measures.length <= 1) return;
@@ -1765,27 +1812,21 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         pianoBedSlot={
           activeHudDrawer === 'piano' ? (
             <div className="w-full max-w-4xl px-2 sm:px-4 animate-in fade-in slide-in-from-bottom-2 duration-150">
-              <div className="bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-2xl p-2 sm:p-2.5 relative">
-                <button
-                  type="button"
-                  onClick={() => setActiveHudDrawer('none')}
-                  className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors z-10 cursor-pointer"
-                  title="Close Piano Bed (Esc)"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-                <PianoKeyboard
-                  keySignature={song.key}
-                  currentNote={currentNote || null}
-                  onSelectPitch={handleSelectPitchFromPiano}
-                  audioEngine={audioEngine || defaultAudioEngine}
-                  onOpenKeyboardToScore={onOpenKeyboardModal}
-                />
-              </div>
+              <PianoKeyboard
+                keySignature={song.key}
+                currentNote={currentNote || null}
+                onSelectPitch={handleSelectPitchFromPiano}
+                onTranscribeNote={handleTranscribeFromPiano}
+                audioEngine={audioEngine || defaultAudioEngine}
+                bpm={song.bpm || 80}
+                timeSignature={song.timeSignature || '4/4'}
+                mode={pianoDeckMode}
+                onModeChange={setPianoDeckMode}
+                onClose={() => setActiveHudDrawer('none')}
+              />
             </div>
           ) : null
         }
-        onOpenKeyboardModal={onOpenKeyboardModal}
         onAddMeasure={handleAddMeasureClick}
         onDeleteSelectedMeasure={handleDeleteMeasureClick}
         onToggleLineBreak={handleToggleLineBreakClick}

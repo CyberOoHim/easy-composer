@@ -1,21 +1,72 @@
 'use client';
 
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { NumberedNotationNote, KeySignature, PitchNumber, InstrumentType } from '@/types/song';
+import { NumberedNotationNote, KeySignature, PitchNumber, InstrumentType, NoteDuration } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import { KEY_SEMITONES, SCALE_DEGREE_SEMITONES, INSTRUMENT_OPTIONS } from '@/lib/taigiUtils';
-import { getStoredInstrument, setStoredInstrument } from '@/lib/storage';
-import { Music, Sparkles, Keyboard } from 'lucide-react';
+import {
+  getStoredInstrument,
+  setStoredInstrument,
+  getStoredAutoStepAdvance,
+  setStoredAutoStepAdvance,
+} from '@/lib/storage';
+import {
+  quantizeDurationToBeats,
+  midiToNumberedPitch,
+  getGridBeatValue,
+  QuantizeGrid,
+  QuantizedDurationResult,
+} from '@/lib/pitch/scoreQuantizer';
+import { resolveQwertyKey } from '@/lib/keyboard/keyEventEngine';
+import { useWebMidi } from '@/lib/keyboard/webMidi';
+import {
+  Music,
+  Keyboard,
+  Zap,
+  Target,
+  ArrowRight,
+  Volume2,
+  VolumeX,
+  Radio,
+  Clock,
+  Sparkles,
+  X,
+  Sliders,
+} from 'lucide-react';
 
-interface PianoKeyboardProps {
+export type PianoDeckMode = 'step' | 'transcribe';
+export type PianoProgressionMode = 'single' | 'auto';
+
+export interface PianoKeyboardProps {
   keySignature: KeySignature;
   currentNote: NumberedNotationNote | null;
-  onSelectPitch: (pitch: PitchNumber, octave: number, accidental: '' | '#' | 'b') => void;
+  onSelectPitch: (
+    pitch: PitchNumber,
+    octave: number,
+    accidental: '' | '#' | 'b',
+    shouldAdvance?: boolean
+  ) => void;
+  onTranscribeNote?: (
+    pitch: PitchNumber,
+    octave: number,
+    accidental: '' | '#' | 'b',
+    duration: NoteDuration,
+    isDotted?: boolean,
+    isTriplet?: boolean,
+    shouldAdvance?: boolean
+  ) => void;
   audioEngine: AudioEngine;
+  bpm?: number;
+  timeSignature?: string;
   className?: string;
   onOpenKeyboardToScore?: () => void;
   instrument?: InstrumentType;
   onSetInstrument?: (inst: InstrumentType) => void;
+  mode?: PianoDeckMode;
+  onModeChange?: (mode: PianoDeckMode) => void;
+  progressionMode?: PianoProgressionMode;
+  onProgressionModeChange?: (progression: PianoProgressionMode) => void;
+  onClose?: () => void;
 }
 
 // 12 chromatic note names for sharp keys vs flat keys
@@ -23,7 +74,7 @@ const CHROMATIC_NOTE_NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', '
 const CHROMATIC_NOTE_NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
 const FLAT_KEY_SIGNATURES = new Set(['F', 'Bb', 'Eb', 'Ab', 'Db', 'Gb']);
 
-interface KeyDefinition {
+export interface KeyDefinition {
   isBlack: boolean;
   pitch: PitchNumber;
   accidental: '' | '#' | 'b';
@@ -32,31 +83,66 @@ interface KeyDefinition {
   accidentalLabel?: string;
   solfege: string;
   noteName: string;
-  leftPercent?: number; // for black keys positioning
+  leftPercent?: number;
 }
 
 export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   keySignature,
   currentNote,
   onSelectPitch,
+  onTranscribeNote,
   audioEngine,
+  bpm = 80,
+  timeSignature = '4/4',
   className = '',
   onOpenKeyboardToScore,
   instrument: propInstrument,
   onSetInstrument,
+  mode: propMode,
+  onModeChange,
+  progressionMode: propProgressionMode,
+  onProgressionModeChange,
+  onClose,
 }) => {
-  // Octave display range view: 'low_mid' (-1, 0), 'mid_high' (0, 1), 'all' (-1, 0, 1), 'mid' (0)
+  // 1. Operational Mode: 'step' (Direct Pitch Selection) vs 'transcribe' (Live on-the-fly transcribe)
+  const [internalMode, setInternalMode] = useState<PianoDeckMode>('step');
+  const activeMode = propMode !== undefined ? propMode : internalMode;
+
+  const handleSetMode = useCallback((newMode: PianoDeckMode) => {
+    setInternalMode(newMode);
+    onModeChange?.(newMode);
+  }, [onModeChange]);
+
+  // 2. Progression Mode: 'single' (Enter in current note only) vs 'auto' (Auto-advance caret to next note)
+  const [internalProgression, setInternalProgression] = useState<PianoProgressionMode>(() => {
+    return getStoredAutoStepAdvance(false) ? 'auto' : 'single';
+  });
+  const activeProgression = propProgressionMode !== undefined ? propProgressionMode : internalProgression;
+
+  const handleSetProgression = useCallback((newProg: PianoProgressionMode) => {
+    setInternalProgression(newProg);
+    const isAuto = newProg === 'auto';
+    setStoredAutoStepAdvance(isAuto);
+    onProgressionModeChange?.(newProg);
+  }, [onProgressionModeChange]);
+
+  // 3. Transcribe Quantization Settings
+  const [quantizeGrid, setQuantizeGrid] = useState<QuantizeGrid>('eighth');
+  const [allowTriplets, setAllowTriplets] = useState<boolean>(false);
+  const [isMetronomeActive, setIsMetronomeActive] = useState<boolean>(false);
+  const [metronomeBeat, setMetronomeBeat] = useState<number>(1);
+  const [isMetronomePulse, setIsMetronomePulse] = useState<boolean>(false);
+
+  // 4. Keyboard Display Settings
   const [octaveView, setOctaveView] = useState<'low_mid' | 'mid_high' | 'all' | 'mid'>('low_mid');
-  // Label mode: 'both' | 'numberedNotations' | 'note'
   const [labelMode, setLabelMode] = useState<'both' | 'numberedNotations' | 'note'>('both');
 
-  // Active instrument
+  // 5. Active Instrument
   const [localInstrument, setLocalInstrument] = useState<InstrumentType>(() => {
     if (propInstrument) return propInstrument;
     if (typeof window !== 'undefined') return getStoredInstrument();
     return 'piano';
   });
-
   const activeInstrument = propInstrument || localInstrument;
 
   const handleInstrumentChange = useCallback((newInst: InstrumentType) => {
@@ -64,9 +150,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
     setStoredInstrument(newInst);
     audioEngine.setOptions({ instrument: newInst });
     audioEngine.previewInstrumentTone(keySignature, newInst);
-    if (onSetInstrument) {
-      onSetInstrument(newInst);
-    }
+    onSetInstrument?.(newInst);
   }, [audioEngine, keySignature, onSetInstrument]);
 
   // Base key semitone relative to C4 (0 = C)
@@ -74,7 +158,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   const isFlatKey = FLAT_KEY_SIGNATURES.has(keySignature);
   const noteNameList = isFlatKey ? CHROMATIC_NOTE_NAMES_FLAT : CHROMATIC_NOTE_NAMES_SHARP;
 
-  // Helper to compute absolute note name and octave from Numbered Notation scale degree + key
+  // Helper to compute note details
   const getNoteDetails = useMemo(() => {
     return (pitch: PitchNumber, octave: number, accidental: '' | '#' | 'b') => {
       if (pitch === 'empty' || pitch === 0) {
@@ -124,9 +208,8 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
     };
   }, [baseKeySemitone, noteNameList]);
 
-  // Generate keys for a single octave
+  // Generate keys for an octave
   const generateOctaveKeys = useCallback((octaveNum: number) => {
-    // 7 White keys (1, 2, 3, 4, 5, 6, 7)
     const whiteKeys: KeyDefinition[] = [1, 2, 3, 4, 5, 6, 7].map(p => {
       const pitch = p as PitchNumber;
       const { noteName, solfege } = getNoteDetails(pitch, octaveNum, '');
@@ -142,41 +225,11 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
     });
 
     const blackKeys: KeyDefinition[] = [
-      {
-        pitch: 1 as PitchNumber,
-        accidental: '#' as const,
-        leftPercent: 9.7,
-        numberedNotationLabel: '♯1',
-        accidentalLabel: '♭2',
-      },
-      {
-        pitch: 2 as PitchNumber,
-        accidental: '#' as const,
-        leftPercent: 24.0,
-        numberedNotationLabel: '♯2',
-        accidentalLabel: '♭3',
-      },
-      {
-        pitch: 4 as PitchNumber,
-        accidental: '#' as const,
-        leftPercent: 52.5,
-        numberedNotationLabel: '♯4',
-        accidentalLabel: '♭5',
-      },
-      {
-        pitch: 5 as PitchNumber,
-        accidental: '#' as const,
-        leftPercent: 66.8,
-        numberedNotationLabel: '♯5',
-        accidentalLabel: '♭6',
-      },
-      {
-        pitch: 6 as PitchNumber,
-        accidental: '#' as const,
-        leftPercent: 81.1,
-        numberedNotationLabel: '♯6',
-        accidentalLabel: '♭7',
-      },
+      { pitch: 1 as PitchNumber, accidental: '#' as const, leftPercent: 9.7, numberedNotationLabel: '♯1', accidentalLabel: '♭2' },
+      { pitch: 2 as PitchNumber, accidental: '#' as const, leftPercent: 24.0, numberedNotationLabel: '♯2', accidentalLabel: '♭3' },
+      { pitch: 4 as PitchNumber, accidental: '#' as const, leftPercent: 52.5, numberedNotationLabel: '♯4', accidentalLabel: '♭5' },
+      { pitch: 5 as PitchNumber, accidental: '#' as const, leftPercent: 66.8, numberedNotationLabel: '♯5', accidentalLabel: '♭6' },
+      { pitch: 6 as PitchNumber, accidental: '#' as const, leftPercent: 81.1, numberedNotationLabel: '♯6', accidentalLabel: '♭7' },
     ].map(bk => {
       const { noteName, solfege } = getNoteDetails(bk.pitch, octaveNum, bk.accidental);
       return {
@@ -195,18 +248,13 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
     return { whiteKeys, blackKeys, octaveNum };
   }, [getNoteDetails]);
 
-  // Determine active octaves to show
+  // Determine active octaves
   const activeOctaves = useMemo(() => {
     switch (octaveView) {
-      case 'mid':
-        return [0];
-      case 'low_mid':
-        return [-1, 0];
-      case 'mid_high':
-        return [0, 1];
-      case 'all':
-      default:
-        return [-1, 0, 1];
+      case 'mid': return [0];
+      case 'low_mid': return [-1, 0];
+      case 'mid_high': return [0, 1];
+      case 'all': default: return [-1, 0, 1];
     }
   }, [octaveView]);
 
@@ -215,7 +263,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
   }, [activeOctaves, generateOctaveKeys]);
 
   // Check if a key is currently selected in the score
-  const isKeyActive = (keyDef: KeyDefinition) => {
+  const isKeyActiveInScore = useCallback((keyDef: KeyDefinition) => {
     if (!currentNote) return false;
     if (currentNote.pitch === 'empty' || currentNote.pitch === 0) return false;
 
@@ -223,12 +271,10 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
     const curOct = currentNote.octave ?? 0;
     const curAcc = currentNote.accidental || '';
 
-    // Direct match
     if (curPitch === keyDef.pitch && curOct === keyDef.octave && curAcc === keyDef.accidental) {
       return true;
     }
 
-    // Enharmonic equivalent check
     if (keyDef.isBlack && curOct === keyDef.octave) {
       if (keyDef.pitch === 1 && keyDef.accidental === '#' && curPitch === 2 && curAcc === 'b') return true;
       if (keyDef.pitch === 2 && keyDef.accidental === '#' && curPitch === 3 && curAcc === 'b') return true;
@@ -236,79 +282,321 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
       if (keyDef.pitch === 5 && keyDef.accidental === '#' && curPitch === 6 && curAcc === 'b') return true;
       if (keyDef.pitch === 6 && keyDef.accidental === '#' && curPitch === 7 && curAcc === 'b') return true;
     }
-
     return false;
-  };
+  }, [currentNote]);
 
-  // Active key pressed state for instantaneous visual feedback on pointer down
-  const [activePointerKeyId, setActivePointerKeyId] = useState<string | null>(null);
-  const activeVoiceRef = useRef<{ id: string; startTime: number } | null>(null);
+  // Tracking active pressed keys & sound voices
+  const [activeDownKeyIds, setActiveDownKeyIds] = useState<Set<string>>(new Set());
+  const activeVoicesRef = useRef<Map<string, { voiceId: string; startTime: number; keyDef: KeyDefinition }>>(new Map());
   const isPointerDownRef = useRef<boolean>(false);
 
-  // Play sustained note and update score note immediately on key touch/click
-  const startKeySoundAndSelect = useCallback(
-    (keyDef: KeyDefinition) => {
-      // 1. Audio context wake-up on user gesture
-      audioEngine.unlockOnUserGesture();
-      if (audioEngine.getAudioContextState() === 'suspended') {
-        audioEngine.ensureContextActive().catch(() => {});
+  // Live held duration ticker for transcribe mode
+  const [liveHeldInfo, setLiveHeldInfo] = useState<{
+    keyLabel: string;
+    elapsedMs: number;
+    estimatedBeats: number;
+    quantized: QuantizedDurationResult;
+  } | null>(null);
+
+  const activeHoldTickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Metronome audio & visual ticker
+  useEffect(() => {
+    if (!isMetronomeActive || activeMode !== 'transcribe') {
+      setIsMetronomePulse(false);
+      return;
+    }
+
+    const beatsPerBar = parseInt(timeSignature.split('/')[0], 10) || 4;
+    const intervalMs = (60 / Math.max(30, Math.min(240, bpm))) * 1000;
+    let b = 1;
+    let pulseTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const metroInterval = setInterval(() => {
+      setMetronomeBeat(b);
+      setIsMetronomePulse(true);
+      // Metronome audio click
+      try {
+        const isDownbeat = b === 1;
+        audioEngine.playMetronomeClick(undefined, isDownbeat);
+      } catch {
+        // Fallback silent pulse if audio unavailable
       }
+      b = (b % beatsPerBar) + 1;
+      if (pulseTimer) clearTimeout(pulseTimer);
+      pulseTimer = setTimeout(() => setIsMetronomePulse(false), 120);
+    }, intervalMs);
 
-      const keyId = `${keyDef.octave}-${keyDef.pitch}-${keyDef.accidental || ''}`;
-      setActivePointerKeyId(keyId);
+    return () => {
+      clearInterval(metroInterval);
+      if (pulseTimer) clearTimeout(pulseTimer);
+    };
+  }, [isMetronomeActive, activeMode, bpm, timeSignature, audioEngine]);
 
-      // Stop previous sustained note smoothly if one was still sounding
-      if (activeVoiceRef.current) {
-        audioEngine.stopSustainedNote(activeVoiceRef.current.id, 0.04);
-        activeVoiceRef.current = null;
-      }
+  // Live Duration Ticker when key is held in transcribe mode
+  const startLiveHoldTicker = useCallback((keyDef: KeyDefinition, startTime: number) => {
+    if (activeHoldTickerRef.current) {
+      clearInterval(activeHoldTickerRef.current);
+    }
 
-      const voiceId = `piano-key-${keyId}`;
-      const tempNote: NumberedNotationNote = {
-        id: `piano-press-${keyId}`,
-        pitch: keyDef.pitch,
-        octave: keyDef.octave,
-        accidental: keyDef.accidental,
-        duration: 1,
-        lyric: {},
-        instrument: activeInstrument,
-      };
+    const msPerBeat = (60 / Math.max(30, Math.min(240, bpm))) * 1000;
 
-      // Play sustained note with the user's chosen instrument
-      audioEngine.startSustainedNote(keySignature, tempNote, voiceId, activeInstrument);
-      activeVoiceRef.current = { id: voiceId, startTime: Date.now() };
+    activeHoldTickerRef.current = setInterval(() => {
+      const elapsed = performance.now() - startTime;
+      const rawBeats = elapsed / msPerBeat;
+      const quantized = quantizeDurationToBeats(elapsed, bpm, quantizeGrid, allowTriplets, true);
+      const acc = keyDef.accidental || '';
+      const dot = keyDef.octave > 0 ? '̇' : keyDef.octave < 0 ? '̣' : '';
+      const label = `${acc}${keyDef.pitch}${dot}`;
 
-      // Update current note in score (without advancing note or triggering duplicate audio)
-      onSelectPitch(keyDef.pitch, keyDef.octave, keyDef.accidental);
-    },
-    [audioEngine, activeInstrument, keySignature, onSelectPitch]
-  );
+      setLiveHeldInfo({
+        keyLabel: label,
+        elapsedMs: Math.round(elapsed),
+        estimatedBeats: Math.round(rawBeats * 100) / 100,
+        quantized,
+      });
+    }, 40);
+  }, [bpm, quantizeGrid, allowTriplets]);
 
-  // Stop note sound cleanly when key is released
-  const endKeySound = useCallback(() => {
-    setActivePointerKeyId(null);
-    if (activeVoiceRef.current) {
-      const { id: voiceId, startTime } = activeVoiceRef.current;
-      activeVoiceRef.current = null;
-      const elapsed = Date.now() - startTime;
-      const minRingMs = 220; // Minimum audible ring for quick taps
+  const stopLiveHoldTicker = useCallback(() => {
+    if (activeHoldTickerRef.current) {
+      clearInterval(activeHoldTickerRef.current);
+      activeHoldTickerRef.current = null;
+    }
+    setLiveHeldInfo(null);
+  }, []);
+
+  // Primary Key Down Handler
+  const handleKeyNoteDown = useCallback((keyDef: KeyDefinition, customKeyId?: string) => {
+    const keyId = customKeyId || `${keyDef.octave}-${keyDef.pitch}-${keyDef.accidental || ''}`;
+    const voiceId = `deck-${keyId}-${Date.now()}`;
+    const now = performance.now();
+
+    // Sound generation
+    const tempNote: NumberedNotationNote = {
+      id: voiceId,
+      pitch: keyDef.pitch,
+      octave: keyDef.octave,
+      accidental: keyDef.accidental,
+      duration: 1,
+      lyric: {},
+      instrument: activeInstrument,
+    };
+
+    audioEngine.startSustainedNote(keySignature, tempNote, voiceId, activeInstrument);
+
+    activeVoicesRef.current.set(keyId, {
+      voiceId,
+      startTime: now,
+      keyDef,
+    });
+
+    setActiveDownKeyIds(prev => new Set(prev).add(keyId));
+
+    if (activeMode === 'step') {
+      // Step Input Mode: Direct pitch update immediately
+      const shouldAdvance = activeProgression === 'auto';
+      onSelectPitch(keyDef.pitch, keyDef.octave, keyDef.accidental, shouldAdvance);
+    } else {
+      // Live Transcribe Mode: Start live duration tracker
+      startLiveHoldTicker(keyDef, now);
+    }
+  }, [activeInstrument, audioEngine, keySignature, activeMode, activeProgression, onSelectPitch, startLiveHoldTicker]);
+
+  // Primary Key Up Handler
+  const handleKeyNoteUp = useCallback((customKeyId?: string) => {
+    const now = performance.now();
+
+    const commitAndStopVoice = (keyId: string, entry: { voiceId: string; startTime: number; keyDef: KeyDefinition }) => {
+      const elapsed = now - entry.startTime;
+      const minRingMs = 160;
       const remaining = Math.max(0, minRingMs - elapsed);
+
       if (remaining > 0) {
         setTimeout(() => {
-          audioEngine.stopSustainedNote(voiceId, 0.12);
+          audioEngine.stopSustainedNote(entry.voiceId, 0.12);
         }, remaining);
       } else {
-        audioEngine.stopSustainedNote(voiceId, 0.12);
+        audioEngine.stopSustainedNote(entry.voiceId, 0.12);
+      }
+
+      if (activeMode === 'transcribe') {
+        const result = quantizeDurationToBeats(elapsed, bpm, quantizeGrid, allowTriplets, true);
+        const shouldAdvance = activeProgression === 'auto';
+
+        if (onTranscribeNote) {
+          onTranscribeNote(
+            entry.keyDef.pitch,
+            entry.keyDef.octave,
+            entry.keyDef.accidental,
+            result.duration,
+            result.isDotted,
+            result.isTriplet,
+            shouldAdvance
+          );
+        } else {
+          onSelectPitch(entry.keyDef.pitch, entry.keyDef.octave, entry.keyDef.accidental, shouldAdvance);
+        }
+      }
+    };
+
+    if (customKeyId) {
+      const entry = activeVoicesRef.current.get(customKeyId);
+      if (entry) {
+        commitAndStopVoice(customKeyId, entry);
+        activeVoicesRef.current.delete(customKeyId);
+      }
+      setActiveDownKeyIds(prev => {
+        const next = new Set(prev);
+        next.delete(customKeyId);
+        return next;
+      });
+    } else {
+      // Release all active voices
+      activeVoicesRef.current.forEach((entry, keyId) => {
+        commitAndStopVoice(keyId, entry);
+      });
+      activeVoicesRef.current.clear();
+      setActiveDownKeyIds(new Set());
+    }
+
+    if (activeVoicesRef.current.size === 0) {
+      stopLiveHoldTicker();
+    }
+  }, [audioEngine, activeMode, bpm, quantizeGrid, allowTriplets, activeProgression, onTranscribeNote, onSelectPitch, stopLiveHoldTicker]);
+
+  // Special Keys (Rest '0', Empty '␣')
+  const handleSpecialKeyDown = useCallback((pitch: 0 | 'empty') => {
+    const keyId = `special-${pitch}`;
+    const shouldAdvance = activeProgression === 'auto';
+
+    if (activeMode === 'step') {
+      onSelectPitch(pitch, 0, '', shouldAdvance);
+    } else {
+      // In transcribe mode, enter standard 1 beat duration or current grid duration
+      const gridDur = getGridBeatValue(quantizeGrid) as NoteDuration;
+      if (onTranscribeNote) {
+        onTranscribeNote(pitch, 0, '', gridDur, false, false, shouldAdvance);
+      } else {
+        onSelectPitch(pitch, 0, '', shouldAdvance);
       }
     }
-  }, [audioEngine]);
 
-  // Global safety handlers to release active note if pointer leaves window or releases outside
+    setActiveDownKeyIds(prev => new Set(prev).add(keyId));
+    setTimeout(() => {
+      setActiveDownKeyIds(prev => {
+        const next = new Set(prev);
+        next.delete(keyId);
+        return next;
+      });
+    }, 120);
+  }, [activeProgression, activeMode, onSelectPitch, quantizeGrid, onTranscribeNote]);
+
+  // Web MIDI Hardware Controller Hook
+  const handleMidiMessage = useCallback((event: { data: Uint8Array | number[] }) => {
+    const data = event.data;
+    if (!data || data.length < 2) return;
+
+    const status = data[0] & 0xf0;
+    const noteNumber = data[1];
+    const velocity = data.length > 2 ? data[2] : 64;
+
+    if (status === 0x90 && velocity > 0) {
+      // Note On
+      const pitchInfo = midiToNumberedPitch(noteNumber, keySignature);
+      if (pitchInfo.pitch !== 'empty' && pitchInfo.pitch !== 0) {
+        const keyDef: KeyDefinition = {
+          isBlack: pitchInfo.accidental === '#' || pitchInfo.accidental === 'b',
+          pitch: pitchInfo.pitch,
+          accidental: pitchInfo.accidental,
+          octave: pitchInfo.octave,
+          numberedNotationLabel: `${pitchInfo.pitch}`,
+          solfege: '',
+          noteName: '',
+        };
+        handleKeyNoteDown(keyDef, `midi-${noteNumber}`);
+      }
+    } else if (status === 0x80 || (status === 0x90 && velocity === 0)) {
+      // Note Off
+      handleKeyNoteUp(`midi-${noteNumber}`);
+    }
+  }, [keySignature, handleKeyNoteDown, handleKeyNoteUp]);
+
+  const midiState = useWebMidi(handleMidiMessage, true);
+
+  // QWERTY Computer Keyboard Typing Listener
+  useEffect(() => {
+    const activeQwertyKeys = new Set<string>();
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Guard: Ignore if user is typing in text inputs or dialogs
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === 'INPUT' ||
+          activeEl.tagName === 'TEXTAREA' ||
+          (activeEl instanceof HTMLElement && activeEl.isContentEditable))
+      ) {
+        return;
+      }
+
+      if (e.repeat) return; // Prevent OS key repetition bounces
+
+      // Rest note 0 or Spacebar
+      if (e.code === 'Digit0' || e.code === 'Numpad0' || e.code === 'Space') {
+        e.preventDefault();
+        handleSpecialKeyDown(0);
+        return;
+      }
+
+      // Empty note
+      if (e.code === 'Backquote') {
+        e.preventDefault();
+        handleSpecialKeyDown('empty');
+        return;
+      }
+
+      // Check musical QWERTY mapping
+      const resolved = resolveQwertyKey(e.code, keySignature, 0, 'chromatic_piano');
+      if (resolved && resolved.pitch !== 'empty' && resolved.pitch !== 0) {
+        e.preventDefault();
+        activeQwertyKeys.add(e.code);
+        const keyDef: KeyDefinition = {
+          isBlack: resolved.isBlack,
+          pitch: resolved.pitch,
+          accidental: resolved.accidental,
+          octave: resolved.octave,
+          numberedNotationLabel: resolved.label,
+          solfege: resolved.solfege,
+          noteName: '',
+        };
+        handleKeyNoteDown(keyDef, `qwerty-${e.code}`);
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (activeQwertyKeys.has(e.code)) {
+        activeQwertyKeys.delete(e.code);
+        handleKeyNoteUp(`qwerty-${e.code}`);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+      handleKeyNoteUp(); // Release everything on unmount
+    };
+  }, [keySignature, handleKeyNoteDown, handleKeyNoteUp, handleSpecialKeyDown]);
+
+  // Global Pointer Release handlers
   useEffect(() => {
     const handleGlobalPointerUp = () => {
       if (isPointerDownRef.current) {
         isPointerDownRef.current = false;
-        endKeySound();
+        handleKeyNoteUp();
       }
     };
 
@@ -324,39 +612,105 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
       window.removeEventListener('touchend', handleGlobalPointerUp);
       window.removeEventListener('touchcancel', handleGlobalPointerUp);
       window.removeEventListener('blur', handleGlobalPointerUp);
-      if (activeVoiceRef.current) {
-        audioEngine.stopSustainedNote(activeVoiceRef.current.id, 0.05);
-      }
+      handleKeyNoteUp();
     };
-  }, [audioEngine, endKeySound]);
+  }, [handleKeyNoteUp]);
 
   return (
     <div
-      id="piano-keyboard-container"
-      className={`flex flex-col gap-2 p-3 bg-[#10121a]/95 text-zinc-100 rounded-2xl border border-zinc-800 shadow-xl select-none ${className}`}
+      id="piano-keyboard-deck"
+      className={`flex flex-col gap-2.5 p-3.5 bg-zinc-950/98 text-zinc-100 rounded-2xl border border-zinc-800 shadow-2xl backdrop-blur-md select-none ${className}`}
       style={{ touchAction: 'manipulation' }}
     >
-      {/* Top Controls Bar */}
-      <div className="flex flex-wrap items-center justify-between gap-2 text-xs border-b border-zinc-800/80 pb-2">
+      {/* ─── TOP PRIMARY CONTROL RIBBON ─── */}
+      <div className="flex flex-wrap items-center justify-between gap-2.5 text-xs border-b border-zinc-800/90 pb-2.5">
         <div className="flex items-center gap-2 flex-wrap">
-          <div className="flex items-center gap-1.5 font-bold text-amber-400">
-            <Music className="w-4 h-4" />
-            <span>Piano Roll</span>
+          {/* Deck Title / Key Signature */}
+          <div className="flex items-center gap-1.5 font-black text-amber-400 bg-amber-950/40 border border-amber-800/50 px-2.5 py-1 rounded-xl shadow-xs">
+            <Music className="w-3.5 h-3.5" />
+            <span className="tracking-wide">Piano Deck</span>
+            <span className="font-mono text-zinc-300 font-bold ml-1">1 = {keySignature}</span>
           </div>
 
-          <span className="daw-lcd px-2.5 py-1 rounded-lg text-xs font-mono font-bold shadow-xs">
-            Key: <strong className="text-amber-400 font-black">1 = {keySignature}</strong>
-          </span>
+          {/* 1. Operational Mode Toggle: Direct Touch vs Live Transcribe */}
+          <div
+            id="piano-mode-toggle-group"
+            className="flex items-center bg-zinc-900 p-0.5 rounded-xl border border-zinc-700/80 shadow-inner text-[11px]"
+          >
+            <button
+              id="piano-mode-step-btn"
+              type="button"
+              onClick={() => handleSetMode('step')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all min-h-[32px] cursor-pointer touch-manipulation ${
+                activeMode === 'step'
+                  ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Direct Pitch Input: Tap key to immediately set pitch of the note"
+            >
+              <Keyboard className="w-3 h-3" />
+              <span>Direct Touch</span>
+            </button>
+            <button
+              id="piano-mode-transcribe-btn"
+              type="button"
+              onClick={() => handleSetMode('transcribe')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold transition-all min-h-[32px] cursor-pointer touch-manipulation ${
+                activeMode === 'transcribe'
+                  ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-zinc-950 shadow-md ring-1 ring-amber-300 animate-pulse-subtle'
+                  : 'text-amber-400/80 hover:text-amber-300 hover:bg-amber-950/20'
+              }`}
+              title="Live Transcribe Mode: Hold key to determine duration, release to transcribe note into score"
+            >
+              <Zap className="w-3 h-3 fill-current" />
+              <span>Live Transcribe</span>
+            </button>
+          </div>
 
-          {/* Instrument Selector Pill */}
-          <div className="flex items-center gap-1.5 bg-[#0a0c10] px-2 py-1 rounded-xl border border-zinc-800 text-xs shadow-xs">
-            <span className="text-zinc-400 font-semibold text-[11px]">音色:</span>
+          {/* 2. Progression Toggle: Single Note vs Auto Advance */}
+          <div
+            id="piano-progression-toggle-group"
+            className="flex items-center bg-zinc-900 p-0.5 rounded-xl border border-zinc-700/80 shadow-inner text-[11px]"
+          >
+            <button
+              id="piano-progression-single-btn"
+              type="button"
+              onClick={() => handleSetProgression('single')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-bold transition-all min-h-[32px] cursor-pointer touch-manipulation ${
+                activeProgression === 'single'
+                  ? 'bg-zinc-200 text-zinc-950 font-black shadow-xs'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Single Note: Update only the note at current cursor, keeping cursor in place"
+            >
+              <Target className="w-3 h-3" />
+              <span>Single Note</span>
+            </button>
+            <button
+              id="piano-progression-auto-btn"
+              type="button"
+              onClick={() => handleSetProgression('auto')}
+              className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg font-bold transition-all min-h-[32px] cursor-pointer touch-manipulation ${
+                activeProgression === 'auto'
+                  ? 'bg-amber-500 text-zinc-950 font-black shadow-xs'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Auto Progression: Automatically advance cursor to next note/measure after each input"
+            >
+              <ArrowRight className="w-3 h-3" />
+              <span>Auto Advance</span>
+            </button>
+          </div>
+
+          {/* 3. Instrument Tone Selector */}
+          <div className="flex items-center gap-1.5 bg-zinc-900 px-2 py-1 rounded-xl border border-zinc-800 text-xs shadow-xs">
+            <span className="text-zinc-400 font-semibold text-[11px]">Tone:</span>
             <select
-              id="piano-instrument-select"
+              id="piano-deck-instrument-select"
               value={activeInstrument}
               onChange={e => handleInstrumentChange(e.target.value as InstrumentType)}
               className="bg-transparent text-amber-400 font-bold focus:outline-none cursor-pointer text-xs"
-              title="切換音色 (鋼琴、竹笛、口笛、吉他、合成器、鐘琴、大提琴)"
+              title="Switch tone (Piano, Dizi, Whistle, Guitar, Synth, etc.)"
             >
               {INSTRUMENT_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value} className="bg-zinc-900 text-zinc-100">
@@ -365,66 +719,120 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
               ))}
             </select>
           </div>
+        </div>
 
-          {onOpenKeyboardToScore && (
-            <button
-              id="piano-open-keyboard-to-score-btn"
-              type="button"
-              onClick={onOpenKeyboardToScore}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black rounded-xl text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[34px]"
-              title="開啟鍵盤彈奏即時轉譜 (Keyboard-to-Score)"
+        {/* Right Status / Close Action */}
+        <div className="flex items-center gap-2">
+          {/* MIDI & QWERTY Status Badges */}
+          {midiState.isConnected ? (
+            <span
+              className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-600/70 text-emerald-400 text-[10px] font-bold"
+              title={`Hardware MIDI Connected: ${midiState.activeDevice || 'Device Ready'}`}
             >
-              <Keyboard className="w-3.5 h-3.5" />
-              <span>彈奏入譜</span>
+              <Radio className="w-2.5 h-2.5 animate-pulse text-emerald-400" />
+              <span>MIDI Active</span>
+            </span>
+          ) : (
+            <span
+              className="hidden lg:flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700/60 text-zinc-400 text-[10px] font-mono"
+              title="QWERTY Keys [A-K], [W-P] active for musical typing"
+            >
+              <Keyboard className="w-2.5 h-2.5 text-amber-400" />
+              <span>QWERTY Keys Ready</span>
+            </span>
+          )}
+
+          {onClose && (
+            <button
+              id="piano-deck-close-btn"
+              type="button"
+              onClick={onClose}
+              className="w-7 h-7 flex items-center justify-center rounded-lg bg-zinc-900 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 border border-zinc-800 transition-colors cursor-pointer"
+              title="Close Keyboard Deck (Esc)"
+            >
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
+      </div>
 
-        {/* View Mode & Octave Selectors */}
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Label mode toggle */}
-          <div className="flex items-center bg-[#0a0c10] p-0.5 rounded-xl border border-zinc-800 text-[11px]">
+      {/* ─── SECONDARY TRANSCRIBE / OCTAVE TOOLBAR ─── */}
+      <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+        {/* Left: Transcribe Grid & Metronome controls if in Live Transcribe mode */}
+        {activeMode === 'transcribe' ? (
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-[11px] font-bold text-amber-400 flex items-center gap-1">
+              <Clock className="w-3 h-3" />
+              <span>Quantize Grid:</span>
+            </span>
+            <div className="flex items-center bg-zinc-900 p-0.5 rounded-xl border border-zinc-800 text-[11px]">
+              {(['quarter', 'eighth', 'sixteenth'] as QuantizeGrid[]).map(g => (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => setQuantizeGrid(g)}
+                  className={`px-2.5 py-1 rounded-lg font-mono font-bold transition-all cursor-pointer ${
+                    quantizeGrid === g
+                      ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                      : 'text-zinc-400 hover:text-zinc-200'
+                  }`}
+                  title={`Snap to ${g === 'quarter' ? '1/4 (♩)' : g === 'eighth' ? '1/8 (♪)' : '1/16 (𝅘𝅥𝅯)'}`}
+                >
+                  {g === 'quarter' ? '♩ 1/4' : g === 'eighth' ? '♪ 1/8' : '𝅘𝅥𝅯 1/16'}
+                </button>
+              ))}
+            </div>
+
+            {/* Triplet toggle */}
             <button
               type="button"
-              onClick={() => setLabelMode('both')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
-                labelMode === 'both'
-                  ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200'
+              onClick={() => setAllowTriplets(prev => !prev)}
+              className={`px-2 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                allowTriplets
+                  ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black'
+                  : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
               }`}
+              title="Allow 3-tuple / Triplet quantization (0.33, 0.67 beats)"
             >
-              Numbered Notations + Pitch
+              3-Triplet
             </button>
+
+            {/* Metronome Audio Click Toggle */}
             <button
+              id="piano-deck-metronome-btn"
               type="button"
-              onClick={() => setLabelMode('numberedNotations')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
-                labelMode === 'numberedNotations' || (labelMode as string) === 'numberedNotation'
-                  ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200'
+              onClick={() => setIsMetronomeActive(prev => !prev)}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border transition-all cursor-pointer ${
+                isMetronomeActive
+                  ? isMetronomePulse
+                    ? 'bg-amber-400 text-zinc-950 border-amber-300 font-black scale-105 shadow-sm'
+                    : 'bg-amber-600 text-zinc-950 border-amber-500 font-bold'
+                  : 'bg-zinc-900 text-zinc-400 border-zinc-800 hover:text-zinc-200'
               }`}
+              title={`Metronome pulse @ ${bpm} BPM (${timeSignature})`}
             >
-              Numbered Notations 1-7
-            </button>
-            <button
-              type="button"
-              onClick={() => setLabelMode('note')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
-                labelMode === 'note'
-                  ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200'
-              }`}
-            >
-              Pitch Name (C D E)
+              {isMetronomeActive ? <Volume2 className="w-3 h-3" /> : <VolumeX className="w-3 h-3" />}
+              <span>Metronome @ {bpm} BPM</span>
+              {isMetronomeActive && (
+                <span className="w-1.5 h-1.5 rounded-full bg-zinc-950 animate-ping ml-0.5" />
+              )}
             </button>
           </div>
+        ) : (
+          <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 font-medium">
+            <Sparkles className="w-3 h-3 text-amber-400" />
+            <span>Direct touch sets pitch immediately. Switch to <strong>Live Transcribe</strong> to record held note durations.</span>
+          </div>
+        )}
 
-          {/* Octave Range Tabs */}
-          <div className="flex items-center bg-[#0a0c10] p-0.5 rounded-xl border border-zinc-800 text-[11px]">
+        {/* Right: Octave view and Label toggles */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Octave View Tabs */}
+          <div className="flex items-center bg-zinc-900 p-0.5 rounded-xl border border-zinc-800 text-[11px]">
             <button
               type="button"
               onClick={() => setOctaveView('low_mid')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                 octaveView === 'low_mid'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
@@ -435,7 +843,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
             <button
               type="button"
               onClick={() => setOctaveView('mid_high')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                 octaveView === 'mid_high'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
@@ -446,100 +854,142 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
             <button
               type="button"
               onClick={() => setOctaveView('all')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
+              className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                 octaveView === 'all'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
-              All 3 Octaves
+              All 3
+            </button>
+          </div>
+
+          {/* Label Display Mode */}
+          <div className="flex items-center bg-zinc-900 p-0.5 rounded-xl border border-zinc-800 text-[11px]">
+            <button
+              type="button"
+              onClick={() => setLabelMode('both')}
+              className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                labelMode === 'both' ? 'bg-zinc-700 text-zinc-100 font-bold' : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+              title="Show both Numbered Notation numbers and pitch names"
+            >
+              1-7 + Pitch
             </button>
             <button
               type="button"
-              onClick={() => setOctaveView('mid')}
-              className={`px-3 py-1.5 rounded-lg font-medium transition-all min-h-[36px] cursor-pointer touch-manipulation ${
-                octaveView === 'mid'
-                  ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
-                  : 'text-zinc-400 hover:text-zinc-200'
+              onClick={() => setLabelMode('numberedNotations')}
+              className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                labelMode === 'numberedNotations' ? 'bg-zinc-700 text-zinc-100 font-bold' : 'text-zinc-400 hover:text-zinc-200'
               }`}
+              title="Show only Numbered Notation 1-7"
             >
-              Mid Only
+              1-7
             </button>
           </div>
         </div>
       </div>
 
-      {/* Main Piano Bed Area */}
-      <div className="flex items-stretch gap-2 w-full overflow-x-auto pb-1 pt-1 select-none">
-        {/* Special Auxiliary Keys: Rest 0 & Blank ␣ */}
-        <div className="flex flex-col gap-2 shrink-0 justify-between w-14 sm:w-16">
+      {/* ─── LIVE REAL-TIME TRANSCRIBE DURATION FEEDBACK BANNER ─── */}
+      {activeMode === 'transcribe' && (
+        <div className="flex items-center justify-between px-3 py-1.5 rounded-xl bg-amber-950/30 border border-amber-800/40 text-xs min-h-[36px]">
+          {liveHeldInfo ? (
+            <div className="flex items-center gap-3 w-full justify-between animate-fade-in">
+              <div className="flex items-center gap-2 font-mono font-bold text-amber-300">
+                <span className="text-base font-black px-2 py-0.5 rounded bg-amber-500 text-zinc-950">
+                  {liveHeldInfo.keyLabel}
+                </span>
+                <span>Holding: {liveHeldInfo.elapsedMs}ms ({liveHeldInfo.estimatedBeats} beats)</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-zinc-400">➔ Quantized:</span>
+                <span className="px-2 py-0.5 rounded bg-amber-400 text-zinc-950 font-mono font-black text-xs shadow-xs">
+                  {liveHeldInfo.quantized.duration} Beat{liveHeldInfo.quantized.duration > 1 ? 's' : ''}
+                  {liveHeldInfo.quantized.isDotted ? ' (Dotted ♩.)' : ''}
+                  {liveHeldInfo.quantized.isTriplet ? ' (Triplet)' : ''}
+                </span>
+                <span className="text-[10px] text-amber-300/80 italic hidden sm:inline">
+                  (Release key to transcribe)
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between w-full text-zinc-400 text-[11px]">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-amber-500/80 animate-ping" />
+                <span><strong>No countdown needed!</strong> Press & hold any key anytime to transcribe from current note.</span>
+              </div>
+              <span className="font-mono text-zinc-500 hidden sm:inline">
+                {activeProgression === 'auto' ? '➔ Auto-advances caret on release' : '➔ Keeps cursor on current note'}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ─── PIANO KEYBOARD BED WITH REST & EMPTY PADS ─── */}
+      <div className="flex items-stretch gap-2 w-full">
+        {/* Left Auxiliary Buttons: Rest (0) & Empty Spacer (␣) */}
+        <div className="flex flex-col gap-1.5 w-14 sm:w-16 shrink-0 select-none">
           <button
             id="piano-key-rest"
             type="button"
-            onPointerDown={(e) => {
+            onPointerDown={e => {
               e.preventDefault();
-              onSelectPitch(0, 0, '');
+              handleSpecialKeyDown(0);
             }}
-            onClick={(e) => {
-              e.preventDefault();
-              onSelectPitch(0, 0, '');
-            }}
-            className={`flex-1 flex flex-col items-center justify-center p-2 rounded-xl border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[48px] ${
-              currentNote?.pitch === 0
+            className={`flex-1 flex flex-col items-center justify-center p-1.5 rounded-xl border transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] ${
+              activeDownKeyIds.has('special-0') || currentNote?.pitch === 0
                 ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-md ring-2 ring-amber-400'
-                : 'bg-zinc-800 hover:bg-zinc-700 text-zinc-200 border-zinc-700 shadow-xs'
+                : 'bg-zinc-900 hover:bg-zinc-800 text-zinc-200 border-zinc-700 shadow-xs'
             }`}
-            title="Rest (0)"
+            title="Rest (0) [Space / 0]"
           >
-            <span className="font-mono text-lg font-black">0</span>
-            <span className="text-[10px] font-sans font-semibold">Rest</span>
+            <span className="font-mono text-base sm:text-lg font-black leading-none">0</span>
+            <span className="text-[9px] font-sans font-semibold mt-0.5">Rest</span>
           </button>
 
           <button
             id="piano-key-empty"
             type="button"
-            onPointerDown={(e) => {
+            onPointerDown={e => {
               e.preventDefault();
-              onSelectPitch('empty', 0, '');
+              handleSpecialKeyDown('empty');
             }}
-            onClick={(e) => {
-              e.preventDefault();
-              onSelectPitch('empty', 0, '');
-            }}
-            className={`flex-1 flex flex-col items-center justify-center p-2 rounded-xl border border-dashed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[48px] ${
-              currentNote?.pitch === 'empty'
+            className={`flex-1 flex flex-col items-center justify-center p-1.5 rounded-xl border border-dashed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] ${
+              activeDownKeyIds.has('special-empty') || currentNote?.pitch === 'empty'
                 ? 'bg-amber-500 text-zinc-950 border-amber-400 font-black shadow-md ring-2 ring-amber-400'
-                : 'bg-zinc-800/80 hover:bg-zinc-700 text-zinc-300 border-zinc-600 shadow-xs'
+                : 'bg-zinc-900/80 hover:bg-zinc-800 text-zinc-300 border-zinc-700 shadow-xs'
             }`}
-            title="Empty spacer / punctuation (Empty)"
+            title="Empty spacer / punctuation (Empty) [`]"
           >
-            <span className="font-mono text-sm font-bold">␣ Empty</span>
-            <span className="text-[10px] font-sans">Spacer</span>
+            <span className="font-mono text-xs font-bold leading-none">␣</span>
+            <span className="text-[9px] font-sans mt-0.5">Empty</span>
           </button>
         </div>
 
-        {/* Realistic Piano Keyboard Bed */}
+        {/* Realistic Interactive Piano Keys Bed */}
         <div
           id="piano-keys-bed"
           style={{ touchAction: 'none' }}
-          className="flex-1 flex items-stretch bg-zinc-950 p-1.5 rounded-xl border border-zinc-800 shadow-inner relative min-w-[340px] select-none touch-none"
+          className="flex-1 flex items-stretch bg-zinc-950 p-1.5 rounded-xl border border-zinc-800 shadow-inner relative min-w-[320px] select-none touch-none overflow-x-auto"
         >
           {octavesData.map((octData, octIdx) => {
             const octLabel =
               octData.octaveNum === -1
-                ? 'Low Octave (-1)'
+                ? 'Low (-1)'
                 : octData.octaveNum === 1
-                ? 'High Octave (+1)'
-                : 'Mid Octave (0)';
+                ? 'High (+1)'
+                : 'Mid (0)';
 
             return (
               <div
                 key={`piano-oct-${octData.octaveNum}`}
-                className="flex-1 relative flex flex-col min-w-[170px]"
+                className="flex-1 relative flex flex-col min-w-[160px]"
               >
                 {/* Octave Badge */}
                 <div className="absolute top-1 left-2 z-20 pointer-events-none">
-                  <span className="text-[9px] font-bold font-mono tracking-tight px-1.5 py-0.2 rounded bg-zinc-900/90 text-zinc-400 border border-zinc-700/60 backdrop-blur-xs">
+                  <span className="text-[8px] font-bold font-mono tracking-tight px-1 py-0.2 rounded bg-zinc-900/90 text-zinc-400 border border-zinc-700/60 backdrop-blur-xs">
                     {octLabel}
                   </span>
                 </div>
@@ -549,8 +999,8 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                   {/* WHITE KEYS */}
                   {octData.whiteKeys.map((wKey, wIdx) => {
                     const keyId = `${octData.octaveNum}-${wKey.pitch}-${wKey.accidental || ''}`;
-                    const isDown = activePointerKeyId === keyId;
-                    const active = isKeyActive(wKey);
+                    const isDown = activeDownKeyIds.has(keyId);
+                    const isInScore = isKeyActiveInScore(wKey);
                     const isFirstInOctave = wIdx === 0;
                     const isLastInOctave = wIdx === octData.whiteKeys.length - 1;
 
@@ -559,81 +1009,78 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                         key={`w-${octData.octaveNum}-${wKey.pitch}`}
                         id={`piano-white-key-${octData.octaveNum}-${wKey.pitch}`}
                         type="button"
-                        onPointerDown={(e) => {
+                        onPointerDown={e => {
                           e.preventDefault();
                           isPointerDownRef.current = true;
-                          startKeySoundAndSelect(wKey);
+                          handleKeyNoteDown(wKey);
                         }}
                         onPointerEnter={() => {
                           if (isPointerDownRef.current) {
-                            startKeySoundAndSelect(wKey);
+                            handleKeyNoteDown(wKey);
                           }
                         }}
                         onPointerLeave={() => {
                           if (isPointerDownRef.current) {
-                            endKeySound();
+                            handleKeyNoteUp(keyId);
                           }
                         }}
-                        onPointerUp={(e) => {
+                        onPointerUp={e => {
                           e.preventDefault();
                           isPointerDownRef.current = false;
-                          endKeySound();
-                        }}
-                        onClick={(e) => {
-                          e.preventDefault();
+                          handleKeyNoteUp(keyId);
                         }}
                         className={`group relative flex-1 flex flex-col items-center justify-end pb-2 pt-6 transition-transform duration-75 border-r last:border-r-0 cursor-pointer select-none touch-none ${
                           isDown
                             ? '!bg-amber-400 !border-amber-600 !text-zinc-950 ring-2 ring-amber-500 z-10 shadow-inner font-black translate-y-1'
-                            : active
+                            : isInScore
                             ? '!bg-amber-200 dark:!bg-amber-300 !border-amber-500 !text-zinc-950 ring-2 ring-amber-400 z-10 shadow-md font-black'
                             : 'bg-linear-to-b from-zinc-100 via-white to-zinc-200 hover:from-amber-50 hover:to-amber-100 text-zinc-900 border-zinc-300 dark:border-zinc-400 shadow-[0_4px_3px_rgba(0,0,0,0.12)]'
                         } ${isFirstInOctave && octIdx === 0 ? 'rounded-bl-lg' : ''} ${
                           isLastInOctave && octIdx === octavesData.length - 1 ? 'rounded-br-lg' : ''
                         } rounded-b-md border-b-4 ${
-                          isDown ? 'border-b-amber-600' : active ? 'border-b-amber-500' : 'border-b-zinc-400'
+                          isDown ? 'border-b-amber-600' : isInScore ? 'border-b-amber-500' : 'border-b-zinc-400'
                         }`}
                         title={`Pitch: ${wKey.numberedNotationLabel} (${wKey.noteName} - ${wKey.solfege})`}
                       >
-                        {/* Active Dot Indicator */}
-                        {(active || isDown) && (
+                        {/* Live active glow */}
+                        {(isInScore || isDown) && (
                           <div className="absolute top-2 w-2 h-2 rounded-full bg-amber-600 animate-ping" />
                         )}
 
-                        {/* Top Numbered Notation Octave Dot */}
+                        {/* Top Octave Dot */}
                         {wKey.octave > 0 && (
                           <span
                             className={`w-1.5 h-1.5 rounded-full mb-0.5 ${
-                              isDown || active ? 'bg-zinc-950' : 'bg-zinc-900'
+                              isDown || isInScore ? 'bg-zinc-950' : 'bg-zinc-900'
                             }`}
                           />
                         )}
 
                         {/* Numbered Notation Pitch Number */}
-                        {(labelMode === 'both' || labelMode === 'numberedNotations' || (labelMode as string) === 'numberedNotation') && (
+                        {(labelMode === 'both' || labelMode === 'numberedNotations') && (
                           <span
                             className={`font-mono text-base sm:text-lg font-black leading-none ${
-                              isDown || active ? 'text-zinc-950 scale-110' : 'text-zinc-900'
+                              isDown || isInScore ? 'text-zinc-950 scale-110' : 'text-zinc-900'
                             }`}
                           >
                             {wKey.numberedNotationLabel}
                           </span>
                         )}
 
-                        {/* Bottom Numbered Notation Octave Dot */}
+                        {/* Bottom Octave Dot */}
                         {wKey.octave < 0 && (
                           <span
                             className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
-                              isDown || active ? 'bg-zinc-950' : 'bg-zinc-900'
+                              isDown || isInScore ? 'bg-zinc-950' : 'bg-zinc-900'
                             }`}
                           />
                         )}
 
-                        {/* Note Name & Solfege Subtitle */}
+                        {/* Note Name & Solfege */}
                         {(labelMode === 'both' || labelMode === 'note') && (
                           <span
                             className={`text-[9px] sm:text-[10px] font-semibold mt-0.5 leading-tight ${
-                              isDown || active ? 'text-zinc-900 font-bold' : 'text-zinc-600'
+                              isDown || isInScore ? 'text-zinc-900 font-bold' : 'text-zinc-600'
                             }`}
                           >
                             {wKey.noteName}
@@ -643,101 +1090,76 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
                     );
                   })}
 
-                  {/* BLACK KEYS (OVERLAYED WITH EXACT PIANO SPACING) */}
-                  {octData.blackKeys.map((bKey) => {
+                  {/* BLACK KEYS (OVERLAYED WITH PRECISE PIANO SPACING) */}
+                  {octData.blackKeys.map(bKey => {
                     const bKeyId = `${octData.octaveNum}-${bKey.pitch}-${bKey.accidental || ''}`;
-                    const isDown = activePointerKeyId === bKeyId;
-                    const active = isKeyActive(bKey);
+                    const isDown = activeDownKeyIds.has(bKeyId);
+                    const isInScore = isKeyActiveInScore(bKey);
 
                     return (
                       <button
                         key={`b-${octData.octaveNum}-${bKey.pitch}-${bKey.accidental}`}
-                        id={`piano-black-key-${octData.octaveNum}-${bKey.pitch}`}
+                        id={`piano-black-key-${octData.octaveNum}-${bKey.pitch}-${bKey.accidental}`}
                         type="button"
-                        onPointerDown={(e) => {
+                        style={{ left: `${bKey.leftPercent}%` }}
+                        onPointerDown={e => {
                           e.preventDefault();
                           e.stopPropagation();
                           isPointerDownRef.current = true;
-                          startKeySoundAndSelect(bKey);
+                          handleKeyNoteDown(bKey);
                         }}
-                        onPointerEnter={(e) => {
-                          e.stopPropagation();
+                        onPointerEnter={() => {
                           if (isPointerDownRef.current) {
-                            startKeySoundAndSelect(bKey);
+                            handleKeyNoteDown(bKey);
                           }
                         }}
-                        onPointerLeave={(e) => {
-                          e.stopPropagation();
+                        onPointerLeave={() => {
                           if (isPointerDownRef.current) {
-                            endKeySound();
+                            handleKeyNoteUp(bKeyId);
                           }
                         }}
-                        onPointerUp={(e) => {
+                        onPointerUp={e => {
                           e.preventDefault();
                           e.stopPropagation();
                           isPointerDownRef.current = false;
-                          endKeySound();
+                          handleKeyNoteUp(bKeyId);
                         }}
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                        }}
-                        style={{
-                          left: `${bKey.leftPercent}%`,
-                          width: '9.2%',
-                        }}
-                        className={`absolute top-0 h-14 sm:h-16 z-20 flex flex-col items-center justify-end pb-1.5 rounded-b-sm border transition-transform duration-75 cursor-pointer select-none touch-none ${
+                        className={`absolute top-0 w-[8.2%] h-14 sm:h-16 z-20 flex flex-col items-center justify-end pb-1 rounded-b-md transition-all duration-75 border border-zinc-900 cursor-pointer select-none touch-none shadow-md ${
                           isDown
-                            ? '!bg-amber-400 !border-amber-500 !text-zinc-950 ring-2 ring-amber-400 font-black shadow-none border-b-2 border-b-amber-600 translate-y-1'
-                            : active
-                            ? '!bg-amber-500/95 !border-amber-400 !text-zinc-950 ring-2 ring-amber-400 font-black shadow-lg border-b-4 border-b-amber-600'
-                            : 'bg-linear-to-b from-zinc-800 via-zinc-900 to-black hover:from-zinc-700 hover:to-zinc-900 text-zinc-100 border-zinc-950 border-b-4 border-b-black shadow-[0_4px_6px_rgba(0,0,0,0.6)]'
+                            ? '!bg-amber-400 !border-amber-600 !text-zinc-950 ring-2 ring-amber-500 shadow-inner font-black translate-y-0.5'
+                            : isInScore
+                            ? '!bg-amber-300 !border-amber-500 !text-zinc-950 ring-2 ring-amber-400 shadow-lg font-black'
+                            : 'bg-linear-to-b from-zinc-800 via-zinc-900 to-black hover:from-zinc-700 text-zinc-100 border-b-4 border-b-zinc-950'
                         }`}
-                        title={`Black Key: ${bKey.numberedNotationLabel} / ${bKey.accidentalLabel} (${bKey.noteName} - ${bKey.solfege})`}
+                        title={`Accidental Pitch: ${bKey.numberedNotationLabel} / ${bKey.accidentalLabel} (${bKey.noteName})`}
                       >
-                        {/* Top Active Indicator */}
-                        {(active || isDown) && (
-                          <div className="absolute top-1.5 w-1.5 h-1.5 rounded-full bg-zinc-950 animate-pulse" />
-                        )}
-
-                        {/* Octave Top Dot */}
+                        {/* Top Octave Dot */}
                         {bKey.octave > 0 && (
                           <span
                             className={`w-1 h-1 rounded-full mb-0.5 ${
-                              isDown || active ? 'bg-zinc-950' : 'bg-amber-400'
+                              isDown || isInScore ? 'bg-zinc-950' : 'bg-zinc-100'
                             }`}
                           />
                         )}
 
-                        {/* Numbered Notation Accidental Pitch */}
-                        {(labelMode === 'both' || labelMode === 'numberedNotations' || (labelMode as string) === 'numberedNotation') && (
+                        {/* Numbered Notation Label */}
+                        {(labelMode === 'both' || labelMode === 'numberedNotations') && (
                           <span
-                            className={`font-mono text-[10px] sm:text-xs font-black tracking-tighter leading-none ${
-                              isDown || active ? 'text-zinc-950' : 'text-amber-300'
+                            className={`font-mono text-[10px] sm:text-xs font-black leading-none ${
+                              isDown || isInScore ? 'text-zinc-950' : 'text-amber-400'
                             }`}
                           >
                             {bKey.numberedNotationLabel}
                           </span>
                         )}
 
-                        {/* Octave Bottom Dot */}
+                        {/* Bottom Octave Dot */}
                         {bKey.octave < 0 && (
                           <span
                             className={`w-1 h-1 rounded-full mt-0.5 ${
-                              isDown || active ? 'bg-zinc-950' : 'bg-amber-400'
+                              isDown || isInScore ? 'bg-zinc-950' : 'bg-zinc-100'
                             }`}
                           />
-                        )}
-
-                        {/* Note Name */}
-                        {(labelMode === 'both' || labelMode === 'note') && (
-                          <span
-                            className={`text-[8px] font-mono leading-none mt-0.5 ${
-                              isDown || active ? 'text-zinc-900 font-bold' : 'text-zinc-400'
-                            }`}
-                          >
-                            {bKey.noteName.replace(/([0-9])/, '')}
-                          </span>
                         )}
                       </button>
                     );
@@ -746,44 +1168,6 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
               </div>
             );
           })}
-        </div>
-      </div>
-
-      {/* Bottom helper tip */}
-      <div className="flex items-center justify-between text-[11px] text-zinc-400 pt-1 px-1 border-t border-zinc-800/80">
-        <div className="flex items-center gap-1.5">
-          <Sparkles className="w-3 h-3 text-amber-400" />
-          <span>
-            Selected Note:{' '}
-            {currentNote ? (
-              <span className="text-amber-300 font-bold font-mono">
-                {currentNote.pitch === 0
-                  ? '0 (Rest)'
-                  : currentNote.pitch === 'empty'
-                  ? '␣ (Empty / Punctuation)'
-                  : `${currentNote.accidental || ''}${currentNote.pitch}${
-                      currentNote.octave > 0
-                        ? ` (High ${currentNote.octave} dot)`
-                        : currentNote.octave < 0
-                        ? ` (Low ${Math.abs(currentNote.octave)} dot)`
-                        : ' (Mid)'
-                    }`}
-              </span>
-            ) : (
-              'No note selected'
-            )}
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2 text-[10px] text-zinc-400 hidden sm:flex">
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-white border border-zinc-400" />
-            <span>White Keys (Diatonic 1-7)</span>
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="inline-block w-2.5 h-2.5 rounded-sm bg-black border border-zinc-600" />
-            <span>Black Keys (Accidentals ♯/♭)</span>
-          </span>
         </div>
       </div>
     </div>

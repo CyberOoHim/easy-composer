@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import { UiZoomControl } from '@/components/UiZoomControl';
 import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
+import { MetronomePlaybackControl } from '@/components/MetronomePlaybackControl';
 import { KeyboardShortcutsModal } from '@/components/composer/KeyboardShortcutsModal';
 
 
@@ -37,7 +38,6 @@ interface HeaderBarProps {
   onOpenLyricSearch?: () => void;
   onOpenImportExport: () => void;
   onOpenMidiExport?: () => void;
-  onOpenKeyboardModal?: () => void;
   isPlaying: boolean;
   onTogglePlay: () => void;
   onUndo?: () => boolean;
@@ -70,7 +70,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenLyricSearch,
   onOpenImportExport,
   onOpenMidiExport,
-  onOpenKeyboardModal,
   isPlaying,
   onTogglePlay,
   onUndo,
@@ -235,6 +234,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               </select>
             </div>
           )}
+
+          {/* Global Metronome Control on Toolbar */}
+          <div className="hidden xl:flex items-center">
+            <MetronomePlaybackControl variant="compact" idPrefix="header-bar-metronome" />
+          </div>
 
           {/* User Save Button with Dirty Dot */}
           {onSave && (
@@ -432,6 +436,16 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <ChordPlaybackControl variant="toolbar" previewKeyChord={song.key} idPrefix="header-chord" />
             </div>
 
+            {/* Global Metronome Control */}
+            <div className="p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750">
+              <div className="flex items-center justify-between mb-1.5">
+                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
+                  Global Metronome & Volume
+                </span>
+              </div>
+              <MetronomePlaybackControl variant="toolbar" idPrefix="header-metronome" />
+            </div>
+
             {/* Eco / Power Save Mode */}
             {onToggleEcoMode && (
               <button
@@ -506,28 +520,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             )}
           </div>
 
-          {/* Section 3: Creation, Import & Transcription Tools */}
+          {/* Section 3: Creation & Repertoire Tools */}
           <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
             <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-              Score Tools & Transcription
+              Score Tools & Repertoire
             </span>
 
             <div className="grid grid-cols-2 gap-2">
-              {/* Keyboard Transcription Modal */}
-              {onOpenKeyboardModal && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsStudioMenuOpen(false);
-                    onOpenKeyboardModal();
-                  }}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer col-span-2"
-                >
-                  <Keyboard className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span>Record Keyboard / MIDI</span>
-                </button>
-              )}
-
               {/* Song Library */}
               <button
                 type="button"

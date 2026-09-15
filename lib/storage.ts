@@ -13,6 +13,7 @@ export const STORAGE_KEYS = {
   MELODY_VOLUME: 'taigi_composer_melody_volume',
   BACKING_VOLUME: 'taigi_composer_backing_volume',
   CHORD_ENABLED: 'taigi_composer_chord_enabled',
+  METRONOME_ENABLED: 'taigi_composer_metronome_enabled',
   METRONOME_VOLUME: 'taigi_composer_metronome_volume',
   TRANSPOSE: 'taigi_composer_transpose',
   TEMPO_MULTIPLIER: 'taigi_composer_tempo_multiplier',
@@ -274,6 +275,23 @@ export function setStoredChordEnabled(enabled: boolean): void {
   }
 }
 
+export const METRONOME_SETTINGS_EVENT = 'taigi_composer_metronome_settings_change';
+
+export function getStoredMetronomeEnabled(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.METRONOME_ENABLED);
+  if (val !== null) {
+    return val === 'true';
+  }
+  return defaultVal;
+}
+
+export function setStoredMetronomeEnabled(enabled: boolean): void {
+  safeSetItem(STORAGE_KEYS.METRONOME_ENABLED, String(enabled));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(METRONOME_SETTINGS_EVENT, { detail: { metronomeEnabled: enabled } }));
+  }
+}
+
 export function getStoredMetronomeVolume(defaultVal = 0.45): number {
   const val = safeGetItem(STORAGE_KEYS.METRONOME_VOLUME);
   if (val !== null) {
@@ -289,6 +307,9 @@ export function getStoredMetronomeVolume(defaultVal = 0.45): number {
 
 export function setStoredMetronomeVolume(vol: number): void {
   safeSetItem(STORAGE_KEYS.METRONOME_VOLUME, String(vol));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(METRONOME_SETTINGS_EVENT, { detail: { metronomeVolume: vol } }));
+  }
 }
 
 export function getStoredTranspose(defaultVal = 0): number {

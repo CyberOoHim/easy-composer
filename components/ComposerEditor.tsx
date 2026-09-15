@@ -34,7 +34,6 @@ import {
 import { SongMetadataHeader } from './composer/SongMetadataHeader';
 import { SectionRail } from './composer/SectionRail';
 import { RealSheetCanvas } from './composer/RealSheetCanvas';
-import { KeyboardToScoreModal, InsertionMode } from './composer/KeyboardToScoreModal';
 import { InSongSearchBar } from './composer/InSongSearchBar';
 import { InSongMatchLocation } from '@/lib/lyricSearch';
 import {
@@ -72,9 +71,6 @@ interface ComposerEditorProps {
   setDisplayMode: (mode: LyricDisplayMode) => void;
   onOpenAligner: () => void;
   onStartFreshSong?: () => void;
-  onOpenKeyboardModal?: () => void;
-  isKeyboardModalOpen?: boolean;
-  onCloseKeyboardModal?: () => void;
   targetMeasureIndex?: number | null;
   onTargetMeasureHandled?: () => void;
   onUndo?: () => boolean;
@@ -106,9 +102,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   setDisplayMode,
   onOpenAligner,
   onStartFreshSong,
-  onOpenKeyboardModal: propOnOpenKeyboardModal,
-  isKeyboardModalOpen: propIsKeyboardModalOpen,
-  onCloseKeyboardModal: propOnCloseKeyboardModal,
   targetMeasureIndex,
   onTargetMeasureHandled,
   onUndo,
@@ -119,17 +112,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   futureCount = 0,
   suspendNoteHighlights = false,
 }) => {
-  const [internalKeyboardModalOpen, setInternalKeyboardModalOpen] = useState<boolean>(false);
-  const isKeyboardModalOpen = propIsKeyboardModalOpen ?? internalKeyboardModalOpen;
-  const handleOpenKeyboardModal = useCallback(() => {
-    if (propOnOpenKeyboardModal) propOnOpenKeyboardModal();
-    else setInternalKeyboardModalOpen(true);
-  }, [propOnOpenKeyboardModal]);
-  const handleCloseKeyboardModal = useCallback(() => {
-    if (propOnCloseKeyboardModal) propOnCloseKeyboardModal();
-    else setInternalKeyboardModalOpen(false);
-  }, [propOnCloseKeyboardModal]);
-
   const [internalSelectedCoord, setInternalSelectedCoord] = useState<[number, number] | null>([0, 0]);
   const selectedCoord = propCursor !== undefined ? propCursor : internalSelectedCoord;
 
@@ -1135,48 +1117,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     setSelectedCoord(targetCoord);
   };
 
-  // Keyboard-to-Score commit handler
-  const handleCommitKeyboardTranscription = useCallback(
-    (measures: Measure[], mode: InsertionMode) => {
-      if (!measures || measures.length === 0) return;
-
-      let nextMeasures: Measure[];
-      let targetMIdx = 0;
-      if (mode === 'append') {
-        targetMIdx = song.measures.length;
-        nextMeasures = [...song.measures, ...measures];
-      } else if (mode === 'replace' && selectedMeasureIndex !== null && selectedMeasureIndex >= 0) {
-        targetMIdx = selectedMeasureIndex;
-        const before = song.measures.slice(0, selectedMeasureIndex);
-        const after = song.measures.slice(selectedMeasureIndex + 1);
-        nextMeasures = [...before, ...measures, ...after];
-      } else {
-        const insertIdx =
-          selectedMeasureIndex !== null && selectedMeasureIndex >= 0
-            ? selectedMeasureIndex + 1
-            : song.measures.length;
-        targetMIdx = insertIdx;
-        const before = song.measures.slice(0, insertIdx);
-        const after = song.measures.slice(insertIdx);
-        nextMeasures = [...before, ...measures, ...after];
-      }
-
-      const renumbered = renumberMeasures(nextMeasures);
-      const targetCoord: [number, number] = [targetMIdx, 0];
-      handleUpdateSong(
-        {
-          ...song,
-          measures: renumbered,
-        },
-        { cursor: targetCoord, undoCursor: selectedCoord }
-      );
-      setSelectedCoord(targetCoord);
-
-      showNotice(`Successfully transcribed and inserted ${measures.length} measures from keyboard!`);
-    },
-    [song, selectedMeasureIndex, handleUpdateSong, selectedCoord, setSelectedCoord, showNotice]
-  );
-
   // Measure Management: Delete Measure
   const handleDeleteMeasure = (mIdx: number) => {
     if (song.measures.length <= 1) {
@@ -2065,18 +2005,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               </div>
             )}
 
-            {/* Transcribe Studio */}
-            <button
-              id="composer-score-keyboard-btn"
-              type="button"
-              onClick={handleOpenKeyboardModal}
-              className="flex items-center gap-1 px-2.5 py-1 bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-400/50 dark:border-amber-600/50 rounded-lg font-bold transition-all active:scale-95 cursor-pointer touch-manipulation h-8"
-              title="Keyboard Transcribe Studio (Touch Piano, QWERTY typing, Web MIDI)"
-            >
-              <Keyboard className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-              <span className="hidden sm:inline">Transcribe</span>
-            </button>
-
             {/* Measure Insert / Delete */}
             <div className="flex items-center bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700/80 h-8">
               <button
@@ -2162,7 +2090,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           onAutoFillRest={handleAutoFillMeasureRest}
           audioEngine={audioEngine}
           previewNoteAudio={(k, n) => audioEngine.previewNote(k, n)}
-          onOpenKeyboardModal={handleOpenKeyboardModal}
           onAutoHarmonize={handleAutoHarmonizeSong}
           onUpdateMeasureChord={handleUpdateMeasureChord}
           displayMode={displayMode}
@@ -2174,18 +2101,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           futureCount={futureCount}
         />
       </div>
-
-      {/* Keyboard-to-Score Real-Time Screen Piano & Musical Typing Modal */}
-      {isKeyboardModalOpen && (
-        <KeyboardToScoreModal
-          isOpen={isKeyboardModalOpen}
-          onClose={handleCloseKeyboardModal}
-          song={song}
-          selectedMeasureIndex={selectedMeasureIndex}
-          audioEngine={audioEngine}
-          onCommitTranscription={handleCommitKeyboardTranscription}
-        />
-      )}
     </div>
   );
 };

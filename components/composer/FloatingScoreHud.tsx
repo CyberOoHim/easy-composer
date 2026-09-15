@@ -87,7 +87,6 @@ export interface FloatingScoreHudProps {
   onTogglePianoBed?: () => void;
   showPianoBed?: boolean;
   pianoBedSlot?: React.ReactNode;
-  onOpenKeyboardModal?: () => void;
 
   // Measure operations
   onAddMeasure: () => void;
@@ -167,7 +166,6 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   onTogglePianoBed,
   showPianoBed,
   pianoBedSlot,
-  onOpenKeyboardModal,
   onAddMeasure,
   onDeleteSelectedMeasure,
   onToggleLineBreak,
@@ -865,20 +863,6 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               <Music className={`w-3.5 h-3.5 ${currentDrawer === 'chords' ? 'text-zinc-950' : 'text-amber-500'}`} />
               <span className="hidden md:inline">Chords</span>
             </button>
-
-            {/* Keyboard / MIDI Transcription Modal Trigger */}
-            {onOpenKeyboardModal && (
-              <button
-                id="floating-hud-record-modal-btn"
-                type="button"
-                onClick={onOpenKeyboardModal}
-                className="flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer"
-                title="Record with Keyboard / MIDI Transcription"
-              >
-                <Disc className="w-3.5 h-3.5 text-rose-500" />
-                <span className="hidden xl:inline">Record</span>
-              </button>
-            )}
           </div>
 
           <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block mx-0.5" />

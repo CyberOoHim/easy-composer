@@ -23,9 +23,14 @@ import {
   setStoredAutosaveInterval,
   getStoredEnableChords,
   setStoredEnableChords,
+  getStoredMetronomeEnabled,
+  setStoredMetronomeEnabled,
+  getStoredMetronomeVolume,
+  setStoredMetronomeVolume,
   getStoredInstrument,
   setStoredInstrument,
   STORAGE_KEYS,
+  METRONOME_SETTINGS_EVENT,
 } from '@/lib/storage';
 import {
   saveSongToDB,
@@ -76,6 +81,25 @@ export default function Home() {
     });
   }, []);
 
+  const [metronomeEnabled, setMetronomeEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredMetronomeEnabled(true);
+    return true;
+  });
+
+  const [metronomeVolume, setMetronomeVolume] = useState<number>(() => {
+    if (typeof window !== 'undefined') return getStoredMetronomeVolume(0.45);
+    return 0.45;
+  });
+
+  const toggleMetronomeEnabled = useCallback(() => {
+    setMetronomeEnabled(prev => {
+      const next = !prev;
+      setStoredMetronomeEnabled(next);
+      audioEngine.setOptions({ metronomeEnabled: next });
+      return next;
+    });
+  }, []);
+
   const [instrument, setInstrumentState] = useState<InstrumentType>(() => {
     if (typeof window !== 'undefined') return getStoredInstrument();
     return 'piano';
@@ -90,17 +114,44 @@ export default function Home() {
     }
   }, [song.key]);
 
-  // Keep instrument synced if updated in another component
+  // Keep instrument & metronome synced if updated in another component
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.INSTRUMENT && e.newValue) {
         const newInst = e.newValue as InstrumentType;
         setInstrumentState(newInst);
         audioEngine.setOptions({ instrument: newInst });
+      } else if (e.key === STORAGE_KEYS.METRONOME_ENABLED && e.newValue !== null) {
+        const enabled = e.newValue === 'true';
+        setMetronomeEnabled(enabled);
+        audioEngine.setOptions({ metronomeEnabled: enabled });
+      } else if (e.key === STORAGE_KEYS.METRONOME_VOLUME && e.newValue !== null) {
+        const num = parseFloat(e.newValue);
+        if (!isNaN(num)) {
+          setMetronomeVolume(num);
+          audioEngine.setOptions({ metronomeVolume: num });
+        }
       }
     };
+
+    const handleMetronomeCustom = (e: Event) => {
+      const customEvent = e as CustomEvent<{ metronomeEnabled?: boolean; metronomeVolume?: number }>;
+      if (customEvent.detail) {
+        if (typeof customEvent.detail.metronomeEnabled === 'boolean') {
+          setMetronomeEnabled(customEvent.detail.metronomeEnabled);
+        }
+        if (typeof customEvent.detail.metronomeVolume === 'number') {
+          setMetronomeVolume(customEvent.detail.metronomeVolume);
+        }
+      }
+    };
+
     window.addEventListener('storage', handleStorage);
-    return () => window.removeEventListener('storage', handleStorage);
+    window.addEventListener(METRONOME_SETTINGS_EVENT, handleMetronomeCustom);
+    return () => {
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener(METRONOME_SETTINGS_EVENT, handleMetronomeCustom);
+    };
   }, []);
 
   useEffect(() => {
@@ -108,9 +159,11 @@ export default function Home() {
       ecoMode: isEcoMode,
       targetFps: isEcoMode ? 20 : 30,
       chordEnabled: enableChords,
+      metronomeEnabled,
+      metronomeVolume,
       instrument,
     });
-  }, [isEcoMode, enableChords, instrument]);
+  }, [isEcoMode, enableChords, metronomeEnabled, metronomeVolume, instrument]);
 
   const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>('all');
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
@@ -119,7 +172,6 @@ export default function Home() {
   const [isLyricSearchOpen, setIsLyricSearchOpen] = useState(false);
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isNewSongConfirmOpen, setIsNewSongConfirmOpen] = useState(false);
-  const [isKeyboardModalOpen, setIsKeyboardModalOpen] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [targetMeasureIndex, setTargetMeasureIndex] = useState<number | null>(null);
 
@@ -198,7 +250,6 @@ export default function Home() {
     setIsLyricSearchOpen(false);
     setIsAlignerOpen(false);
     setIsNewSongConfirmOpen(false);
-    setIsKeyboardModalOpen(false);
   }, []);
 
   const handleStartFreshSong = useCallback(() => {
@@ -227,11 +278,6 @@ export default function Home() {
   const handleOpenAligner = useCallback(() => {
     closeAllPrimaryModals();
     setIsAlignerOpen(true);
-  }, [closeAllPrimaryModals]);
-
-  const handleOpenKeyboardModal = useCallback(() => {
-    closeAllPrimaryModals();
-    setIsKeyboardModalOpen(true);
   }, [closeAllPrimaryModals]);
 
   const handleSaveSong = useCallback(async () => {
@@ -511,8 +557,7 @@ export default function Home() {
     isImportExportOpen ||
     isLyricSearchOpen ||
     isAlignerOpen ||
-    isNewSongConfirmOpen ||
-    isKeyboardModalOpen;
+    isNewSongConfirmOpen;
 
   return (
     <div className="min-h-screen bg-zinc-100 dark:bg-[#0c0e14] text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-amber-500/30">
@@ -524,7 +569,6 @@ export default function Home() {
         onOpenLyricSearch={handleOpenLyricSearch}
         onOpenImportExport={handleOpenLibrary}
         onOpenMidiExport={handleOpenMidiExport}
-        onOpenKeyboardModal={handleOpenKeyboardModal}
         isPlaying={isPlaying}
         onTogglePlay={handleTogglePlay}
         onUndo={undo}
@@ -562,9 +606,6 @@ export default function Home() {
           setDisplayMode={setDisplayMode}
           onOpenAligner={handleOpenAligner}
           onStartFreshSong={handleStartFreshSong}
-          onOpenKeyboardModal={handleOpenKeyboardModal}
-          isKeyboardModalOpen={isKeyboardModalOpen}
-          onCloseKeyboardModal={() => setIsKeyboardModalOpen(false)}
           targetMeasureIndex={targetMeasureIndex}
           onTargetMeasureHandled={() => setTargetMeasureIndex(null)}
           onUndo={undo}
