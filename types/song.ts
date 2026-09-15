@@ -100,6 +100,7 @@ export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' 
 
 export type EditorEditMode = 'note' | 'sheet' | 'verse' | 'measure';
 export type NoteEditSubMode = 'verse' | 'measure';
+export type NoteInputMode = 'replace' | 'progressive_replace' | 'progressive_insert';
 
 export interface VerseNoteRef {
   note: NumberedNotationNote;

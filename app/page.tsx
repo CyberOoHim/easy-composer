@@ -595,7 +595,7 @@ export default function Home() {
       />
 
       {/* Main Studio Canvas - Consolidated WYSIWYG Sheet */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-2 sm:px-4 lg:px-6 py-2 sm:py-3 flex flex-col gap-2.5 safe-px">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-1 sm:px-3 lg:px-4 py-1 sm:py-2 flex flex-col gap-1.5 safe-px">
         <ComposerEditor
           song={song}
           cursor={cursor}
@@ -614,6 +614,8 @@ export default function Home() {
           canRedo={canRedo}
           pastCount={pastCount}
           futureCount={futureCount}
+          instrument={instrument}
+          onSetInstrument={handleSetInstrument}
         />
       </main>
 

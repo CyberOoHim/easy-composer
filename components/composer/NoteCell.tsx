@@ -488,6 +488,11 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
               if (e.key === 'Enter' || e.key === 'Tab' || e.key === ' ' || e.key === '-') {
                 if (!e.shiftKey) {
                   e.preventDefault();
+                  if (e.key === '-') {
+                    const currentVal = e.currentTarget.value;
+                    const updated = currentVal.endsWith('-') ? currentVal : currentVal + '-';
+                    onUpdateLyric(mIdx, nIdx, 'roman', updated);
+                  }
                   onGoToNextNote(mIdx, nIdx, 'roman');
                 } else {
                   e.preventDefault();

@@ -52,9 +52,9 @@ html, body {
   scroll-behavior: smooth;
 }
 
-/* Measure layout & paint containment: keeps WebKit GPU compositor fast during panning */
+/* Measure layout containment: keeps WebKit GPU compositor fast without clipping top/side badges */
 .measure-containment {
-  contain: layout paint;
+  contain: layout;
 }
 
 /* Eco Mode / Low Power Mode Rules for iPad */

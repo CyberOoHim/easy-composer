@@ -97,14 +97,14 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
   return (
     <div
       id="composer-section-rail"
-      className="flex items-center gap-1.5 px-3 py-1.5 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 shadow-2xs overflow-x-auto select-none no-scrollbar touch-pan-x"
+      className="flex items-center gap-1 px-2 py-0.5 sm:py-1 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md rounded-lg sm:rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 shadow-2xs overflow-x-auto select-none no-scrollbar touch-pan-x min-h-[26px]"
     >
-      <div className="flex items-center gap-1 text-xs font-bold text-zinc-500 dark:text-zinc-400 shrink-0">
-        <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+      <div className="flex items-center gap-1 text-[11px] font-bold text-zinc-500 dark:text-zinc-400 shrink-0">
+        <Bookmark className="w-3 h-3 text-amber-500" />
         <span className="hidden sm:inline">Sections:</span>
       </div>
 
-      <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
+      <div className="flex items-center gap-1 flex-nowrap shrink-0">
         {sections.map((sec) => {
           const isSelected =
             selectedMeasureIndex !== null &&
@@ -122,9 +122,9 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
               key={sec.id}
               type="button"
               onClick={() => onSelectMeasure(sec.startMeasureIndex)}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-bold transition-all shrink-0 active:scale-95 cursor-pointer touch-manipulation h-7.5 sm:h-8 ${
+              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold transition-all shrink-0 active:scale-95 cursor-pointer touch-manipulation h-6 sm:h-6.5 ${
                 isPlaying
-                  ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 font-black animate-pulse shadow-xs'
+                  ? 'bg-amber-500 text-zinc-950 ring-1.5 ring-amber-400 font-black animate-pulse shadow-xs'
                   : isSelected
                   ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-400/70 shadow-xs'
                   : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-800'
@@ -133,7 +133,7 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
             >
               <span>{sec.name}</span>
               <span
-                className={`text-[10px] font-mono px-2 py-0.5 rounded-md ${
+                className={`text-[9px] font-mono px-1 py-0.2 rounded ${
                   isSelected
                     ? 'bg-amber-500/30 text-amber-950 dark:text-amber-100 font-bold'
                     : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
@@ -142,13 +142,13 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
                 #{sec.startMeasureNumber}-{sec.endMeasureNumber}
               </span>
               {sec.chord && (
-                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold hidden md:inline">
+                <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold hidden md:inline">
                   [{sec.chord}]
                 </span>
               )}
               {sec.hasIncompleteMeasures && (
                 <span className="shrink-0 flex items-center" title="Section contains incomplete measure(s)">
-                  <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
+                  <AlertCircle className="w-3 h-3 text-amber-500" />
                 </span>
               )}
             </button>

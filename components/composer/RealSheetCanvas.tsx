@@ -40,12 +40,21 @@ import {
   Sun,
   Moon,
   Keyboard,
+  Sliders,
+  Shuffle,
+  AlertCircle,
 } from 'lucide-react';
 import {
   getStoredRealSheetTheme,
   setStoredRealSheetTheme,
   RealSheetTheme,
+  NoteInputMode,
+  getStoredNoteInputMode,
+  setStoredNoteInputMode,
+  getStoredShowRhythmWarnings,
+  setStoredShowRhythmWarnings,
 } from '@/lib/storage';
+import { getMeasureRhythmReport, autoRearrangeSongMeasures } from '@/lib/taigiUtils';
 
 export interface RealSheetCanvasProps {
   song: Song;
@@ -78,6 +87,28 @@ export interface RealSheetCanvasProps {
   onToggleLineBreak?: (measureIndex: number) => void;
   onUpdateBarlineType?: (measureIndex: number, barlineType: BarlineType) => void;
   onAutoFillRest?: (measureIndex: number) => void;
+
+  // Enhanced note & measure edit callbacks
+  onInsertNoteAfter?: () => void;
+  onInsertNoteBefore?: () => void;
+  onDeleteCurrentNote?: () => void;
+  onDeleteNoteAfter?: () => void;
+  onDeleteNoteBefore?: () => void;
+  onDuplicateCurrentNote?: () => void;
+  onAddMeasureAfter?: () => void;
+  onAddMeasureBefore?: () => void;
+  onDuplicateMeasure?: () => void;
+  onAutoRearrangeMeasures?: () => void;
+  onPushNotesToNextMeasure?: () => void;
+  onShiftNotesToPrevMeasure?: () => void;
+
+  // Note Input Mode (replace, progressive_replace, progressive_insert)
+  noteInputMode?: NoteInputMode;
+  onChangeNoteInputMode?: (mode: NoteInputMode) => void;
+
+  // Rhythm warning notice toggle
+  showRhythmWarnings?: boolean;
+  onToggleShowRhythmWarnings?: () => void;
 
   // Audio Engine & preview
   audioEngine?: AudioEngine;
@@ -127,6 +158,22 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   onToggleLineBreak,
   onUpdateBarlineType,
   onAutoFillRest,
+  onInsertNoteAfter: propOnInsertNoteAfter,
+  onInsertNoteBefore: propOnInsertNoteBefore,
+  onDeleteCurrentNote: propOnDeleteCurrentNote,
+  onDeleteNoteAfter: propOnDeleteNoteAfter,
+  onDeleteNoteBefore: propOnDeleteNoteBefore,
+  onDuplicateCurrentNote: propOnDuplicateCurrentNote,
+  onAddMeasureAfter: propOnAddMeasureAfter,
+  onAddMeasureBefore: propOnAddMeasureBefore,
+  onDuplicateMeasure: propOnDuplicateMeasure,
+  onAutoRearrangeMeasures: propOnAutoRearrangeMeasures,
+  onPushNotesToNextMeasure: propOnPushNotesToNextMeasure,
+  onShiftNotesToPrevMeasure: propOnShiftNotesToPrevMeasure,
+  noteInputMode: propNoteInputMode,
+  onChangeNoteInputMode: propOnChangeNoteInputMode,
+  showRhythmWarnings: propShowRhythmWarnings,
+  onToggleShowRhythmWarnings: propOnToggleShowRhythmWarnings,
   audioEngine,
   previewNoteAudio,
   onAutoHarmonize,
@@ -157,6 +204,42 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
   }, [propOnToggleSheetTheme]);
 
+  // Note Input Mode (replace, progressive_replace, progressive_insert)
+  const [internalNoteInputMode, setInternalNoteInputMode] = useState<NoteInputMode>(() =>
+    getStoredNoteInputMode('progressive_replace')
+  );
+  const noteInputMode = propNoteInputMode ?? internalNoteInputMode;
+
+  const handleChangeNoteInputMode = useCallback(
+    (mode: NoteInputMode) => {
+      if (propOnChangeNoteInputMode) {
+        propOnChangeNoteInputMode(mode);
+      } else {
+        setInternalNoteInputMode(mode);
+        setStoredNoteInputMode(mode);
+      }
+    },
+    [propOnChangeNoteInputMode]
+  );
+
+  // Rhythm Mismatch Notice Toggle (print:hidden)
+  const [internalShowRhythmWarnings, setInternalShowRhythmWarnings] = useState<boolean>(() =>
+    getStoredShowRhythmWarnings(true)
+  );
+  const showRhythmWarnings = propShowRhythmWarnings ?? internalShowRhythmWarnings;
+
+  const handleToggleShowRhythmWarnings = useCallback(() => {
+    if (propOnToggleShowRhythmWarnings) {
+      propOnToggleShowRhythmWarnings();
+    } else {
+      setInternalShowRhythmWarnings(prev => {
+        const next = !prev;
+        setStoredShowRhythmWarnings(next);
+        return next;
+      });
+    }
+  }, [propOnToggleShowRhythmWarnings]);
+
   // Zoom scaling
   const [zoomScale, setZoomScale] = useState<number>(1.0);
 
@@ -184,8 +267,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeSheetPicker]);
 
-  // Mutually exclusive Floating HUD Drawer (Piano Bed, Ornaments, Chords)
-  const [activeHudDrawer, setActiveHudDrawer] = useState<'none' | 'piano' | 'ornaments' | 'chords'>('none');
+  // Mutually exclusive Floating HUD Drawer (Piano Bed, Ornaments, Chords, Edit Suite)
+  const [activeHudDrawer, setActiveHudDrawer] = useState<'none' | 'piano' | 'ornaments' | 'chords' | 'edit'>('none');
 
   // References
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
@@ -299,16 +382,338 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
   }, [currentNIdx, currentMIdx, song.measures, handleNoteClick, activeField, activeVerseRow]);
 
-  // Pitch setter
+  // Insert note after current note
+  const handleInsertNoteAfter = useCallback(() => {
+    if (propOnInsertNoteAfter) {
+      propOnInsertNoteAfter();
+      return;
+    }
+    if (onInsertNoteAt) {
+      onInsertNoteAt(currentMIdx, currentNIdx);
+      return;
+    }
+    const targetM = song.measures[currentMIdx];
+    if (!targetM) return;
+    const newNote: NumberedNotationNote = {
+      id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      pitch: 1,
+      octave: 0,
+      duration: 1,
+      lyric: {},
+    };
+    const newNotes = [...targetM.notes];
+    newNotes.splice(currentNIdx + 1, 0, newNote);
+    const newMeasures = song.measures.map((m, idx) => (idx === currentMIdx ? { ...m, notes: newNotes } : m));
+    onUpdateSong({ ...song, measures: newMeasures });
+    handleNoteClick(currentMIdx, currentNIdx + 1, activeField, activeVerseRow);
+  }, [propOnInsertNoteAfter, onInsertNoteAt, currentMIdx, currentNIdx, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow]);
+
+  // Insert note before current note
+  const handleInsertNoteBefore = useCallback(() => {
+    if (propOnInsertNoteBefore) {
+      propOnInsertNoteBefore();
+      return;
+    }
+    const targetM = song.measures[currentMIdx];
+    if (!targetM) return;
+    const newNote: NumberedNotationNote = {
+      id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      pitch: 1,
+      octave: 0,
+      duration: 1,
+      lyric: {},
+    };
+    const newNotes = [...targetM.notes];
+    newNotes.splice(currentNIdx, 0, newNote);
+    const newMeasures = song.measures.map((m, idx) => (idx === currentMIdx ? { ...m, notes: newNotes } : m));
+    onUpdateSong({ ...song, measures: newMeasures });
+    handleNoteClick(currentMIdx, currentNIdx, activeField, activeVerseRow);
+  }, [propOnInsertNoteBefore, currentMIdx, currentNIdx, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow]);
+
+  // Delete current note
+  const handleDeleteCurrentNote = useCallback(() => {
+    if (propOnDeleteCurrentNote) {
+      propOnDeleteCurrentNote();
+      return;
+    }
+    if (onDeleteNoteAt) {
+      onDeleteNoteAt(currentMIdx, currentNIdx);
+      return;
+    }
+    const targetM = song.measures[currentMIdx];
+    if (!targetM || targetM.notes.length <= 1) return;
+    const newNotes = targetM.notes.filter((_, idx) => idx !== currentNIdx);
+    const newMeasures = song.measures.map((m, idx) => (idx === currentMIdx ? { ...m, notes: newNotes } : m));
+    onUpdateSong({ ...song, measures: newMeasures });
+    handleNoteClick(currentMIdx, Math.max(0, currentNIdx - 1), activeField, activeVerseRow);
+  }, [propOnDeleteCurrentNote, onDeleteNoteAt, currentMIdx, currentNIdx, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow]);
+
+  // Delete note after current note
+  const handleDeleteNoteAfter = useCallback(() => {
+    if (propOnDeleteNoteAfter) {
+      propOnDeleteNoteAfter();
+      return;
+    }
+    const targetM = song.measures[currentMIdx];
+    if (!targetM || currentNIdx >= targetM.notes.length - 1) return;
+    const newNotes = targetM.notes.filter((_, idx) => idx !== currentNIdx + 1);
+    const newMeasures = song.measures.map((m, idx) => (idx === currentMIdx ? { ...m, notes: newNotes } : m));
+    onUpdateSong({ ...song, measures: newMeasures });
+  }, [propOnDeleteNoteAfter, currentMIdx, currentNIdx, song, onUpdateSong]);
+
+  // Delete note before current note
+  const handleDeleteNoteBefore = useCallback(() => {
+    if (propOnDeleteNoteBefore) {
+      propOnDeleteNoteBefore();
+      return;
+    }
+    const targetM = song.measures[currentMIdx];
+    if (!targetM || currentNIdx <= 0) return;
+    const newNotes = targetM.notes.filter((_, idx) => idx !== currentNIdx - 1);
+    const newMeasures = song.measures.map((m, idx) => (idx === currentMIdx ? { ...m, notes: newNotes } : m));
+    onUpdateSong({ ...song, measures: newMeasures });
+    handleNoteClick(currentMIdx, currentNIdx - 1, activeField, activeVerseRow);
+  }, [propOnDeleteNoteBefore, currentMIdx, currentNIdx, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow]);
+
+  // Duplicate current note
+  const handleDuplicateCurrentNote = useCallback(() => {
+    if (propOnDuplicateCurrentNote) {
+      propOnDuplicateCurrentNote();
+      return;
+    }
+    const targetM = song.measures[currentMIdx];
+    if (!targetM || !currentNote) return;
+    const clonedNote: NumberedNotationNote = {
+      ...currentNote,
+      id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      lyric: { ...currentNote.lyric },
+    };
+    const newNotes = [...targetM.notes];
+    newNotes.splice(currentNIdx + 1, 0, clonedNote);
+    const newMeasures = song.measures.map((m, idx) => (idx === currentMIdx ? { ...m, notes: newNotes } : m));
+    onUpdateSong({ ...song, measures: newMeasures });
+    handleNoteClick(currentMIdx, currentNIdx + 1, activeField, activeVerseRow);
+  }, [propOnDuplicateCurrentNote, currentMIdx, currentNIdx, currentNote, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow]);
+
+  // Add measure after current measure
+  const handleAddMeasureAfter = useCallback(() => {
+    if (propOnAddMeasureAfter) {
+      propOnAddMeasureAfter();
+      return;
+    }
+    const newMeasure: Measure = {
+      id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      measureNumber: currentMIdx + 2,
+      chord: 'C',
+      notes: [
+        { id: `n-${Date.now()}-1`, pitch: 1, octave: 0, duration: 1, lyric: {} },
+        { id: `n-${Date.now()}-2`, pitch: 2, octave: 0, duration: 1, lyric: {} },
+        { id: `n-${Date.now()}-3`, pitch: 3, octave: 0, duration: 1, lyric: {} },
+        { id: `n-${Date.now()}-4`, pitch: 5, octave: 0, duration: 1, lyric: {} },
+      ],
+    };
+    const newMeasures = [...song.measures];
+    newMeasures.splice(currentMIdx + 1, 0, newMeasure);
+    const renumbered = newMeasures.map((m, idx) => ({ ...m, measureNumber: idx + 1 }));
+    onUpdateSong({ ...song, measures: renumbered });
+    handleNoteClick(currentMIdx + 1, 0, activeField, activeVerseRow);
+  }, [propOnAddMeasureAfter, currentMIdx, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow]);
+
+  // Add measure before current measure
+  const handleAddMeasureBefore = useCallback(() => {
+    if (propOnAddMeasureBefore) {
+      propOnAddMeasureBefore();
+      return;
+    }
+    const newMeasure: Measure = {
+      id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      measureNumber: currentMIdx + 1,
+      chord: 'C',
+      notes: [
+        { id: `n-${Date.now()}-1`, pitch: 1, octave: 0, duration: 1, lyric: {} },
+        { id: `n-${Date.now()}-2`, pitch: 2, octave: 0, duration: 1, lyric: {} },
+        { id: `n-${Date.now()}-3`, pitch: 3, octave: 0, duration: 1, lyric: {} },
+        { id: `n-${Date.now()}-4`, pitch: 5, octave: 0, duration: 1, lyric: {} },
+      ],
+    };
+    const newMeasures = [...song.measures];
+    newMeasures.splice(currentMIdx, 0, newMeasure);
+    const renumbered = newMeasures.map((m, idx) => ({ ...m, measureNumber: idx + 1 }));
+    onUpdateSong({ ...song, measures: renumbered });
+    handleNoteClick(currentMIdx, 0, activeField, activeVerseRow);
+  }, [propOnAddMeasureBefore, currentMIdx, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow]);
+
+  // Duplicate current measure
+  const handleDuplicateMeasure = useCallback(() => {
+    if (propOnDuplicateMeasure) {
+      propOnDuplicateMeasure();
+      return;
+    }
+    const targetM = song.measures[currentMIdx];
+    if (!targetM) return;
+    const duplicatedM: Measure = {
+      ...targetM,
+      id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+      measureNumber: currentMIdx + 2,
+      notes: targetM.notes.map(n => ({
+        ...n,
+        id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        lyric: { ...n.lyric },
+      })),
+    };
+    const newMeasures = [...song.measures];
+    newMeasures.splice(currentMIdx + 1, 0, duplicatedM);
+    const renumbered = newMeasures.map((m, idx) => ({ ...m, measureNumber: idx + 1 }));
+    onUpdateSong({ ...song, measures: renumbered });
+    handleNoteClick(currentMIdx + 1, 0, activeField, activeVerseRow);
+  }, [propOnDuplicateMeasure, currentMIdx, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow]);
+
+  // Auto rearrange song measures
+  const handleAutoRearrangeMeasures = useCallback(() => {
+    if (propOnAutoRearrangeMeasures) {
+      propOnAutoRearrangeMeasures();
+      return;
+    }
+    const rearranged = autoRearrangeSongMeasures(song);
+    onUpdateSong(rearranged);
+  }, [propOnAutoRearrangeMeasures, song, onUpdateSong]);
+
+  // Push notes from current note to end into next measure
+  const handlePushNotesToNextMeasure = useCallback(() => {
+    if (propOnPushNotesToNextMeasure) {
+      propOnPushNotesToNextMeasure();
+      return;
+    }
+    const currentM = song.measures[currentMIdx];
+    if (!currentM || currentM.notes.length === 0) return;
+    const validNIdx = Math.max(0, Math.min(currentNIdx, currentM.notes.length - 1));
+    const notesToPush = currentM.notes.slice(validNIdx);
+    const remainingNotes = currentM.notes.slice(0, validNIdx);
+    if (notesToPush.length === 0) return;
+
+    let newMeasures = [...song.measures];
+    if (currentMIdx < song.measures.length - 1) {
+      const nextM = song.measures[currentMIdx + 1];
+      const newNextNotes = [...notesToPush, ...nextM.notes];
+      if (remainingNotes.length === 0) {
+        newMeasures.splice(currentMIdx, 1);
+        newMeasures[currentMIdx] = { ...nextM, notes: newNextNotes };
+        newMeasures = newMeasures.map((m, idx) => ({ ...m, measureNumber: idx + 1 }));
+        onUpdateSong({ ...song, measures: newMeasures });
+        handleNoteClick(currentMIdx, 0, activeField, activeVerseRow);
+      } else {
+        newMeasures[currentMIdx] = { ...currentM, notes: remainingNotes };
+        newMeasures[currentMIdx + 1] = { ...nextM, notes: newNextNotes };
+        onUpdateSong({ ...song, measures: newMeasures });
+        handleNoteClick(currentMIdx + 1, 0, activeField, activeVerseRow);
+      }
+    } else {
+      const newMeasure: Measure = {
+        id: `m-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        measureNumber: song.measures.length + 1,
+        chord: currentM.chord,
+        notes: notesToPush,
+      };
+      if (remainingNotes.length === 0) {
+        const restNote: NumberedNotationNote = {
+          id: `n-${Date.now()}-rest`,
+          pitch: 0,
+          octave: 0,
+          duration: 1,
+          lyric: {},
+        };
+        newMeasures[currentMIdx] = { ...currentM, notes: [restNote] };
+      } else {
+        newMeasures[currentMIdx] = { ...currentM, notes: remainingNotes };
+      }
+      newMeasures.push(newMeasure);
+      newMeasures = newMeasures.map((m, idx) => ({ ...m, measureNumber: idx + 1 }));
+      onUpdateSong({ ...song, measures: newMeasures });
+      handleNoteClick(currentMIdx + 1, 0, activeField, activeVerseRow);
+    }
+  }, [propOnPushNotesToNextMeasure, currentMIdx, currentNIdx, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow]);
+
+  // Shift notes up to current note into preceding measure
+  const handleShiftNotesToPrevMeasure = useCallback(() => {
+    if (propOnShiftNotesToPrevMeasure) {
+      propOnShiftNotesToPrevMeasure();
+      return;
+    }
+    if (currentMIdx <= 0) return;
+    const currentM = song.measures[currentMIdx];
+    const prevM = song.measures[currentMIdx - 1];
+    if (!currentM || !prevM || currentM.notes.length === 0) return;
+    const validNIdx = Math.max(0, Math.min(currentNIdx, currentM.notes.length - 1));
+    const notesToShift = currentM.notes.slice(0, validNIdx + 1);
+    const remainingNotes = currentM.notes.slice(validNIdx + 1);
+    if (notesToShift.length === 0) return;
+
+    const newPrevNotes = [...prevM.notes, ...notesToShift];
+    const targetNoteIdx = prevM.notes.length + validNIdx;
+    let newMeasures = [...song.measures];
+
+    if (remainingNotes.length === 0) {
+      newMeasures.splice(currentMIdx, 1);
+      newMeasures[currentMIdx - 1] = { ...prevM, notes: newPrevNotes };
+      newMeasures = newMeasures.map((m, idx) => ({ ...m, measureNumber: idx + 1 }));
+      onUpdateSong({ ...song, measures: newMeasures });
+      handleNoteClick(currentMIdx - 1, targetNoteIdx, activeField, activeVerseRow);
+    } else {
+      newMeasures[currentMIdx - 1] = { ...prevM, notes: newPrevNotes };
+      newMeasures[currentMIdx] = { ...currentM, notes: remainingNotes };
+      onUpdateSong({ ...song, measures: newMeasures });
+      handleNoteClick(currentMIdx - 1, targetNoteIdx, activeField, activeVerseRow);
+    }
+  }, [propOnShiftNotesToPrevMeasure, currentMIdx, currentNIdx, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow]);
+
+  // Pitch setter with NoteInputMode support
   const handleSetPitch = useCallback(
     (p: PitchNumber) => {
-      updateCurrentNote(note => ({
-        ...note,
-        pitch: p,
-      }));
-      stepToNextNote();
+      if (noteInputMode === 'replace') {
+        updateCurrentNote(note => ({
+          ...note,
+          pitch: p,
+        }));
+      } else if (noteInputMode === 'progressive_replace') {
+        updateCurrentNote(note => ({
+          ...note,
+          pitch: p,
+        }));
+        stepToNextNote();
+      } else if (noteInputMode === 'progressive_insert') {
+        const targetM = song.measures[currentMIdx];
+        if (!targetM) return;
+        const newNote: NumberedNotationNote = {
+          id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          pitch: p,
+          octave: currentNote?.octave || 0,
+          duration: currentNote?.duration || 1,
+          lyric: {},
+        };
+        const newNotes = [...targetM.notes];
+        newNotes.splice(currentNIdx + 1, 0, newNote);
+        const newMeasures = song.measures.map((m, idx) => (idx === currentMIdx ? { ...m, notes: newNotes } : m));
+        onUpdateSong({ ...song, measures: newMeasures });
+        handleNoteClick(currentMIdx, currentNIdx + 1, activeField, activeVerseRow);
+        if (previewNoteAudio && p !== 0 && p !== 'empty') {
+          previewNoteAudio(song.key, newNote);
+        }
+      }
     },
-    [updateCurrentNote, stepToNextNote]
+    [
+      noteInputMode,
+      updateCurrentNote,
+      stepToNextNote,
+      song,
+      currentMIdx,
+      currentNIdx,
+      currentNote,
+      onUpdateSong,
+      handleNoteClick,
+      activeField,
+      activeVerseRow,
+      previewNoteAudio,
+    ]
   );
 
   // Sustain dash '-'
@@ -876,6 +1281,19 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     [updateCurrentNote, currentMIdx, currentNIdx]
   );
 
+  // Quick insert diacritics/hyphen/character into lyric for touch & iPad controls
+  const handleInsertLyricChar = useCallback(
+    (char: string) => {
+      if (!currentNote) return;
+      const curText =
+        activeVerseRow === 1
+          ? currentNote.lyric.hanlo || currentNote.lyric.poj || currentNote.lyric.custom || ''
+          : currentNote.lyricsByVerse?.[activeVerseRow]?.hanlo || '';
+      handleLyricInputChange(curText + char, activeVerseRow);
+    },
+    [currentNote, activeVerseRow, handleLyricInputChange]
+  );
+
   // In-place header editing commit
   const commitHeaderEdit = () => {
     if (!editingHeaderField) return;
@@ -1256,6 +1674,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 const isSelectedMeasure = engravedM.measureIndex === currentMIdx;
                 const isFirstInSystem = mInSysIdx === 0;
                 const isLastInSystem = mInSysIdx === system.measures.length - 1;
+                const rhythmReport = getMeasureRhythmReport(engravedM.measure, song.timeSignature || '4/4');
 
                 return (
                   <div
@@ -1266,16 +1685,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         handleNoteClick(engravedM.measureIndex, 0, activeField, activeVerseRow);
                       }
                     }}
-                    className={`relative flex-1 flex flex-col justify-between px-2 sm:px-3 pt-4 pb-2 transition-colors cursor-pointer group measure-containment touch-manipulation ${
+                    className={`relative flex-1 flex flex-col justify-between px-2 sm:px-3 pt-3 pb-2 transition-colors cursor-pointer group measure-containment touch-manipulation ${
                       isSelectedMeasure
                         ? sheetTheme === 'dark' ? 'bg-amber-950/30' : 'bg-amber-50/40'
                         : sheetTheme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50/80'
                     }`}
                   >
-                    {/* Top Annotation Layer: Measure Number, Volta Brackets, Chords */}
-                    <div className="relative flex items-center justify-between w-full h-7 mb-1">
+                    {/* Top Annotation Layer: Measure Number, Volta Brackets, Chords, Section & Rhythm Alert */}
+                    <div className="relative flex items-center justify-between w-full min-h-[22px] mb-1 gap-1">
                       {/* Left: Measure Number */}
-                      <span className="text-[10px] font-mono text-zinc-400 select-none">
+                      <span className="text-[10px] font-mono text-zinc-400 select-none shrink-0">
                         {engravedM.measureNumber}
                       </span>
 
@@ -1300,14 +1719,26 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         {engravedM.chordText}
                       </div>
 
-                      {/* Section label if present */}
-                      {engravedM.sectionText && (
-                        <span className={`text-[9px] font-sans font-bold px-1.5 py-0.5 rounded ${
-                          sheetTheme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
-                        }`}>
-                          {engravedM.sectionText}
-                        </span>
-                      )}
+                      {/* Right: Rhythm Mismatch Alert and/or Section label */}
+                      <div className="flex items-center gap-1 shrink-0 ml-auto">
+                        {showRhythmWarnings && !rhythmReport.isFull && (
+                          <div
+                            title={`Time Signature Mismatch: Has ${rhythmReport.currentBeats} beats, expected ${rhythmReport.expectedBeats} beats`}
+                            className="print:hidden flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30 shadow-xs pointer-events-auto select-none shrink-0 whitespace-nowrap transition-transform hover:scale-105"
+                          >
+                            <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />
+                            <span className="whitespace-nowrap leading-none">{rhythmReport.currentBeats}/{rhythmReport.expectedBeats}b</span>
+                          </div>
+                        )}
+
+                        {engravedM.sectionText && (
+                          <span className={`text-[9px] font-sans font-bold px-1.5 py-0.5 rounded shrink-0 ${
+                            sheetTheme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
+                          }`}>
+                            {engravedM.sectionText}
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Upper Obbligato / Counterpoint Layer if present */}
@@ -1628,12 +2059,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                   value={syllable}
                                   onChange={e => handleLyricInputChange(e.target.value, 1)}
                                   onKeyDown={e => {
-                                    if (e.key === ' ' || e.key === 'Tab') {
+                                    if (e.key === ' ' || e.key === 'Tab' || e.key === '-') {
                                       e.preventDefault();
+                                      if (e.key === '-') {
+                                        const cur = e.currentTarget.value;
+                                        const updated = cur.endsWith('-') ? cur : cur + '-';
+                                        handleLyricInputChange(updated, 1);
+                                      }
                                       stepToNextNote();
                                     }
                                   }}
-                                  className="w-full text-center bg-transparent border-none outline-none font-bold"
+                                  className="w-full text-center bg-transparent border-none outline-none font-bold touch-manipulation"
                                 />
                               ) : (
                                 <span>{syllable || ' '}</span>
@@ -1688,12 +2124,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                   value={v2Syllable}
                                   onChange={e => handleLyricInputChange(e.target.value, 2)}
                                   onKeyDown={e => {
-                                    if (e.key === ' ' || e.key === 'Tab') {
+                                    if (e.key === ' ' || e.key === 'Tab' || e.key === '-') {
                                       e.preventDefault();
+                                      if (e.key === '-') {
+                                        const cur = e.currentTarget.value;
+                                        const updated = cur.endsWith('-') ? cur : cur + '-';
+                                        handleLyricInputChange(updated, 2);
+                                      }
                                       stepToNextNote();
                                     }
                                   }}
-                                  className="w-full text-center bg-transparent border-none outline-none font-bold"
+                                  className="w-full text-center bg-transparent border-none outline-none font-bold touch-manipulation"
                                 />
                               ) : (
                                 <span>{v2Syllable || ' '}</span>
@@ -1811,7 +2252,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         showPianoBed={activeHudDrawer === 'piano'}
         pianoBedSlot={
           activeHudDrawer === 'piano' ? (
-            <div className="w-full max-w-4xl px-2 sm:px-4 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div className="w-full max-w-5xl px-0 animate-in fade-in slide-in-from-bottom-1 duration-150">
               <PianoKeyboard
                 keySignature={song.key}
                 currentNote={currentNote || null}
@@ -1848,12 +2289,31 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         onToggleActiveField={() => setActiveField(f => (f === 'pitch' ? 'lyric' : 'pitch'))}
         selectedVerseRow={activeVerseRow}
         onChangeVerseRow={row => setActiveVerseRow(row)}
+        onInsertLyricChar={handleInsertLyricChar}
+        onStepNextNote={stepToNextNote}
+        onStepPrevNote={stepToPrevNote}
         onUndo={onUndo}
         onRedo={onRedo}
         canUndo={canUndo}
         canRedo={canRedo}
         pastCount={pastCount}
         futureCount={futureCount}
+        noteInputMode={noteInputMode}
+        onChangeNoteInputMode={handleChangeNoteInputMode}
+        showRhythmWarnings={showRhythmWarnings}
+        onToggleShowRhythmWarnings={handleToggleShowRhythmWarnings}
+        onInsertNoteAfter={handleInsertNoteAfter}
+        onInsertNoteBefore={handleInsertNoteBefore}
+        onDeleteCurrentNote={handleDeleteCurrentNote}
+        onDeleteNoteAfter={handleDeleteNoteAfter}
+        onDeleteNoteBefore={handleDeleteNoteBefore}
+        onDuplicateCurrentNote={handleDuplicateCurrentNote}
+        onAddMeasureAfter={handleAddMeasureAfter}
+        onAddMeasureBefore={handleAddMeasureBefore}
+        onDuplicateMeasure={handleDuplicateMeasure}
+        onAutoRearrangeMeasures={handleAutoRearrangeMeasures}
+        onPushNotesToNextMeasure={handlePushNotesToNextMeasure}
+        onShiftNotesToPrevMeasure={handleShiftNotesToPrevMeasure}
       />
 
       {/* Inline Header Field Edit Modal */}

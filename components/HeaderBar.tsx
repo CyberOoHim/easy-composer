@@ -112,19 +112,19 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#10121a]/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800/80 shadow-xs transition-colors select-none pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)]">
-      <div className="w-full max-w-[1680px] mx-auto px-2 sm:px-4 h-14 flex items-center justify-between gap-1.5 sm:gap-2.5 overflow-x-auto no-scrollbar touch-pan-x">
+      <div className="w-full max-w-[1680px] mx-auto px-2 sm:px-3 h-11 sm:h-12 flex items-center justify-between gap-1 sm:gap-2 overflow-x-auto no-scrollbar touch-pan-x">
         {/* Left: Studio Brand & Active Song Selector */}
-        <div className="flex items-center gap-1.5 sm:gap-2 min-w-0 shrink">
-          <div className="relative flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-zinc-950 font-black shadow-md shadow-amber-500/20 ring-1 ring-amber-400/50 shrink-0">
-            <Music className={`w-4 h-4 shrink-0 ${isPlaying && !isEcoMode ? 'animate-bounce' : ''}`} />
+        <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 shrink">
+          <div className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-zinc-950 font-black shadow-sm shadow-amber-500/20 ring-1 ring-amber-400/50 shrink-0">
+            <Music className={`w-3.5 h-3.5 shrink-0 ${isPlaying && !isEcoMode ? 'animate-bounce' : ''}`} />
             {isPlaying && (
-              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 ring-2 ring-zinc-950 animate-ping" />
+              <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-emerald-400 ring-2 ring-zinc-950 animate-ping" />
             )}
           </div>
 
           {/* Song Quick Picker & Metadata Badge */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className="relative flex items-center min-w-0 max-w-[120px] sm:max-w-[170px] md:max-w-[210px] xl:max-w-[240px]">
+          <div className="flex items-center gap-1 min-w-0">
+            <div className="relative flex items-center min-w-0 max-w-[130px] sm:max-w-[180px] md:max-w-[220px] xl:max-w-[250px]">
               <select
                 id="header-preset-song-select"
                 value={song.id}
@@ -139,7 +139,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     onSelectSong(selectedCustom);
                   }
                 }}
-                className="w-full text-xs font-bold bg-zinc-100 hover:bg-zinc-200/80 dark:bg-[#151822] dark:hover:bg-[#1a1e2b] border border-zinc-200/90 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 rounded-xl pl-2.5 pr-6 py-1.5 focus:outline-hidden focus:ring-2 focus:ring-amber-500 truncate cursor-pointer h-9 transition-colors"
+                className="w-full text-xs font-bold bg-zinc-100 hover:bg-zinc-200/80 dark:bg-[#151822] dark:hover:bg-[#1a1e2b] border border-zinc-200/90 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 rounded-lg pl-2 pr-5 py-1 focus:outline-hidden focus:ring-1.5 focus:ring-amber-500 truncate cursor-pointer h-7.5 sm:h-8 transition-colors"
                 title="選擇樂譜 (預設曲目與自訂庫存)"
               >
                 <optgroup label="預設曲目 (Presets)">
@@ -162,11 +162,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   </optgroup>
                 )}
               </select>
-              <ChevronDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2 pointer-events-none" />
+              <ChevronDown className="w-3 h-3 text-zinc-400 absolute right-1.5 pointer-events-none" />
             </div>
 
             {/* Quick Song Spec Chip */}
-            <span className="hidden xl:inline-flex items-center text-[11px] px-2 py-1 rounded-lg bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 font-mono font-bold border border-amber-400/30 whitespace-nowrap shrink-0">
+            <span className="hidden xl:inline-flex items-center text-[10px] px-1.5 py-0.5 rounded-md bg-amber-500/10 dark:bg-amber-500/15 text-amber-800 dark:text-amber-300 font-mono font-bold border border-amber-400/30 whitespace-nowrap shrink-0">
               1={song.key} · {song.timeSignature} · {song.bpm}BPM
             </span>
 
@@ -176,37 +176,37 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 id="header-new-song-btn"
                 type="button"
                 onClick={onStartFreshSong}
-                className="hidden sm:flex items-center justify-center p-1.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl border border-zinc-200/90 dark:border-zinc-750 text-xs font-bold transition-all active:scale-95 cursor-pointer min-h-[42px] min-w-[42px] shrink-0 touch-manipulation"
+                className="hidden sm:flex items-center justify-center p-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg border border-zinc-200/90 dark:border-zinc-750 text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 w-7.5 sm:h-8 sm:w-8 shrink-0 touch-manipulation"
                 title="Create New Blank Song"
               >
-                <FilePlus2 className="w-4 h-4 text-amber-500 shrink-0" />
+                <FilePlus2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               </button>
             )}
           </div>
         </div>
 
         {/* Right: Master Transport & Consolidated Studio Tools */}
-        <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
           {/* Master Transport Backlit Play/Pause Button */}
           <button
             id="header-toggle-play-btn"
             type="button"
             onClick={onTogglePlay}
-            className={`flex items-center gap-1.5 px-3 sm:px-4 py-2 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px] whitespace-nowrap shrink-0 ${
+            className={`flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-lg font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation h-7.5 sm:h-8 whitespace-nowrap shrink-0 ${
               isPlaying
-                ? 'bg-amber-500 text-zinc-950 ring-2 ring-amber-400 shadow-md shadow-amber-500/30 font-black'
+                ? 'bg-amber-500 text-zinc-950 ring-1.5 ring-amber-400 shadow-sm shadow-amber-500/30 font-black'
                 : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
             }`}
             title={isPlaying ? 'Pause Playback (Space)' : 'Play Full Score (Space)'}
           >
             {isPlaying ? (
               <>
-                <Pause className="w-4 h-4 fill-current shrink-0" />
+                <Pause className="w-3.5 h-3.5 fill-current shrink-0" />
                 <span className="hidden md:inline whitespace-nowrap">Pause</span>
               </>
             ) : (
               <>
-                <Play className="w-4 h-4 fill-current ml-0.5 shrink-0" />
+                <Play className="w-3.5 h-3.5 fill-current ml-0.5 shrink-0" />
                 <span className="hidden md:inline whitespace-nowrap">Play</span>
               </>
             )}
@@ -216,14 +216,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           {onSetInstrument && (
             <div
               id="header-instrument-selector"
-              className="hidden md:flex items-center gap-1 bg-zinc-100 dark:bg-[#151822] px-2.5 py-1 rounded-xl border border-zinc-200/90 dark:border-zinc-750 text-xs min-h-[42px] shrink-0 shadow-2xs"
+              className="hidden md:flex items-center gap-1 bg-zinc-100 dark:bg-[#151822] px-2 py-0.5 rounded-lg border border-zinc-200/90 dark:border-zinc-750 text-xs h-7.5 sm:h-8 shrink-0 shadow-2xs"
             >
-              <Music className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <Music className="w-3 h-3 text-amber-500 shrink-0" />
               <select
                 id="header-instrument-select"
                 value={instrument}
                 onChange={e => onSetInstrument(e.target.value as InstrumentType)}
-                className="bg-transparent font-bold text-xs text-zinc-800 dark:text-zinc-200 focus:outline-hidden cursor-pointer touch-manipulation min-h-[36px]"
+                className="bg-transparent font-bold text-xs text-zinc-800 dark:text-zinc-200 focus:outline-hidden cursor-pointer touch-manipulation"
                 title="Select Melody Instrument (Piano, Flute, Whistle, Guitar, Synth, Bell, Cello)"
               >
                 {INSTRUMENT_OPTIONS.map(opt => (
@@ -247,7 +247,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               type="button"
               onClick={onSave}
               disabled={isSaving}
-              className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px] shrink-0 border ${
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation h-7.5 sm:h-8 shrink-0 border ${
                 isSaving
                   ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-400/40'
                   : saveSuccess
@@ -263,15 +263,15 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               }
             >
               {saveSuccess ? (
-                <Check className="w-4 h-4 shrink-0" />
+                <Check className="w-3.5 h-3.5 shrink-0" />
               ) : (
-                <Save className={`w-4 h-4 shrink-0 ${isDirty ? 'text-zinc-950' : 'text-amber-500'}`} />
+                <Save className={`w-3.5 h-3.5 shrink-0 ${isDirty ? 'text-zinc-950' : 'text-amber-500'}`} />
               )}
               <span className="hidden sm:inline whitespace-nowrap">
                 {isSaving ? 'Saving...' : saveSuccess ? 'Saved' : isDirty ? 'Save*' : 'Save'}
               </span>
               {isDirty && !isSaving && !saveSuccess && (
-                <span className="w-2 h-2 rounded-full bg-amber-950 dark:bg-amber-900 animate-ping inline-block shrink-0" />
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-950 dark:bg-amber-900 animate-ping inline-block shrink-0" />
               )}
             </button>
           )}
@@ -280,7 +280,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           {onUndo && onRedo && (
             <div
               id="header-undo-redo-group"
-              className="flex items-center bg-zinc-100 dark:bg-[#151822] p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-750 min-h-[42px] shrink-0"
+              className="flex items-center bg-zinc-100 dark:bg-[#151822] p-0.5 rounded-lg border border-zinc-200/90 dark:border-zinc-750 h-7.5 sm:h-8 shrink-0"
             >
               <button
                 id="header-undo-btn"
@@ -289,12 +289,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 disabled={!canUndo}
                 title={canUndo ? `Undo [Ctrl+Z / ⌘Z] · ${pastCount} step(s)` : 'Nothing to undo'}
                 aria-label="Undo"
-                className="flex items-center justify-center p-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] min-w-[38px] shrink-0"
+                className="flex items-center justify-center p-1 rounded text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation h-6.5 w-6.5 shrink-0"
               >
-                <Undo2 className="w-4 h-4 shrink-0" />
+                <Undo2 className="w-3.5 h-3.5 shrink-0" />
               </button>
 
-              <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
+              <div className="w-[1px] h-3.5 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
 
               <button
                 id="header-redo-btn"
@@ -303,9 +303,9 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 disabled={!canRedo}
                 title={canRedo ? `Redo [Ctrl+Y / ⌘Shift+Z] · ${futureCount} step(s)` : 'Nothing to redo'}
                 aria-label="Redo"
-                className="flex items-center justify-center p-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] min-w-[38px] shrink-0"
+                className="flex items-center justify-center p-1 rounded text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation h-6.5 w-6.5 shrink-0"
               >
-                <Redo2 className="w-4 h-4 shrink-0" />
+                <Redo2 className="w-3.5 h-3.5 shrink-0" />
               </button>
             </div>
           )}
@@ -316,12 +316,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               id="header-top-search-btn"
               type="button"
               onClick={onOpenLyricSearch}
-              className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer min-h-[42px] bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shrink-0 touch-manipulation"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg border text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 sm:h-8 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shrink-0 touch-manipulation"
               title="Search Lyrics & Notes [Ctrl+K / ⌘K]"
             >
-              <Search className="w-4 h-4 text-amber-500 shrink-0" />
+              <Search className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               <span className="hidden xl:inline whitespace-nowrap">Search</span>
-              <kbd className="hidden lg:inline text-[10px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700/80 font-mono font-bold text-zinc-600 dark:text-zinc-400">⌘K</kbd>
+              <kbd className="hidden lg:inline text-[9px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700/80 font-mono font-bold text-zinc-600 dark:text-zinc-400">⌘K</kbd>
             </button>
           )}
 
@@ -330,7 +330,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             id="header-studio-menu-btn"
             type="button"
             onClick={() => setIsStudioMenuOpen(prev => !prev)}
-            className={`flex items-center gap-1.5 px-2.5 sm:px-3.5 py-1.5 rounded-xl border text-xs font-bold transition-all active:scale-95 cursor-pointer min-h-[42px] shrink-0 touch-manipulation ${
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg border text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 sm:h-8 shrink-0 touch-manipulation ${
               isStudioOpen
                 ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs font-black'
                 : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750'
@@ -338,12 +338,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             title="Studio Tools & Settings"
             aria-expanded={isStudioOpen}
           >
-            <SlidersHorizontal className="w-4 h-4 shrink-0" />
+            <SlidersHorizontal className="w-3.5 h-3.5 shrink-0" />
             <span className="hidden sm:inline whitespace-nowrap">Studio</span>
             {isEcoMode && (
-              <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Eco Mode Active" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="Eco Mode Active" />
             )}
-            <ChevronDown className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${isStudioOpen ? 'rotate-180' : ''}`} />
+            <ChevronDown className={`w-3 h-3 transition-transform duration-200 shrink-0 ${isStudioOpen ? 'rotate-180' : ''}`} />
           </button>
         </div>
       </div>
@@ -364,7 +364,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           role="dialog"
           aria-modal="true"
           aria-label="Studio Deck & Tools"
-          className="fixed top-14 right-2 sm:right-4 z-50 w-[min(384px,calc(100vw-16px))] max-h-[calc(100dvh-68px)] overflow-y-auto no-scrollbar p-4 bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-3.5"
+          className="fixed top-12 sm:top-13 right-2 sm:right-4 z-50 w-[min(384px,calc(100vw-16px))] max-h-[calc(100dvh-56px)] overflow-y-auto no-scrollbar p-3.5 bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-3"
         >
           {/* Header in Popover */}
           <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">

@@ -19,20 +19,27 @@ import {
   Moon,
   Undo2,
   Redo2,
-} from 'lucide-react';
-import { NoteDuration, PitchNumber, ArticulationType } from '@/types/song';
-import {
-  Keyboard,
-  SlidersHorizontal,
-  MessageSquareQuote,
+  Scissors,
+  Copy,
+  Shuffle,
+  AlertCircle,
+  Settings2,
+  Sliders,
+  Layers,
+  ArrowRight,
+  ArrowLeft,
+  ArrowRightToLine,
+  ArrowLeftToLine,
   Check,
   X,
   Disc,
   Command,
+  Keyboard,
 } from 'lucide-react';
+import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode } from '@/types/song';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 
-export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords';
+export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit';
 
 export interface FloatingScoreHudProps {
   // Playback
@@ -40,6 +47,30 @@ export interface FloatingScoreHudProps {
   onTogglePlay: () => void;
   selectedMeasureNumber?: number;
   selectedNoteNumber?: number;
+
+  // Note Input Mode (Replace, Progressive Replace, Progressive Insert)
+  noteInputMode?: NoteInputMode;
+  onChangeNoteInputMode?: (mode: NoteInputMode) => void;
+
+  // Rhythm Warnings & Auto Rearrange
+  showRhythmWarnings?: boolean;
+  onToggleShowRhythmWarnings?: () => void;
+  onAutoRearrangeMeasures?: () => void;
+
+  // Note editing operations
+  onInsertNoteAfter?: () => void;
+  onInsertNoteBefore?: () => void;
+  onDeleteCurrentNote?: () => void;
+  onDeleteNoteAfter?: () => void;
+  onDeleteNoteBefore?: () => void;
+  onDuplicateCurrentNote?: () => void;
+  onPushNotesToNextMeasure?: () => void;
+  onShiftNotesToPrevMeasure?: () => void;
+
+  // Measure editing operations
+  onAddMeasureAfter?: () => void;
+  onAddMeasureBefore?: () => void;
+  onDuplicateMeasure?: () => void;
 
   // Pitch input
   onSetPitch: (pitch: PitchNumber) => void;
@@ -78,9 +109,9 @@ export interface FloatingScoreHudProps {
   chordSuggestions?: string[];
   onAutoHarmonize?: () => void;
 
-  // Mutually exclusive drawer / popovers (Piano Bed, Ornaments, Chords)
+  // Mutually exclusive drawer / popovers (Piano Bed, Ornaments, Chords, Edit)
   activeDrawer?: HudDrawerType;
-  onToggleDrawer?: (drawer: 'piano' | 'ornaments' | 'chords') => void;
+  onToggleDrawer?: (drawer: 'piano' | 'ornaments' | 'chords' | 'edit') => void;
   onCloseDrawer?: () => void;
 
   // Piano Bed & Keyboard Transcription (Legacy/Direct slot support)
@@ -115,6 +146,9 @@ export interface FloatingScoreHudProps {
   selectedVerseRow: number;
   onChangeVerseRow: (row: number) => void;
   availableVerseRows?: number[];
+  onInsertLyricChar?: (char: string) => void;
+  onStepNextNote?: () => void;
+  onStepPrevNote?: () => void;
 
   // Undo / Redo
   onUndo?: () => boolean;
@@ -133,6 +167,22 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   onTogglePlay,
   selectedMeasureNumber,
   selectedNoteNumber,
+  noteInputMode = 'progressive_replace',
+  onChangeNoteInputMode,
+  showRhythmWarnings = true,
+  onToggleShowRhythmWarnings,
+  onAutoRearrangeMeasures,
+  onInsertNoteAfter,
+  onInsertNoteBefore,
+  onDeleteCurrentNote,
+  onDeleteNoteAfter,
+  onDeleteNoteBefore,
+  onDuplicateCurrentNote,
+  onPushNotesToNextMeasure,
+  onShiftNotesToPrevMeasure,
+  onAddMeasureAfter,
+  onAddMeasureBefore,
+  onDuplicateMeasure,
   onSetPitch,
   onSetDash,
   onSetOctave,
@@ -188,6 +238,9 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   selectedVerseRow,
   onChangeVerseRow,
   availableVerseRows = [1, 2, 3],
+  onInsertLyricChar,
+  onStepNextNote,
+  onStepPrevNote,
   onUndo,
   onRedo,
   canUndo,
@@ -206,7 +259,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
       ? 'piano'
       : internalDrawer;
 
-  const handleToggleDrawer = (target: 'piano' | 'ornaments' | 'chords') => {
+  const handleToggleDrawer = (target: 'piano' | 'ornaments' | 'chords' | 'edit') => {
     if (onToggleDrawer) {
       onToggleDrawer(target);
     } else if (target === 'piano' && onTogglePianoBed) {
@@ -261,30 +314,30 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
       <div
         id="floating-score-hud-container"
-        className="fixed bottom-0 sm:bottom-1.5 left-1/2 -translate-x-1/2 z-40 w-full max-w-5xl px-2 pointer-events-none print:hidden flex flex-col items-center gap-1.5"
+        className="fixed bottom-0 sm:bottom-1 left-1/2 -translate-x-1/2 z-40 w-full max-w-5xl px-1.5 sm:px-2 pointer-events-none print:hidden flex flex-col items-center gap-1"
       >
         {/* Wide Bar for Ornaments & Articulations (Minimal Height, Horizontal Toolbar) */}
         {currentDrawer === 'ornaments' && (
           <div
             id="floating-score-hud-ornaments-bar"
-            className="pointer-events-auto w-full bg-white/95 dark:bg-[#151921]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1 sm:gap-2 text-xs overflow-x-auto whitespace-nowrap scrollbar-none animate-in fade-in slide-in-from-bottom-1 duration-150"
+            className="pointer-events-auto w-full bg-white/95 dark:bg-[#151921]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 text-sm overflow-x-auto whitespace-nowrap scrollbar-none animate-in fade-in slide-in-from-bottom-1 duration-150"
           >
             {/* Title / Icon */}
-            <div className="flex items-center gap-1 text-amber-500 shrink-0 font-bold">
-              <Sparkles className="w-3.5 h-3.5" />
-              <span className="text-[11px] text-zinc-700 dark:text-zinc-200 hidden sm:inline">Ornaments:</span>
+            <div className="flex items-center gap-1.5 text-amber-500 shrink-0 font-bold">
+              <Sparkles className="w-4 h-4" />
+              <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-100 hidden sm:inline">Ornaments:</span>
             </div>
 
-            <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 hidden sm:block" />
+            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 hidden sm:block" />
 
             {/* Articulations */}
-            <div className="flex items-center gap-0.5 sm:gap-1 shrink-0">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               {(['none', 'staccato', 'tenuto', 'accent', 'fermata'] as ArticulationType[]).map(art => (
                 <button
                   key={art}
                   type="button"
                   onClick={() => onSetArticulation?.(art)}
-                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold capitalize cursor-pointer transition-all ${
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold capitalize cursor-pointer transition-all ${
                     currentArticulation === art
                       ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
                       : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
@@ -298,7 +351,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 <button
                   type="button"
                   onClick={onToggleTriplet}
-                  className={`px-2 py-0.5 rounded-lg text-[11px] font-bold cursor-pointer transition-all ${
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all ${
                     isTriplet
                       ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
                       : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
@@ -313,13 +366,13 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             {/* Grace Notes */}
             {onAddGraceNote && (
               <>
-                <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase hidden lg:inline">Grace:</span>
+                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-bold text-zinc-400 uppercase hidden lg:inline">Grace:</span>
                   <button
                     type="button"
                     onClick={() => onAddGraceNote('pre', 5, 0)}
-                    className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-[11px] font-bold cursor-pointer transition-all"
+                    className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all"
                     title="Add Pre-Grace Note (前倚音)"
                   >
                     + Pre
@@ -327,7 +380,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                   <button
                     type="button"
                     onClick={() => onAddGraceNote('post', 6, 0)}
-                    className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-[11px] font-bold cursor-pointer transition-all"
+                    className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all"
                     title="Add Post-Grace Note (後倚音)"
                   >
                     + Post
@@ -336,7 +389,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                     <button
                       type="button"
                       onClick={onClearGraceNotes}
-                      className="px-1.5 py-0.5 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-lg text-[11px] font-bold cursor-pointer transition-all"
+                      className="px-2 py-1 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all"
                       title="Clear Grace Notes"
                     >
                       Clear
@@ -349,15 +402,15 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             {/* Punctuation */}
             {onInsertPunctuation && (
               <>
-                <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
-                <div className="flex items-center gap-0.5 shrink-0">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase hidden xl:inline mr-0.5">Punct:</span>
+                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
+                <div className="flex items-center gap-1 shrink-0">
+                  <span className="text-xs font-bold text-zinc-400 uppercase hidden xl:inline mr-0.5">Punct:</span>
                   {COMMON_PUNCTUATIONS.map(p => (
                     <button
                       key={p}
                       type="button"
                       onClick={() => onInsertPunctuation(p)}
-                      className="w-5.5 h-5.5 sm:w-6 sm:h-6 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 text-xs font-bold flex items-center justify-center cursor-pointer transition-all shrink-0"
+                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 text-sm sm:text-base font-bold flex items-center justify-center cursor-pointer transition-all shrink-0"
                       title={`Insert punctuation ${p}`}
                     >
                       {p}
@@ -370,14 +423,14 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             {/* Annotations */}
             {onInsertAnnotation && (
               <>
-                <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
-                <div className="flex items-center gap-1 shrink-0">
+                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
+                <div className="flex items-center gap-1.5 shrink-0">
                   {COMMON_ANNOTATIONS.map(a => (
                     <button
                       key={a}
                       type="button"
                       onClick={() => onInsertAnnotation(a)}
-                      className="px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 font-serif italic text-[11px] cursor-pointer transition-all shrink-0"
+                      className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 font-serif italic font-bold text-xs sm:text-sm cursor-pointer transition-all shrink-0"
                       title={`Insert annotation ${a}`}
                     >
                       {a}
@@ -391,10 +444,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             <button
               type="button"
               onClick={handleCloseDrawer}
-              className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0 ml-auto cursor-pointer"
+              className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0 ml-auto cursor-pointer"
               title="Close Ornaments Bar (Esc)"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -403,12 +456,12 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
         {currentDrawer === 'chords' && (
           <div
             id="floating-score-hud-chords-bar"
-            className="pointer-events-auto w-full bg-white/95 dark:bg-[#151921]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl px-2 sm:px-3 py-1 sm:py-1.5 flex items-center gap-1.5 sm:gap-2 text-xs overflow-x-auto whitespace-nowrap scrollbar-none animate-in fade-in slide-in-from-bottom-1 duration-150"
+            className="pointer-events-auto w-full bg-white/95 dark:bg-[#151921]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 text-sm overflow-x-auto whitespace-nowrap scrollbar-none animate-in fade-in slide-in-from-bottom-1 duration-150"
           >
             {/* Title / Measure Info */}
-            <div className="flex items-center gap-1 text-amber-500 shrink-0 font-bold">
-              <Music className="w-3.5 h-3.5" />
-              <span className="text-[11px] text-zinc-700 dark:text-zinc-200 shrink-0">
+            <div className="flex items-center gap-1.5 text-amber-500 shrink-0 font-bold">
+              <Music className="w-4 h-4" />
+              <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-100 shrink-0">
                 {selectedMeasureNumber ? `Bar #${selectedMeasureNumber} Chord:` : 'Chord:'}
               </span>
             </div>
@@ -419,21 +472,21 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               value={currentMeasureChord}
               onChange={e => onUpdateMeasureChord?.(e.target.value)}
               placeholder="e.g. C, G7, Am"
-              className="w-18 sm:w-24 px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-750 rounded-lg text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:ring-1.5 focus:ring-amber-500 shrink-0"
+              className="w-22 sm:w-28 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-750 rounded-lg text-sm font-mono font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500 shrink-0"
             />
 
             {/* Suggested Chords */}
             {chordSuggestions.length > 0 && (
               <>
-                <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5 hidden sm:block" />
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-[10px] font-bold text-zinc-400 uppercase hidden md:inline shrink-0">Suggestions:</span>
+                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5 hidden sm:block" />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-bold text-zinc-400 uppercase hidden md:inline shrink-0">Suggestions:</span>
                   {chordSuggestions.map(ch => (
                     <button
                       key={ch}
                       type="button"
                       onClick={() => onUpdateMeasureChord?.(ch)}
-                      className={`px-2 py-0.5 rounded-lg font-mono font-bold text-xs cursor-pointer transition-all shrink-0 ${
+                      className={`px-2.5 sm:px-3 py-1 rounded-lg font-mono font-bold text-xs sm:text-sm cursor-pointer transition-all shrink-0 ${
                         currentMeasureChord === ch
                           ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
                           : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500/20 text-zinc-800 dark:text-zinc-200'
@@ -450,17 +503,17 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             {/* Auto Harmonize Button */}
             {onAutoHarmonize && (
               <>
-                <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5 hidden sm:block" />
+                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5 hidden sm:block" />
                 <button
                   type="button"
                   onClick={() => {
                     onAutoHarmonize();
                     handleCloseDrawer();
                   }}
-                  className="flex items-center gap-1.5 py-0.5 px-2.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs shadow-2xs transition-all cursor-pointer shrink-0"
+                  className="flex items-center gap-1.5 py-1 px-3 sm:px-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs sm:text-sm shadow-2xs transition-all cursor-pointer shrink-0"
                   title="Auto-harmonize chords for all measures in song"
                 >
-                  <Wand2 className="w-3 h-3" />
+                  <Wand2 className="w-3.5 h-3.5" />
                   <span>Auto-Harmonize</span>
                 </button>
               </>
@@ -470,10 +523,250 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             <button
               type="button"
               onClick={handleCloseDrawer}
-              className="p-1 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0 ml-auto cursor-pointer"
+              className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0 ml-auto cursor-pointer"
               title="Close Chords Bar (Esc)"
             >
-              <X className="w-3.5 h-3.5" />
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Wide Bar for Comprehensive Edit Suite (Minimal Height, Horizontal Toolbar) */}
+        {currentDrawer === 'edit' && (
+          <div
+            id="floating-score-hud-edit-bar"
+            className="pointer-events-auto w-full bg-white/95 dark:bg-[#151921]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 text-sm overflow-x-auto whitespace-nowrap scrollbar-none animate-in fade-in slide-in-from-bottom-1 duration-150"
+          >
+            {/* Title / Icon */}
+            <div className="flex items-center gap-1.5 text-amber-500 shrink-0 font-bold">
+              <Sliders className="w-4 h-4" />
+              <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-100">Edit Suite:</span>
+            </div>
+
+            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
+
+            {/* Note Input Mode Segment */}
+            {onChangeNoteInputMode && (
+              <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 shrink-0">
+                <span className="text-xs font-bold text-zinc-400 uppercase px-1 hidden sm:inline">Input Mode:</span>
+                <button
+                  type="button"
+                  onClick={() => onChangeNoteInputMode('replace')}
+                  className={`px-2.5 py-1 sm:py-1.5 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                    noteInputMode === 'replace'
+                      ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  }`}
+                  title="Replace Current Note: Modifies current note pitch without advancing cursor"
+                >
+                  Replace (覆蓋)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChangeNoteInputMode('progressive_replace')}
+                  className={`px-2.5 py-1 sm:py-1.5 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                    noteInputMode === 'progressive_replace'
+                      ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  }`}
+                  title="Progressive Replace: Modifies current note pitch and auto-steps to next note"
+                >
+                  Prog Replace (遞進覆蓋)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onChangeNoteInputMode('progressive_insert')}
+                  className={`px-2.5 py-1 sm:py-1.5 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                    noteInputMode === 'progressive_insert'
+                      ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                  }`}
+                  title="Progressive Insertion: Inserts a new note after current note and advances cursor"
+                >
+                  Prog Insert (遞進插入)
+                </button>
+              </div>
+            )}
+
+            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
+
+            {/* Note Operations Group */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-xs font-bold text-zinc-400 uppercase hidden md:inline">Note:</span>
+              {onInsertNoteAfter && (
+                <button
+                  type="button"
+                  onClick={onInsertNoteAfter}
+                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                  title="Add / Insert a note after current note"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Note After</span>
+                </button>
+              )}
+              {onInsertNoteBefore && (
+                <button
+                  type="button"
+                  onClick={onInsertNoteBefore}
+                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                  title="Insert a note before current note"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Note Before</span>
+                </button>
+              )}
+              {onDuplicateCurrentNote && (
+                <button
+                  type="button"
+                  onClick={onDuplicateCurrentNote}
+                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                  title="Duplicate current note"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Duplicate</span>
+                </button>
+              )}
+              {onDeleteCurrentNote && (
+                <button
+                  type="button"
+                  onClick={onDeleteCurrentNote}
+                  className="px-2.5 py-1 sm:py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                  title="Delete current note"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Del Note</span>
+                </button>
+              )}
+              {onDeleteNoteAfter && (
+                <button
+                  type="button"
+                  onClick={onDeleteNoteAfter}
+                  className="px-2.5 py-1 sm:py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                  title="Delete note after current note"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Del After</span>
+                </button>
+              )}
+              {onShiftNotesToPrevMeasure && (
+                <button
+                  id="floating-hud-shift-notes-prev-bar-btn"
+                  type="button"
+                  onClick={onShiftNotesToPrevMeasure}
+                  className="px-2.5 py-1 sm:py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-500 hover:text-zinc-950 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-2xs"
+                  title="Shift notes from start of measure up to & including current note into preceding measure (Alt+Shift+Left)"
+                >
+                  <ArrowLeftToLine className="w-3.5 h-3.5" />
+                  <span>Shift to Prev Bar (⇤)</span>
+                </button>
+              )}
+              {onPushNotesToNextMeasure && (
+                <button
+                  id="floating-hud-push-notes-next-bar-btn"
+                  type="button"
+                  onClick={onPushNotesToNextMeasure}
+                  className="px-2.5 py-1 sm:py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-500 hover:text-zinc-950 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-2xs"
+                  title="Push current note & all subsequent notes in measure into next measure (Alt+Shift+Right)"
+                >
+                  <ArrowRightToLine className="w-3.5 h-3.5" />
+                  <span>Push to Next Bar (⇥)</span>
+                </button>
+              )}
+            </div>
+
+            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
+
+            {/* Measure Operations Group */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span className="text-xs font-bold text-zinc-400 uppercase hidden md:inline">Measure:</span>
+              {onAddMeasureAfter && (
+                <button
+                  type="button"
+                  onClick={onAddMeasureAfter}
+                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                  title="Add a measure after current measure"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Bar After</span>
+                </button>
+              )}
+              {onAddMeasureBefore && (
+                <button
+                  type="button"
+                  onClick={onAddMeasureBefore}
+                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                  title="Add a measure before current measure"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>Bar Before</span>
+                </button>
+              )}
+              {onDuplicateMeasure && (
+                <button
+                  type="button"
+                  onClick={onDuplicateMeasure}
+                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                  title="Duplicate current measure"
+                >
+                  <Copy className="w-3.5 h-3.5" />
+                  <span>Dup Bar</span>
+                </button>
+              )}
+              {onDeleteSelectedMeasure && (
+                <button
+                  type="button"
+                  onClick={onDeleteSelectedMeasure}
+                  className="px-2.5 py-1 sm:py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
+                  title="Delete current measure"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Del Bar</span>
+                </button>
+              )}
+            </div>
+
+            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
+
+            {/* Rhythm Alignment & Warnings Group */}
+            <div className="flex items-center gap-1.5 shrink-0">
+              {onAutoRearrangeMeasures && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onAutoRearrangeMeasures();
+                  }}
+                  className="px-3 py-1 sm:py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-2xs"
+                  title="Auto Rearrange Measures: Redistribute notes across barlines to strictly conform to time signature"
+                >
+                  <Shuffle className="w-3.5 h-3.5" />
+                  <span>Auto-Rearrange Bars</span>
+                </button>
+              )}
+              {onToggleShowRhythmWarnings && (
+                <button
+                  type="button"
+                  onClick={onToggleShowRhythmWarnings}
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+                    showRhythmWarnings
+                      ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+                  title="Toggle Measure Beat Notices (⚠️ warnings on incomplete / overbeat measures; never printed)"
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span>Notice: {showRhythmWarnings ? 'ON' : 'OFF'}</span>
+                </button>
+              )}
+            </div>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={handleCloseDrawer}
+              className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0 ml-auto cursor-pointer"
+              title="Close Edit Suite (Esc)"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         )}
@@ -601,6 +894,80 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                   {row}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* POJ Diacritics & Syllable Hyphen Palette for iPad & Mobile Touch */}
+          {activeField === 'lyric' && (
+            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+              {/* Syllable hyphen buttons */}
+              <div className="flex items-center gap-0.5 pr-1 border-r border-zinc-300 dark:border-zinc-700">
+                <button
+                  type="button"
+                  onClick={() => onInsertLyricChar?.('-')}
+                  className="px-2 h-7 sm:h-8 rounded-lg font-mono font-bold text-xs sm:text-sm flex items-center justify-center bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-95 cursor-pointer touch-manipulation shadow-2xs"
+                  title="Insert POJ Syllable Hyphen (-)"
+                >
+                  - (hyphen)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onInsertLyricChar?.('--')}
+                  className="px-2 h-7 sm:h-8 rounded-lg font-mono font-bold text-xs sm:text-sm flex items-center justify-center bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-95 cursor-pointer touch-manipulation shadow-2xs"
+                  title="Insert POJ Double Hyphen (--)"
+                >
+                  --
+                </button>
+              </div>
+
+              {/* Tonal & Special Vowels */}
+              <div className="flex items-center gap-0.5">
+                {[
+                  { label: 'á', title: 'Tone 2 (á) - Sióng-siaⁿ' },
+                  { label: 'à', title: 'Tone 3 (à) - Khì-siaⁿ' },
+                  { label: 'â', title: 'Tone 5 (â) - Iông-pîng' },
+                  { label: 'ā', title: 'Tone 7 (ā) - Iông-khì' },
+                  { label: 'a̍', title: 'Tone 8 (a̍) - Iông-ji̍p' },
+                  { label: 'o͘', title: 'Open O (o͘)' },
+                  { label: 'ⁿ', title: 'Nasal Superscript (ⁿ)' },
+                ].map(item => (
+                  <button
+                    key={item.label}
+                    type="button"
+                    onClick={() => onInsertLyricChar?.(item.label)}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-serif font-bold text-xs sm:text-sm flex items-center justify-center bg-white dark:bg-zinc-700 border border-zinc-200 dark:border-zinc-600 text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-95 cursor-pointer touch-manipulation shadow-2xs"
+                    title={item.title}
+                  >
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Step Prev / Next note */}
+              {(onStepPrevNote || onStepNextNote) && (
+                <div className="flex items-center gap-0.5 pl-1 border-l border-zinc-300 dark:border-zinc-700">
+                  {onStepPrevNote && (
+                    <button
+                      type="button"
+                      onClick={onStepPrevNote}
+                      className="px-2 h-7 sm:h-8 rounded-lg font-sans font-bold text-xs flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer touch-manipulation"
+                      title="Previous Note"
+                    >
+                      ←
+                    </button>
+                  )}
+                  {onStepNextNote && (
+                    <button
+                      type="button"
+                      onClick={onStepNextNote}
+                      className="px-2 h-7 sm:h-8 rounded-lg font-sans font-bold text-xs flex items-center justify-center bg-amber-500 text-zinc-950 font-bold hover:bg-amber-400 transition-all cursor-pointer touch-manipulation shadow-2xs"
+                      title="Next Note"
+                    >
+                      Next →
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           )}
 
@@ -821,15 +1188,31 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               id="floating-hud-piano-bed-btn"
               type="button"
               onClick={() => handleToggleDrawer('piano')}
-              className={`flex items-center gap-1 px-2.5 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 currentDrawer === 'piano'
                   ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
                   : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
               title="Toggle Virtual Piano Bed (Interactive on-screen keys with audio tone preview)"
             >
-              <Keyboard className={`w-3.5 h-3.5 ${currentDrawer === 'piano' ? 'text-zinc-950' : 'text-amber-500'}`} />
+              <Keyboard className={`w-4 h-4 ${currentDrawer === 'piano' ? 'text-zinc-950' : 'text-amber-500'}`} />
               <span className="hidden sm:inline">Piano</span>
+            </button>
+
+            {/* Edit Suite Popover Toggle */}
+            <button
+              id="floating-hud-edit-suite-btn"
+              type="button"
+              onClick={() => handleToggleDrawer('edit')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                currentDrawer === 'edit'
+                  ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              }`}
+              title="Comprehensive Edit Suite: Note/Measure Insertion & Deletion, Input Modes, Auto-Rearrange"
+            >
+              <Sliders className={`w-4 h-4 ${currentDrawer === 'edit' ? 'text-zinc-950' : 'text-amber-500'}`} />
+              <span className="hidden sm:inline">Edit Suite</span>
             </button>
 
             {/* Ornaments & Articulations Popover Toggle */}
@@ -837,14 +1220,14 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               id="floating-hud-ornaments-btn"
               type="button"
               onClick={() => handleToggleDrawer('ornaments')}
-              className={`flex items-center gap-1 px-2.5 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 currentDrawer === 'ornaments'
                   ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
                   : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
               title="Ornaments, Articulations, Grace Notes & Performance Marks"
             >
-              <Sparkles className={`w-3.5 h-3.5 ${currentDrawer === 'ornaments' ? 'text-zinc-950' : 'text-amber-500'}`} />
+              <Sparkles className={`w-4 h-4 ${currentDrawer === 'ornaments' ? 'text-zinc-950' : 'text-amber-500'}`} />
               <span className="hidden md:inline">Ornaments</span>
             </button>
 
@@ -853,31 +1236,60 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               id="floating-hud-chords-btn"
               type="button"
               onClick={() => handleToggleDrawer('chords')}
-              className={`flex items-center gap-1 px-2.5 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
                 currentDrawer === 'chords'
                   ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
                   : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
               title="Measure Chords & Auto-Harmonization"
             >
-              <Music className={`w-3.5 h-3.5 ${currentDrawer === 'chords' ? 'text-zinc-950' : 'text-amber-500'}`} />
+              <Music className={`w-4 h-4 ${currentDrawer === 'chords' ? 'text-zinc-950' : 'text-amber-500'}`} />
               <span className="hidden md:inline">Chords</span>
             </button>
           </div>
 
           <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block mx-0.5" />
 
-          {/* Measure Level Controls: Append Measure, Line Break, Prelude, Voltas */}
+          {/* Quick Note Operations Group */}
+          <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+            {onInsertNoteAfter && (
+              <button
+                id="floating-hud-quick-add-note-btn"
+                type="button"
+                onClick={onInsertNoteAfter}
+                className="flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer"
+                title="Insert note after current note (Shift+Plus / +)"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span className="hidden md:inline">Note</span>
+              </button>
+            )}
+            {onDeleteCurrentNote && (
+              <button
+                id="floating-hud-quick-del-note-btn"
+                type="button"
+                onClick={onDeleteCurrentNote}
+                className="p-1 h-7 sm:h-8 w-7 sm:w-8 rounded-lg text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center transition-all cursor-pointer"
+                title="Delete current note (Backspace / Delete)"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+
+          <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block mx-0.5" />
+
+          {/* Measure Level Controls: Add Measure After, Line Break, Prelude, Voltas, Auto-Rearrange */}
           <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
             <button
               id="floating-hud-append-measure-btn"
               type="button"
-              onClick={onAddMeasure}
+              onClick={onAddMeasureAfter || onAddMeasure}
               className="flex items-center gap-1 px-2.5 h-7 sm:h-8 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer"
-              title="Append Measure to Score"
+              title="Add Measure after current measure"
             >
               <Plus className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">Measure</span>
+              <span className="hidden md:inline">Bar</span>
             </button>
 
             <button
@@ -924,6 +1336,19 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 title="Toggle Volta repeat ending bracket ┌ 1. 2. ──┐"
               >
                 ┌ 1. 2. ┐
+              </button>
+            )}
+
+            {onAutoRearrangeMeasures && (
+              <button
+                id="floating-hud-rearrange-measures-btn"
+                type="button"
+                onClick={onAutoRearrangeMeasures}
+                className="flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 transition-all cursor-pointer"
+                title="Auto-Rearrange all measures in song to match time signature"
+              >
+                <Shuffle className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Rearrange</span>
               </button>
             )}
 

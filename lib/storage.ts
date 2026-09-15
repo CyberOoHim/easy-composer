@@ -1,6 +1,6 @@
 'use client';
 
-import type { Song, LyricDisplayMode, InstrumentType, EditorEditMode, NoteEditSubMode, Measure, NumberedNotationNote } from '../types/song.ts';
+import type { Song, LyricDisplayMode, InstrumentType, EditorEditMode, NoteEditSubMode, NoteInputMode, Measure, NumberedNotationNote } from '../types/song.ts';
 import { PRESET_SONGS } from './presets.ts';
 
 export const STORAGE_KEYS = {
@@ -23,6 +23,8 @@ export const STORAGE_KEYS = {
   KARAOKE_LEAD_IN_ENABLED: 'taigi_karaoke_lead_in_enabled',
   EDITOR_EDIT_MODE: 'taigi_composer_editor_edit_mode',
   NOTE_SUB_MODE: 'taigi_composer_note_sub_mode',
+  NOTE_INPUT_MODE: 'taigi_composer_note_input_mode',
+  SHOW_RHYTHM_WARNINGS: 'taigi_composer_show_rhythm_warnings',
   AUTO_STEP_ADVANCE: 'taigi_composer_auto_step_advance',
   DECK_TAB: 'taigi_composer_deck_tab',
   AUTOSAVE_INTERVAL: 'taigi_composer_autosave_interval',
@@ -39,6 +41,7 @@ export type DeckTabMode = 'numpad' | 'piano' | 'chords' | 'ornaments' | 'lyrics'
 export type KaraokeStageTheme = 'dark' | 'daylight';
 export type KaraokeLayoutMode = 'two_line' | 'single_line';
 export type KaraokeLyricAlign = 'center' | 'left';
+export type { NoteInputMode };
 
 /**
  * Safe local storage getter with fallback
@@ -514,6 +517,31 @@ export function getStoredEnableChords(defaultVal = true): boolean {
 
 export function setStoredEnableChords(enabled: boolean): void {
   safeSetItem(STORAGE_KEYS.CHORD_ENABLED, String(enabled));
+}
+
+// ============================================================================
+// 10. NOTE INPUT MODE & RHYTHM WARNINGS PREFERENCES
+// ============================================================================
+export function getStoredNoteInputMode(defaultVal: NoteInputMode = 'progressive_replace'): NoteInputMode {
+  const val = safeGetItem(STORAGE_KEYS.NOTE_INPUT_MODE);
+  if (val === 'replace' || val === 'progressive_replace' || val === 'progressive_insert') {
+    return val;
+  }
+  return defaultVal;
+}
+
+export function setStoredNoteInputMode(mode: NoteInputMode): void {
+  safeSetItem(STORAGE_KEYS.NOTE_INPUT_MODE, mode);
+}
+
+export function getStoredShowRhythmWarnings(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.SHOW_RHYTHM_WARNINGS);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredShowRhythmWarnings(show: boolean): void {
+  safeSetItem(STORAGE_KEYS.SHOW_RHYTHM_WARNINGS, String(show));
 }
 
 

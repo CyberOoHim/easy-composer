@@ -16,15 +16,36 @@ interface ShortcutItem {
 
 const SHORTCUT_GROUPS: { title: string; items: ShortcutItem[] }[] = [
   {
+    title: 'Note Input Modes (音符輸入模式)',
+    items: [
+      { keyDesc: 'Replace', action: 'Direct Replace: Update pitch at caret position (覆蓋當前音符)' },
+      { keyDesc: 'Prog. Replace', action: 'Progressive Replace: Overwrite & advance cursor (覆蓋並自動前進)' },
+      { keyDesc: 'Prog. Insert', action: 'Progressive Insert: Insert new note after & advance (插入並自動前進)' },
+    ],
+  },
+  {
     title: 'Pitches & Durations (簡譜音高與時值)',
     items: [
       { keyDesc: '1 ~ 7', action: 'Type pitch (Numbered notation 1 to 7)', badge: 'Pitch' },
-      { keyDesc: '0', action: 'Rest note (休止符)', badge: 'Rest' },
-      { keyDesc: '-', action: 'Sustain dash / extend note duration (延音線)', badge: 'Dash' },
+      { keyDesc: '0', action: 'Rest note (休止符 0)', badge: 'Rest' },
+      { keyDesc: '-', action: 'Sustain dash / extend note duration (延音線 -)', badge: 'Dash' },
       { keyDesc: '/', action: 'Halve note duration (時值減半: 1 ➔ 1/2 ➔ 1/4)' },
       { keyDesc: '*', action: 'Double note duration (時值加倍: 1/4 ➔ 1/2 ➔ 1 ➔ 2 ➔ 4)' },
       { keyDesc: '.', action: 'Toggle dotted note (切換附點音符)' },
-      { keyDesc: '+ / -', action: 'Octave shift up / down (高音點 8va / 低音點 8vb)' },
+      { keyDesc: '+ / =', action: 'Octave shift up (高音點 8va)' },
+      { keyDesc: '_ / -', action: 'Octave shift down (低音點 8vb)' },
+    ],
+  },
+  {
+    title: 'Advanced Note & Measure Operations (音符與小節增刪)',
+    items: [
+      { keyDesc: 'Shift + + / +', action: 'Insert new note after current note (在當前音符後插入新音符)' },
+      { keyDesc: 'Delete / Backspace', action: 'Delete current note (刪除當前音符)' },
+      { keyDesc: 'Alt + Shift + →', action: 'Push current & following notes to next measure (將當前音符及之後的音符推至下一小節)' },
+      { keyDesc: 'Alt + Shift + ←', action: 'Shift start & notes up to current to preceding measure (將當前音符及之前的音符移至上一小節)' },
+      { keyDesc: 'Shift + Enter', action: 'Add measure after current measure (在當前小節後插入新小節)' },
+      { keyDesc: 'Ctrl + Shift + Backspace', action: 'Delete current measure (刪除當前小節)' },
+      { keyDesc: 'Rearrange', action: 'Auto-Rearrange measures to match time signature (小節自動重排依拍號對齊)' },
     ],
   },
   {
@@ -37,21 +58,14 @@ const SHORTCUT_GROUPS: { title: string; items: ShortcutItem[] }[] = [
     ],
   },
   {
-    title: 'Navigation & Editing (游標移動與編輯)',
+    title: 'Navigation & History (游標移動與歷史)',
     items: [
       { keyDesc: '← / →', action: 'Move selection caret across notes (移動選取游標)' },
-      { keyDesc: 'Alt + ← / →', action: 'Shift note position within measure (音符左右位移)' },
-      { keyDesc: 'Shift + I / I', action: 'Insert note before / after current note (插入音符)' },
-      { keyDesc: 'E / Backspace', action: 'Empty spacer or delete note (空白休止 / 刪除)' },
+      { keyDesc: '↑ / ↓', action: 'Switch between Pitch and Lyric rows (切換簡譜與歌詞行)' },
       { keyDesc: 'Ctrl + Z / ⌘Z', action: 'Undo last change (復原)' },
       { keyDesc: 'Ctrl + Y / ⌘⇧Z', action: 'Redo change (重做)' },
-    ],
-  },
-  {
-    title: 'Playback & Lyrics (播放與歌詞)',
-    items: [
       { keyDesc: 'Space', action: 'Play / Stop score playback (播放 / 停止)' },
-      { keyDesc: 'Tab / Enter', action: 'Next lyric word in lyrics mode (切換下一個歌詞)' },
+      { keyDesc: 'Tab / Enter', action: 'Next lyric syllable in lyrics mode (切換下一個歌詞)' },
     ],
   },
 ];

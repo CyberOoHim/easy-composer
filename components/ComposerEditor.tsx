@@ -10,6 +10,7 @@ import {
   PitchNumber,
   Song,
   ArticulationType,
+  InstrumentType,
 } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import {
@@ -24,6 +25,7 @@ import {
   determineTargetQuarterEighthDuration,
   isPunctuationOrSpacer,
   isNonNotationItem,
+  autoRearrangeSongMeasures,
 } from '@/lib/taigiUtils';
 import { autoArrangeSongChords } from '@/lib/chordArranger';
 import { scrollToCardElement } from '@/lib/utils';
@@ -81,6 +83,8 @@ interface ComposerEditorProps {
   futureCount?: number;
   /** Skip per-note editor highlights at tracker FPS. */
   suspendNoteHighlights?: boolean;
+  instrument?: InstrumentType;
+  onSetInstrument?: (inst: InstrumentType) => void;
 }
 
 let uniqueIdCounter = 0;
@@ -111,6 +115,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   pastCount = 0,
   futureCount = 0,
   suspendNoteHighlights = false,
+  instrument,
+  onSetInstrument,
 }) => {
   const [internalSelectedCoord, setInternalSelectedCoord] = useState<[number, number] | null>([0, 0]);
   const selectedCoord = propCursor !== undefined ? propCursor : internalSelectedCoord;
@@ -1091,9 +1097,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     handleInsertNoteAt(mIdx, targetMeasure.notes.length - 1);
   };
 
-  // Measure Management: Add New Measure at End
-  const handleAddMeasure = () => {
-    const newMeasureNum = song.measures.length + 1;
+  // Measure Management: Add New Measure after currently selected measure (or at end if none)
+  const handleAddMeasureAfterCurrent = useCallback(() => {
+    const currentMIdx = selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1;
+    const newMeasureNum = currentMIdx + 2;
     const newMeasure: Measure = {
       id: generateId('m'),
       measureNumber: newMeasureNum,
@@ -1106,16 +1113,24 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       ],
     };
 
-    const targetCoord: [number, number] = [song.measures.length, 0];
+    const newMeasures = [...song.measures];
+    newMeasures.splice(currentMIdx + 1, 0, newMeasure);
+    const renumbered = renumberMeasures(newMeasures);
+    const targetCoord: [number, number] = [currentMIdx + 1, 0];
     handleUpdateSong(
-      {
-        ...song,
-        measures: [...song.measures, newMeasure],
-      },
+      { ...song, measures: renumbered },
       { cursor: targetCoord, undoCursor: selectedCoord }
     );
     setSelectedCoord(targetCoord);
-  };
+    showNotice(`Added new measure after Measure #${currentMIdx + 1}`);
+  }, [selectedMeasureIndex, song, handleUpdateSong, selectedCoord, showNotice, setSelectedCoord]);
+
+  // Auto rearrange song measures by time signature
+  const handleAutoRearrangeMeasures = useCallback(() => {
+    const rearranged = autoRearrangeSongMeasures(song);
+    handleUpdateSong(rearranged);
+    showNotice(`🎼 Auto-rearranged ${rearranged.measures.length} measures to perfectly match ${song.timeSignature || '4/4'} meter!`);
+  }, [song, handleUpdateSong, showNotice]);
 
   // Measure Management: Delete Measure
   const handleDeleteMeasure = (mIdx: number) => {
@@ -1369,6 +1384,175 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       showNotice(`Pushed note into Measure ${mIdx + 2}`);
     },
     [song, handleUpdateSong, showNotice, selectedCoord, setSelectedCoord]
+  );
+
+  // Push notes from current note to end of measure into the next measure
+  const handlePushNotesToNextMeasure = useCallback(
+    (mIdxParam?: number, nIdxParam?: number) => {
+      const mIdx = mIdxParam !== undefined ? mIdxParam : (selectedMeasureIndex ?? 0);
+      const currentM = song.measures[mIdx];
+      if (!currentM || currentM.notes.length === 0) {
+        showNotice('Current measure has no notes to push');
+        return;
+      }
+
+      const nIdx = nIdxParam !== undefined ? nIdxParam : (selectedNoteIndex ?? 0);
+      const validNIdx = Math.max(0, Math.min(nIdx, currentM.notes.length - 1));
+      const notesToPush = currentM.notes.slice(validNIdx);
+      const remainingNotes = currentM.notes.slice(0, validNIdx);
+
+      if (notesToPush.length === 0) {
+        showNotice('No notes to push to next measure');
+        return;
+      }
+
+      let newMeasures = [...song.measures];
+
+      if (mIdx < song.measures.length - 1) {
+        const nextM = song.measures[mIdx + 1];
+        const newNextNotes = [...notesToPush, ...nextM.notes];
+
+        if (remainingNotes.length === 0) {
+          // Current measure became empty, remove it and update next measure
+          newMeasures.splice(mIdx, 1);
+          newMeasures[mIdx] = { ...nextM, notes: newNextNotes };
+          newMeasures = renumberMeasures(newMeasures);
+          const targetCoord: [number, number] = [mIdx, 0];
+          handleUpdateSong(
+            { ...song, measures: newMeasures },
+            { cursor: targetCoord, undoCursor: [mIdx, validNIdx] }
+          );
+          setSelectedCoord(targetCoord);
+          audioEngine.previewNote(song.key, notesToPush[0]);
+          showNotice(`Pushed ${notesToPush.length} note(s) into Measure #${mIdx + 1}`);
+        } else {
+          newMeasures[mIdx] = { ...currentM, notes: remainingNotes };
+          newMeasures[mIdx + 1] = { ...nextM, notes: newNextNotes };
+          const targetCoord: [number, number] = [mIdx + 1, 0];
+          handleUpdateSong(
+            { ...song, measures: newMeasures },
+            { cursor: targetCoord, undoCursor: [mIdx, validNIdx] }
+          );
+          setSelectedCoord(targetCoord);
+          audioEngine.previewNote(song.key, notesToPush[0]);
+          showNotice(`Pushed ${notesToPush.length} note(s) into Measure #${mIdx + 2}`);
+        }
+      } else {
+        // Last measure in the song
+        if (remainingNotes.length === 0) {
+          const newMeasure: Measure = {
+            id: generateId('m'),
+            measureNumber: song.measures.length + 1,
+            chord: currentM.chord,
+            notes: notesToPush,
+          };
+          const restNote: NumberedNotationNote = {
+            id: generateId('n'),
+            pitch: 0,
+            octave: 0,
+            duration: 1,
+            lyric: {},
+          };
+          newMeasures[mIdx] = { ...currentM, notes: [restNote] };
+          newMeasures.push(newMeasure);
+          newMeasures = renumberMeasures(newMeasures);
+          const targetCoord: [number, number] = [mIdx + 1, 0];
+          handleUpdateSong(
+            { ...song, measures: newMeasures },
+            { cursor: targetCoord, undoCursor: [mIdx, validNIdx] }
+          );
+          setSelectedCoord(targetCoord);
+          audioEngine.previewNote(song.key, notesToPush[0]);
+          showNotice(`Pushed ${notesToPush.length} note(s) into new Measure #${mIdx + 2}`);
+        } else {
+          const newMeasure: Measure = {
+            id: generateId('m'),
+            measureNumber: song.measures.length + 1,
+            chord: currentM.chord,
+            notes: notesToPush,
+          };
+          newMeasures[mIdx] = { ...currentM, notes: remainingNotes };
+          newMeasures.push(newMeasure);
+          newMeasures = renumberMeasures(newMeasures);
+          const targetCoord: [number, number] = [mIdx + 1, 0];
+          handleUpdateSong(
+            { ...song, measures: newMeasures },
+            { cursor: targetCoord, undoCursor: [mIdx, validNIdx] }
+          );
+          setSelectedCoord(targetCoord);
+          audioEngine.previewNote(song.key, notesToPush[0]);
+          showNotice(`Pushed ${notesToPush.length} note(s) into new Measure #${mIdx + 2}`);
+        }
+      }
+
+      safeTimeout(() => {
+        scrollToCardElement(`measure-card-${mIdx + 1}`, { align: 'top' });
+      }, 50);
+    },
+    [selectedMeasureIndex, selectedNoteIndex, song, handleUpdateSong, setSelectedCoord, showNotice, audioEngine, safeTimeout]
+  );
+
+  // Shift notes including current note (from 0 to nIdx) into the preceding measure
+  const handleShiftNotesToPrevMeasure = useCallback(
+    (mIdxParam?: number, nIdxParam?: number) => {
+      const mIdx = mIdxParam !== undefined ? mIdxParam : (selectedMeasureIndex ?? 0);
+      if (mIdx <= 0) {
+        showNotice('Cannot shift to preceding measure: already in the first measure');
+        return;
+      }
+
+      const currentM = song.measures[mIdx];
+      const prevM = song.measures[mIdx - 1];
+      if (!currentM || !prevM || currentM.notes.length === 0) {
+        showNotice('Current measure has no notes to shift');
+        return;
+      }
+
+      const nIdx = nIdxParam !== undefined ? nIdxParam : (selectedNoteIndex ?? 0);
+      const validNIdx = Math.max(0, Math.min(nIdx, currentM.notes.length - 1));
+      const notesToShift = currentM.notes.slice(0, validNIdx + 1);
+      const remainingNotes = currentM.notes.slice(validNIdx + 1);
+
+      if (notesToShift.length === 0) {
+        showNotice('No notes to shift to preceding measure');
+        return;
+      }
+
+      const newPrevNotes = [...prevM.notes, ...notesToShift];
+      const targetNoteIdx = prevM.notes.length + validNIdx;
+      let newMeasures = [...song.measures];
+
+      if (remainingNotes.length === 0) {
+        // Current measure became empty, remove it and update preceding measure
+        newMeasures.splice(mIdx, 1);
+        newMeasures[mIdx - 1] = { ...prevM, notes: newPrevNotes };
+        newMeasures = renumberMeasures(newMeasures);
+        const targetCoord: [number, number] = [mIdx - 1, targetNoteIdx];
+        handleUpdateSong(
+          { ...song, measures: newMeasures },
+          { cursor: targetCoord, undoCursor: [mIdx, validNIdx] }
+        );
+        setSelectedCoord(targetCoord);
+        audioEngine.previewNote(song.key, currentM.notes[validNIdx]);
+        showNotice(`Shifted ${notesToShift.length} note(s) into Measure #${mIdx}`);
+      } else {
+        newMeasures[mIdx - 1] = { ...prevM, notes: newPrevNotes };
+        newMeasures[mIdx] = { ...currentM, notes: remainingNotes };
+        const targetCoord: [number, number] = [mIdx - 1, targetNoteIdx];
+        handleUpdateSong(
+          { ...song, measures: newMeasures },
+          { cursor: targetCoord, undoCursor: [mIdx, validNIdx] }
+        );
+        setSelectedCoord(targetCoord);
+        audioEngine.previewNote(song.key, currentM.notes[validNIdx]);
+        showNotice(`Shifted ${notesToShift.length} note(s) into Measure #${mIdx}`);
+      }
+
+      safeTimeout(() => {
+        scrollToCardElement(`measure-card-${mIdx - 1}`, { align: 'top' });
+      }, 50);
+    },
+    [selectedMeasureIndex, selectedNoteIndex, song, handleUpdateSong, setSelectedCoord, showNotice, audioEngine, safeTimeout]
   );
 
   // Move selected note backward (earlier in song)
@@ -1835,6 +2019,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         e.preventDefault();
         const mark = e.key === ',' ? '，' : e.key;
         handleInsertPunctuationToNote(mark);
+      } else if (e.altKey && e.shiftKey && e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleShiftNotesToPrevMeasure();
+      } else if (e.altKey && e.shiftKey && e.key === 'ArrowRight') {
+        e.preventDefault();
+        handlePushNotesToNextMeasure();
       } else if (e.altKey && e.key === 'ArrowLeft') {
         e.preventDefault();
         handleMoveNoteBackward();
@@ -1892,16 +2082,18 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     handleInsertPunctuationToNote,
     handleMoveNoteBackward,
     handleMoveNoteForward,
+    handlePushNotesToNextMeasure,
+    handleShiftNotesToPrevMeasure,
     handleTogglePlaySheetFromNote,
   ]);
 
   return (
-    <div id="composer-editor-root" className="flex flex-col gap-2.5 w-full pb-28 sm:pb-36">
+    <div id="composer-editor-root" className="flex flex-col gap-1 sm:gap-1.5 w-full pb-14 sm:pb-16">
       {/* Inline Notification Banner */}
       {notification && (
         <div
           id="composer-notice-banner"
-          className="p-2.5 bg-amber-500 text-zinc-950 font-bold text-xs rounded-xl shadow-xs flex items-center justify-between animate-in fade-in duration-150"
+          className="p-2 bg-amber-500 text-zinc-950 font-bold text-xs rounded-lg sm:rounded-xl shadow-xs flex items-center justify-between animate-in fade-in duration-150"
         >
           <span>{notification}</span>
           <button
@@ -1923,6 +2115,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         setDisplayMode={setDisplayMode}
         onOpenAligner={onOpenAligner}
         onStartFreshSong={onStartFreshSong}
+        instrument={instrument}
+        onSetInstrument={onSetInstrument}
       />
 
       {/* Persistent Section Navigation Rail (Quick Section Jump) */}
@@ -1947,22 +2141,22 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       />
 
       {/* WYSIWYG NUMBERED NOTATION SCORE SHEET CONTAINER */}
-      <div id="wysiwyg-numbered-notation-score-container" className="flex flex-col gap-2">
+      <div id="wysiwyg-numbered-notation-score-container" className="flex flex-col gap-1">
         {/* Sleek Score Action Ribbon */}
         <div
           id="score-studio-unified-deck"
-          className="flex items-center justify-between gap-2 p-1.5 sm:p-2 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md rounded-xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xs text-xs"
+          className="flex items-center justify-between gap-1.5 p-1 sm:p-1.5 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md rounded-lg sm:rounded-xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xs text-xs min-h-[30px]"
         >
           {/* Left: Quick Status & Measures Counter */}
-          <div className="flex items-center gap-1.5 min-w-0">
-            <span className="font-mono font-bold text-zinc-700 dark:text-zinc-300 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-750 text-[11px] shrink-0">
+          <div className="flex items-center gap-1 min-w-0">
+            <span className="font-mono font-bold text-zinc-700 dark:text-zinc-300 px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-750 text-[10px] shrink-0">
               {song.measures.length} Bars
             </span>
             {incompleteMeasuresCount > 0 && (
               <button
                 type="button"
                 onClick={handleBatchFixAllIncompleteMeasures}
-                className="text-[10px] px-2 py-0.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-mono font-black flex items-center gap-1 cursor-pointer transition-colors shrink-0"
+                className="text-[9px] px-1.5 py-0.5 rounded-full bg-rose-600 hover:bg-rose-500 text-white font-mono font-black flex items-center gap-1 cursor-pointer transition-colors shrink-0"
                 title="Click to auto-fill rest deficits across all incomplete measures"
               >
                 <span>{incompleteMeasuresCount} incomplete</span>
@@ -1972,12 +2166,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           </div>
 
           {/* Right: Consolidated Studio Tools (Compact, Fast Access) */}
-          <div className="flex items-center gap-1.5 flex-wrap justify-end">
+          <div className="flex items-center gap-1 flex-wrap justify-end">
             {/* Score Studio Quick Undo / Redo */}
             {onUndo && onRedo && (
               <div
                 id="composer-deck-undo-redo-group"
-                className="flex items-center bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-750 h-8"
+                className="flex items-center bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-md border border-zinc-200 dark:border-zinc-750 h-6 sm:h-6.5"
               >
                 <button
                   id="composer-deck-undo-btn"
@@ -1986,11 +2180,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                   disabled={!canUndo}
                   title={canUndo ? `Undo [Ctrl+Z / ⌘Z] · ${pastCount} step(s)` : 'Nothing to undo'}
                   aria-label="Undo"
-                  className="flex items-center justify-center p-1.5 rounded-md text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer h-6.5 w-6.5"
+                  className="flex items-center justify-center p-1 rounded text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer h-5 w-5"
                 >
-                  <Undo2 className="w-3.5 h-3.5" />
+                  <Undo2 className="w-3 h-3" />
                 </button>
-                <div className="w-[1px] h-3.5 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
+                <div className="w-[1px] h-3 bg-zinc-300 dark:bg-zinc-700 mx-0.5" />
                 <button
                   id="composer-deck-redo-btn"
                   type="button"
@@ -1998,23 +2192,23 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                   disabled={!canRedo}
                   title={canRedo ? `Redo [Ctrl+Y / ⌘Shift+Z] · ${futureCount} step(s)` : 'Nothing to redo'}
                   aria-label="Redo"
-                  className="flex items-center justify-center p-1.5 rounded-md text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer h-6.5 w-6.5"
+                  className="flex items-center justify-center p-1 rounded text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer h-5 w-5"
                 >
-                  <Redo2 className="w-3.5 h-3.5" />
+                  <Redo2 className="w-3 h-3" />
                 </button>
               </div>
             )}
 
-            {/* Measure Insert / Delete */}
-            <div className="flex items-center bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700/80 h-8">
+            {/* Measure Insert / Delete (Adds measure after current note/measure) */}
+            <div className="flex items-center bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-md border border-zinc-200 dark:border-zinc-700/80 h-6 sm:h-6.5">
               <button
                 id="composer-score-add-measure-btn"
                 type="button"
-                onClick={handleAddMeasure}
-                className="flex items-center gap-1 px-2 py-0.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded-md font-bold transition-all active:scale-95 cursor-pointer touch-manipulation h-6.5 text-[11px]"
-                title="Add Measure at End"
+                onClick={handleAddMeasureAfterCurrent}
+                className="flex items-center gap-1 px-1.5 py-0.5 bg-zinc-900 hover:bg-zinc-800 dark:bg-zinc-100 dark:hover:bg-zinc-200 text-white dark:text-zinc-900 rounded font-bold transition-all active:scale-95 cursor-pointer touch-manipulation h-5 text-[10px]"
+                title="Add Measure after current note/measure [Shift+Enter]"
               >
-                <Plus className="w-3 h-3" />
+                <Plus className="w-2.5 h-2.5" />
                 <span>Add Bar</span>
               </button>
 
@@ -2026,14 +2220,14 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
                   handleDeleteMeasure(targetIdx);
                 }}
                 disabled={song.measures.length <= 1}
-                className="flex items-center gap-0.5 px-1.5 py-0.5 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded-md font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer touch-manipulation h-6.5 text-[11px]"
+                className="flex items-center gap-0.5 px-1 py-0.5 text-rose-700 dark:text-rose-300 hover:bg-rose-100 dark:hover:bg-rose-950/50 rounded font-bold transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer touch-manipulation h-5 text-[10px]"
                 title={
                   song.measures.length <= 1
                     ? 'Song must retain at least one measure'
                     : `Delete Measure ${(selectedMeasureIndex !== null ? selectedMeasureIndex : song.measures.length - 1) + 1}`
                 }
               >
-                <Trash2 className="w-3 h-3 text-rose-600 dark:text-rose-400" />
+                <Trash2 className="w-2.5 h-2.5 text-rose-600 dark:text-rose-400" />
                 <span className="hidden md:inline">Delete</span>
               </button>
             </div>
@@ -2043,10 +2237,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               id="composer-score-auto-chords-btn"
               type="button"
               onClick={handleAutoHarmonizeSong}
-              className="flex items-center gap-1 px-2.5 py-1 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white border border-indigo-400/80 rounded-lg font-bold shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation h-8 text-[11px]"
+              className="flex items-center gap-1 px-2 py-0.5 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white border border-indigo-400/80 rounded-md font-bold shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation h-6 sm:h-6.5 text-[10px]"
               title="Auto-analyze melody and harmonize chords for all measures (reversible)"
             >
-              <Wand2 className="w-3 h-3 text-amber-300 stroke-[2.5]" />
+              <Wand2 className="w-2.5 h-2.5 text-amber-300 stroke-[2.5]" />
               <span className="hidden sm:inline">Auto Chords</span>
             </button>
 
@@ -2055,16 +2249,16 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
               id="composer-score-search-btn"
               type="button"
               onClick={() => setIsInSongSearchOpen(prev => !prev)}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg font-bold transition-all active:scale-95 cursor-pointer touch-manipulation h-8 text-[11px] ${
+              className={`flex items-center gap-1 px-1.5 py-0.5 rounded-md font-bold transition-all active:scale-95 cursor-pointer touch-manipulation h-6 sm:h-6.5 text-[10px] ${
                 isInSongSearchOpen
                   ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-1 ring-amber-400'
                   : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-700'
               }`}
               title="Find in score [Ctrl+F / ⌘F]"
             >
-              <Search className="w-3 h-3 text-amber-500" />
+              <Search className="w-2.5 h-2.5 text-amber-500" />
               <span>Find</span>
-              <kbd className="hidden lg:inline text-[9px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 font-mono">⌘F</kbd>
+              <kbd className="hidden lg:inline text-[8px] px-1 rounded bg-zinc-200 dark:bg-zinc-700 font-mono">⌘F</kbd>
             </button>
           </div>
         </div>
@@ -2083,7 +2277,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           onUpdateNote={handleUpdateNoteDirect}
           onInsertNoteAt={handleInsertNoteAt}
           onDeleteNoteAt={handleDeleteNoteAt}
-          onAddMeasure={handleAddMeasure}
+          onAddMeasure={handleAddMeasureAfterCurrent}
+          onAddMeasureAfter={handleAddMeasureAfterCurrent}
+          onAutoRearrangeMeasures={handleAutoRearrangeMeasures}
+          onPushNotesToNextMeasure={handlePushNotesToNextMeasure}
+          onShiftNotesToPrevMeasure={handleShiftNotesToPrevMeasure}
           onDeleteMeasure={handleDeleteMeasure}
           onToggleLineBreak={handleToggleMeasureLineBreak}
           onUpdateBarlineType={handleUpdateBarlineType}

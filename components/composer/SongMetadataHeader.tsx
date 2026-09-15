@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { KeySignature, LyricDisplayMode, Song, TimeSignature } from '@/types/song';
+import { KeySignature, LyricDisplayMode, Song, TimeSignature, InstrumentType } from '@/types/song';
 import {
   AlignLeft,
   ChevronDown,
@@ -22,6 +22,7 @@ import {
   CHROMATIC_KEYS,
   STANDARD_TIME_SIGNATURES,
   TEMPO_PRESETS,
+  INSTRUMENT_OPTIONS,
   transposeSongChords,
   autoFillSongMeasureRests,
   smartRebarSong,
@@ -37,6 +38,8 @@ interface SongMetadataHeaderProps {
   setDisplayMode: (mode: LyricDisplayMode) => void;
   onOpenAligner: () => void;
   onStartFreshSong?: () => void;
+  instrument?: InstrumentType;
+  onSetInstrument?: (inst: InstrumentType) => void;
 }
 
 export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(({
@@ -46,6 +49,8 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   setDisplayMode,
   onOpenAligner,
   onStartFreshSong,
+  instrument = 'piano',
+  onSetInstrument,
 }) => {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
 
@@ -195,13 +200,13 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
       {/* COMPACT DAW PROJECT STRIP (High-Density, Maximize Viewport for Notation) */}
       <div
         id="song-metadata-card"
-        className="px-3 py-1.5 sm:py-2 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md border border-zinc-200/90 dark:border-zinc-800/80 rounded-xl shadow-2xs flex items-center justify-between gap-2 flex-wrap select-none relative"
+        className="px-2.5 py-1 sm:py-1.5 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md border border-zinc-200/90 dark:border-zinc-800/80 rounded-xl shadow-2xs flex items-center justify-between gap-1.5 sm:gap-2 flex-wrap select-none relative"
       >
         {/* Left: Song Title & Quick Musical LCD Badges */}
-        <div className="flex items-center gap-2 sm:gap-2.5 flex-wrap min-w-0">
-          <div className="flex items-center gap-1.5 min-w-0">
-            <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0 border border-amber-500/20">
-              <Music className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
+          <div className="flex items-center gap-1 min-w-0">
+            <div className="w-6 h-6 sm:w-7 sm:h-7 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center font-bold shrink-0 border border-amber-500/20">
+              <Music className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
             </div>
 
             <button
@@ -211,30 +216,30 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                 setActivePopover(null);
                 setIsSettingsModalOpen(true);
               }}
-              className="flex items-center gap-1.5 text-left font-extrabold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer group max-w-[180px] sm:max-w-[260px] truncate"
+              className="flex items-center gap-1 text-left font-extrabold text-xs sm:text-sm text-zinc-900 dark:text-zinc-100 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer group max-w-[150px] sm:max-w-[220px] truncate"
               title="Click to edit song details and layout settings"
             >
               <span className="truncate">{song.title || 'Untitled Song'}</span>
-              <FileEdit className="w-3 h-3 text-zinc-400 group-hover:text-amber-500 shrink-0 opacity-70" />
+              <FileEdit className="w-2.5 h-2.5 text-zinc-400 group-hover:text-amber-500 shrink-0 opacity-70" />
             </button>
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap">
+          <div className="flex items-center gap-1 flex-wrap">
             {/* Key Signature Popover Trigger */}
             <div className="relative inline-block">
               <button
                 id="header-key-badge-btn"
                 type="button"
                 onClick={() => setActivePopover(activePopover === 'key' ? null : 'key')}
-                className={`daw-lcd text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border ${
+                className={`daw-lcd text-[11px] px-2 py-0.5 rounded-md font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border h-6.5 sm:h-7 ${
                   activePopover === 'key'
-                    ? 'ring-2 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
+                    ? 'ring-1.5 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
                     : 'border-amber-500/20 hover:border-amber-400/60 hover:brightness-105 active:scale-95'
                 }`}
                 title="Key Signature: 1 = ?"
               >
                 <span>1 = {song.key}</span>
-                <ChevronDown className="w-3 h-3 text-amber-500/70" />
+                <ChevronDown className="w-2.5 h-2.5 text-amber-500/70" />
               </button>
 
               {activePopover === 'key' && (
@@ -333,15 +338,15 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                 id="header-timesig-badge-btn"
                 type="button"
                 onClick={() => setActivePopover(activePopover === 'timeSignature' ? null : 'timeSignature')}
-                className={`daw-lcd text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border ${
+                className={`daw-lcd text-[11px] px-2 py-0.5 rounded-md font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border h-6.5 sm:h-7 ${
                   activePopover === 'timeSignature'
-                    ? 'ring-2 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
+                    ? 'ring-1.5 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
                     : 'border-amber-500/20 hover:border-amber-400/60 hover:brightness-105 active:scale-95'
                 }`}
                 title="Time Signature / Meter"
               >
                 <span>{song.timeSignature}</span>
-                <ChevronDown className="w-3 h-3 text-amber-500/70" />
+                <ChevronDown className="w-2.5 h-2.5 text-amber-500/70" />
               </button>
 
               {activePopover === 'timeSignature' && (
@@ -427,15 +432,15 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                 id="header-bpm-badge-btn"
                 type="button"
                 onClick={() => setActivePopover(activePopover === 'bpm' ? null : 'bpm')}
-                className={`daw-lcd text-xs px-2.5 py-1 rounded-lg font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border ${
+                className={`daw-lcd text-[11px] px-2 py-0.5 rounded-md font-mono font-bold shadow-xs cursor-pointer touch-manipulation transition-all flex items-center gap-1 border h-6.5 sm:h-7 ${
                   activePopover === 'bpm'
-                    ? 'ring-2 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
+                    ? 'ring-1.5 ring-amber-400 border-amber-500 brightness-110 text-amber-300'
                     : 'border-amber-500/20 hover:border-amber-400/60 hover:brightness-105 active:scale-95'
                 }`}
                 title="Tempo (BPM)"
               >
                 <span>♩ = {song.bpm}</span>
-                <ChevronDown className="w-3 h-3 text-amber-500/70" />
+                <ChevronDown className="w-2.5 h-2.5 text-amber-500/70" />
               </button>
 
               {activePopover === 'bpm' && (
@@ -556,24 +561,24 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
             </div>
 
             {/* Measures Count Pill */}
-            <span className="text-[11px] font-mono font-bold text-zinc-500 dark:text-zinc-400 px-2 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-750 shrink-0">
+            <span className="text-[10px] font-mono font-bold text-zinc-500 dark:text-zinc-400 px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200/80 dark:border-zinc-750 shrink-0 h-6.5 sm:h-7 flex items-center">
               {song.measures.length} M
             </span>
           </div>
         </div>
 
         {/* Right: Lyric Mode Selector & Studio Utilities */}
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
           {/* Quick Lyric Display Mode Switcher */}
           <div className="relative">
             <div
               id="header-lyric-mode-group"
-              className="flex items-center bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-xl border border-zinc-200/90 dark:border-zinc-750 text-xs font-bold shadow-2xs"
+              className="flex items-center bg-zinc-100 dark:bg-zinc-900/90 p-0.5 rounded-lg border border-zinc-200/90 dark:border-zinc-750 text-xs font-bold shadow-2xs h-6.5 sm:h-7.5"
             >
               <button
                 type="button"
                 onClick={() => setDisplayMode('roman')}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer touch-manipulation ${
+                className={`px-2 py-0.5 rounded-md transition-all cursor-pointer touch-manipulation text-[11px] ${
                   displayMode === 'roman'
                     ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
@@ -585,7 +590,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               <button
                 type="button"
                 onClick={() => setDisplayMode('hanlo')}
-                className={`px-2.5 py-1 rounded-lg transition-all cursor-pointer touch-manipulation ${
+                className={`px-2 py-0.5 rounded-md transition-all cursor-pointer touch-manipulation text-[11px] ${
                   displayMode === 'hanlo' || displayMode === 'hanji_only' || displayMode === 'custom_only'
                     ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
@@ -597,7 +602,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               <button
                 type="button"
                 onClick={() => setActivePopover(activePopover === 'displayMode' ? null : 'displayMode')}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-lg transition-all cursor-pointer touch-manipulation ${
+                className={`flex items-center gap-0.5 px-2 py-0.5 rounded-md transition-all cursor-pointer touch-manipulation text-[11px] ${
                   displayMode.includes('major') || displayMode === 'all'
                     ? 'bg-amber-500 text-zinc-950 shadow-xs font-black'
                     : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100'
@@ -605,7 +610,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                 title="Bilingual Mode"
               >
                 <span>Bilingual</span>
-                <ChevronDown className="w-3 h-3" />
+                <ChevronDown className="w-2.5 h-2.5" />
               </button>
             </div>
 
@@ -664,11 +669,11 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               setActivePopover(null);
               onOpenAligner();
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-xs rounded-lg border border-zinc-200/90 dark:border-zinc-750 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation h-8"
+            className="flex items-center gap-1 px-2 py-0.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold text-xs rounded-lg border border-zinc-200/90 dark:border-zinc-750 shadow-2xs transition-all active:scale-95 cursor-pointer touch-manipulation h-6.5 sm:h-7.5"
             title="Lyric Aligner (Supports Roman and Han-lô)"
           >
-            <AlignLeft className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden sm:inline">Align Lyrics</span>
+            <AlignLeft className="w-3 h-3 text-amber-500" />
+            <span className="hidden sm:inline text-[11px]">Align Lyrics</span>
           </button>
 
           {/* Song Settings / Metadata Dialog Trigger */}
@@ -679,11 +684,11 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               setActivePopover(null);
               setIsSettingsModalOpen(true);
             }}
-            className="flex items-center gap-1.5 px-2.5 py-1 font-bold text-xs rounded-lg border transition-all cursor-pointer h-8 touch-manipulation bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shadow-2xs"
+            className="flex items-center gap-1 px-2 py-0.5 font-bold text-xs rounded-lg border transition-all cursor-pointer h-6.5 sm:h-7.5 touch-manipulation bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-900/90 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shadow-2xs"
             title="Song Settings (Title, Composer, Lyricist, Layout, Notes)"
           >
-            <SlidersHorizontal className="w-3.5 h-3.5 text-amber-500" />
-            <span className="hidden sm:inline">Settings</span>
+            <SlidersHorizontal className="w-3 h-3 text-amber-500" />
+            <span className="hidden sm:inline text-[11px]">Settings</span>
           </button>
         </div>
       </div>
@@ -840,7 +845,41 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               </div>
             </div>
 
-            {/* Section 3: Description Multi-line Input */}
+            {/* Section 3: Melody Instrument Timbre Selector */}
+            {onSetInstrument && (
+              <div className="flex flex-col gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
+                    Melody Instrument Tone / 音色選擇
+                  </label>
+                  <span className="text-xs text-amber-600 dark:text-amber-400 font-mono font-bold">
+                    {INSTRUMENT_OPTIONS.find(o => o.value === instrument)?.labelEn}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                  {INSTRUMENT_OPTIONS.map(opt => {
+                    const isSelected = instrument === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        onClick={() => onSetInstrument(opt.value)}
+                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-500 text-zinc-950 shadow-xs ring-1 ring-amber-400'
+                            : 'bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-200/70 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
+                        }`}
+                      >
+                        <span className="truncate">{opt.labelEn}</span>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] shrink-0" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Section 4: Description Multi-line Input */}
             <div className="flex flex-col gap-1.5 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
               <label
                 htmlFor="composer-song-description-textarea"

@@ -244,14 +244,17 @@ export const ANNOTATION_MARKS = [
 
 /**
  * Split text into Taigi syllables based on whether it's Hanji, POJ/TL (hyphens/spaces), or mixed Han-lo.
+ * Preserves the semi-hyphen (-) or double hyphen (--) attached to non-final syllables of multi-syllable POJ/TL words.
  * e.g., "獨夜無伴守燈下" -> ["獨", "夜", "無", "伴", "守", "燈", "下"]
- * e.g., "To̍k-iā bô-phōaⁿ siú teng-ē" -> ["To̍k", "iā", "bô", "phōaⁿ", "siú", "teng", "ē"]
+ * e.g., "To̍k-iā bô-phōaⁿ siú teng-ē" -> ["To̍k-", "iā", "bô-", "phōaⁿ", "siú", "teng-", "ē"]
+ * e.g., "siáu-liân-ke" -> ["siáu-", "liân-", "ke"]
+ * e.g., "khì--ah" -> ["khì--", "ah"]
  * e.g., "阮ê故鄉" -> ["阮", "ê", "故", "鄉"]
  */
 export function splitTaigiLyricSyllables(text: string): string[] {
   if (!text) return [];
 
-  // Normalize separators: replace full-width punctuation or commas with spaces
+  // Normalize separators: replace full-width punctuation or commas with spaces (keep hyphens and double hyphens)
   const cleaned = text
     .replace(/[，。！？、；：""''（）(),.!?;:]/g, ' ')
     .trim();
@@ -260,18 +263,45 @@ export function splitTaigiLyricSyllables(text: string): string[] {
   const rawWords = cleaned.split(/\s+/).filter(Boolean);
 
   for (const word of rawWords) {
-    // If the word contains hyphens (common in POJ/TL like "bô-phōaⁿ" or "chhun-hong")
-    if (word.includes('-')) {
-      const parts = word.split('-').filter(Boolean);
-      for (const part of parts) {
-        tokens.push(...splitTokenCharacters(part));
+    if (word.includes('--')) {
+      const doubleParts = word.split('--').filter(Boolean);
+      for (let pIdx = 0; pIdx < doubleParts.length; pIdx++) {
+        const isLastDouble = pIdx === doubleParts.length - 1;
+        const subWord = doubleParts[pIdx];
+        const subTokens = splitHyphenatedWord(subWord);
+        if (!isLastDouble && subTokens.length > 0) {
+          const lastIdx = subTokens.length - 1;
+          if (!subTokens[lastIdx].endsWith('-')) {
+            subTokens[lastIdx] += '--';
+          }
+        }
+        tokens.push(...subTokens);
       }
+    } else if (word.includes('-')) {
+      tokens.push(...splitHyphenatedWord(word));
     } else {
       tokens.push(...splitTokenCharacters(word));
     }
   }
 
   return tokens;
+}
+
+function splitHyphenatedWord(word: string): string[] {
+  const parts = word.split('-').filter(Boolean);
+  const result: string[] = [];
+  for (let i = 0; i < parts.length; i++) {
+    const isLast = i === parts.length - 1;
+    const chars = splitTokenCharacters(parts[i]);
+    if (chars.length > 0) {
+      if (!isLast) {
+        // Keep semi hyphen on the last syllable of this sub-word (e.g. "To̍k" -> "To̍k-")
+        chars[chars.length - 1] += '-';
+      }
+      result.push(...chars);
+    }
+  }
+  return result;
 }
 
 function splitTokenCharacters(token: string): string[] {
@@ -941,7 +971,21 @@ export function splitVerseTextTokens(text: string): { text: string; isPunct: boo
     if (isHan) {
       flushLatin();
       tokens.push({ text: char, isPunct: false });
-    } else if (char === '-' || char === ' ') {
+    } else if (char === '-') {
+      // Check if next character is also a hyphen (double hyphen enclitic --)
+      if (i + 1 < text.length && text[i + 1] === '-') {
+        if (currentLatin.trim()) {
+          currentLatin += '--';
+          flushLatin();
+        }
+        i++; // skip second hyphen
+      } else {
+        if (currentLatin.trim()) {
+          currentLatin += '-';
+          flushLatin();
+        }
+      }
+    } else if (char === ' ') {
       flushLatin();
     } else {
       currentLatin += char;
@@ -1655,11 +1699,15 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
   if (targetBeats <= 0) return { ...song, timeSignature: targetTimeSignature };
 
   const sectionMap = new Map<number, string>();
+  const chordMap = new Map<number, string>();
   const allNotes: NumberedNotationNote[] = [];
 
   song.measures.forEach(m => {
     if (m.section && m.section.trim()) {
       sectionMap.set(allNotes.length, m.section.trim());
+    }
+    if (m.chord && m.chord.trim()) {
+      chordMap.set(allNotes.length, m.chord.trim());
     }
     m.notes.forEach(n => {
       allNotes.push({ ...n });
@@ -1670,11 +1718,15 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
   let currentMeasureNotes: NumberedNotationNote[] = [];
   let currentMeasureBeats = 0;
   let currentMeasureSection: string | undefined = undefined;
+  let currentMeasureChord: string | undefined = undefined;
 
   for (let i = 0; i < allNotes.length; i++) {
     const note = allNotes[i];
     if (sectionMap.has(i)) {
       currentMeasureSection = sectionMap.get(i);
+    }
+    if (chordMap.has(i)) {
+      currentMeasureChord = chordMap.get(i);
     }
 
     const noteDur =
@@ -1700,11 +1752,13 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
           id: `rebar-m-${Date.now()}-${newMeasures.length + 1}`,
           measureNumber: newMeasures.length + 1,
           section: currentMeasureSection,
+          chord: currentMeasureChord || (newMeasures[newMeasures.length - 1]?.chord ?? 'C'),
           notes: currentMeasureNotes,
         });
         currentMeasureNotes = [];
         currentMeasureBeats = 0;
         currentMeasureSection = undefined;
+        currentMeasureChord = undefined;
       }
     } else {
       if (remainingBeats > 0.12) {
@@ -1735,24 +1789,28 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
           id: `rebar-m-${Date.now()}-${newMeasures.length + 1}`,
           measureNumber: newMeasures.length + 1,
           section: currentMeasureSection,
+          chord: currentMeasureChord || (newMeasures[newMeasures.length - 1]?.chord ?? 'C'),
           notes: currentMeasureNotes,
         });
 
         currentMeasureNotes = [part2];
         currentMeasureBeats = splitDur2;
         currentMeasureSection = undefined;
+        currentMeasureChord = undefined;
       } else {
         if (currentMeasureNotes.length > 0) {
           newMeasures.push({
             id: `rebar-m-${Date.now()}-${newMeasures.length + 1}`,
             measureNumber: newMeasures.length + 1,
             section: currentMeasureSection,
+            chord: currentMeasureChord || (newMeasures[newMeasures.length - 1]?.chord ?? 'C'),
             notes: currentMeasureNotes,
           });
         }
         currentMeasureNotes = [note];
         currentMeasureBeats = noteDur;
         currentMeasureSection = undefined;
+        currentMeasureChord = undefined;
       }
     }
   }
@@ -1762,6 +1820,7 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
       id: `rebar-m-${Date.now()}-${newMeasures.length + 1}`,
       measureNumber: newMeasures.length + 1,
       section: currentMeasureSection,
+      chord: currentMeasureChord || (newMeasures[newMeasures.length - 1]?.chord ?? 'C'),
       notes: currentMeasureNotes,
     });
   }
@@ -1771,5 +1830,12 @@ export function smartRebarSong(song: Song, targetTimeSignature: TimeSignature): 
     timeSignature: targetTimeSignature,
     measures: newMeasures.length > 0 ? newMeasures : song.measures,
   };
+}
+
+/**
+ * Automatically rearranges all measures to strictly match the song's current time signature.
+ */
+export function autoRearrangeSongMeasures(song: Song): Song {
+  return smartRebarSong(song, song.timeSignature || '4/4');
 }
 
