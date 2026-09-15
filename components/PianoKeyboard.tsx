@@ -635,139 +635,144 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         </button>
       )}
 
-      {/* ─── TOP PRIMARY CONTROL RIBBON (ALL-IN-ONE COMPACT BAR) ─── */}
-      <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2 text-xs border-b border-zinc-800/90 pb-2 pr-9 sm:pr-10">
-        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
+      {/* ─── TOP PRIMARY CONTROL RIBBON (STRICT SINGLE LINE, COMPACT UI) ─── */}
+      <div className="flex items-center justify-between flex-nowrap gap-1 sm:gap-1.5 text-xs border-b border-zinc-800/90 pb-1.5 sm:pb-2 pr-8 sm:pr-9 overflow-x-auto no-scrollbar whitespace-nowrap">
+        <div className="flex items-center gap-1 sm:gap-1.5 flex-nowrap shrink-0">
           {/* Deck Title / Key Signature */}
-          <div className="flex items-center gap-1.5 font-black text-amber-400 bg-amber-950/40 border border-amber-800/50 px-2.5 py-1 rounded-xl shadow-xs">
-            <Music className="w-3.5 h-3.5" />
-            <span className="tracking-wide hidden xs:inline">Piano</span>
-            <span className="font-mono text-zinc-300 font-bold">1={keySignature}</span>
+          <div
+            className="flex items-center gap-1 font-black text-amber-400 bg-amber-950/40 border border-amber-800/50 px-2 py-0.5 sm:py-1 rounded-lg shadow-xs shrink-0 text-[11px]"
+            title={`Key Signature: 1 = ${keySignature}`}
+          >
+            <Music className="w-3 h-3 shrink-0" />
+            <span className="font-mono text-zinc-200 font-bold">1={keySignature}</span>
           </div>
 
-          {/* 1. Operational Mode Toggle: Direct Touch vs Live Transcribe */}
+          {/* 1. Operational Mode Toggle: Touch vs Transcribe */}
           <div
             id="piano-mode-toggle-group"
-            className="flex items-center bg-zinc-900 p-0.5 rounded-xl border border-zinc-700/80 shadow-inner text-[11px]"
+            className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-zinc-700/80 shadow-inner text-[10px] sm:text-[11px] shrink-0"
           >
             <button
               id="piano-mode-step-btn"
               type="button"
               onClick={() => handleSetMode('step')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold transition-all min-h-[28px] cursor-pointer touch-manipulation ${
+              className={`flex items-center gap-1 px-2 py-0.5 sm:py-1 rounded-md font-bold transition-all min-h-[26px] cursor-pointer touch-manipulation ${
                 activeMode === 'step'
                   ? 'bg-amber-500 text-zinc-950 shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
-              title="Direct Pitch Input: Tap key to immediately set pitch of the note"
+              title="Touch Mode: Tap key to directly set pitch"
             >
-              <Keyboard className="w-3 h-3" />
-              <span>Direct Touch</span>
+              <Keyboard className="w-3 h-3 shrink-0" />
+              <span>Touch</span>
             </button>
             <button
               id="piano-mode-transcribe-btn"
               type="button"
               onClick={() => handleSetMode('transcribe')}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg font-bold transition-all min-h-[28px] cursor-pointer touch-manipulation ${
+              className={`flex items-center gap-1 px-2 py-0.5 sm:py-1 rounded-md font-bold transition-all min-h-[26px] cursor-pointer touch-manipulation ${
                 activeMode === 'transcribe'
                   ? 'bg-gradient-to-r from-amber-400 to-amber-500 text-zinc-950 shadow-md ring-1 ring-amber-300 animate-pulse-subtle'
                   : 'text-amber-400/80 hover:text-amber-300 hover:bg-amber-950/20'
               }`}
-              title="Live Transcribe Mode: Hold key to determine duration, release to transcribe note into score"
+              title="Live Transcribe Mode: Hold key to record duration"
             >
-              <Zap className="w-3 h-3 fill-current" />
-              <span>Live Transcribe</span>
+              <Zap className="w-3 h-3 fill-current shrink-0" />
+              <span>Transcribe</span>
             </button>
           </div>
 
-          {/* 2. Progression Toggle: Single Note vs Auto Advance */}
+          {/* 2. Progression Toggle: Single vs Auto Advance */}
           <div
             id="piano-progression-toggle-group"
-            className="flex items-center bg-zinc-900 p-0.5 rounded-xl border border-zinc-700/80 shadow-inner text-[11px]"
+            className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-zinc-700/80 shadow-inner text-[10px] sm:text-[11px] shrink-0"
           >
             <button
               id="piano-progression-single-btn"
               type="button"
               onClick={() => handleSetProgression('single')}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg font-bold transition-all min-h-[28px] cursor-pointer touch-manipulation ${
+              className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md font-bold transition-all min-h-[26px] cursor-pointer touch-manipulation ${
                 activeProgression === 'single'
                   ? 'bg-zinc-200 text-zinc-950 font-black shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
-              title="Single Note: Update only the note at current cursor, keeping cursor in place"
+              title="Single: Stay on current cursor note"
             >
-              <Target className="w-3 h-3" />
+              <Target className="w-3 h-3 shrink-0" />
               <span>Single</span>
             </button>
             <button
               id="piano-progression-auto-btn"
               type="button"
               onClick={() => handleSetProgression('auto')}
-              className={`flex items-center gap-1 px-2 py-1 rounded-lg font-bold transition-all min-h-[28px] cursor-pointer touch-manipulation ${
+              className={`flex items-center gap-1 px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md font-bold transition-all min-h-[26px] cursor-pointer touch-manipulation ${
                 activeProgression === 'auto'
                   ? 'bg-amber-500 text-zinc-950 font-black shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
-              title="Auto Progression: Automatically advance cursor to next note/measure after each input"
+              title="Auto: Advance cursor automatically after each input"
             >
-              <ArrowRight className="w-3 h-3" />
-              <span>Auto Advance</span>
+              <ArrowRight className="w-3 h-3 shrink-0" />
+              <span>Auto</span>
             </button>
           </div>
 
           {/* 3. Octave View Tabs (low_mid, mid_high, all) */}
-          <div className="flex items-center bg-zinc-900 p-0.5 rounded-xl border border-zinc-800 text-[11px]">
+          <div className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[10px] sm:text-[11px] shrink-0">
             <button
               type="button"
               onClick={() => setOctaveView('low_mid')}
-              className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md font-medium transition-all min-h-[26px] cursor-pointer ${
                 octaveView === 'low_mid'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
+              title="Low + Mid Octaves (Bass / Mid Register)"
             >
-              Low + Mid
+              Low+Mid
             </button>
             <button
               type="button"
               onClick={() => setOctaveView('mid_high')}
-              className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md font-medium transition-all min-h-[26px] cursor-pointer ${
                 octaveView === 'mid_high'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
+              title="Mid + High Octaves (Standard Melody Register)"
             >
-              Mid + High
+              Mid+High
             </button>
             <button
               type="button"
               onClick={() => setOctaveView('all')}
-              className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md font-medium transition-all min-h-[26px] cursor-pointer ${
                 octaveView === 'all'
                   ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
                   : 'text-zinc-400 hover:text-zinc-200'
               }`}
+              title="All 3 Octaves"
             >
-              All 3
+              All
             </button>
           </div>
 
           {/* 4. Label Display Mode */}
-          <div className="hidden sm:flex items-center bg-zinc-900 p-0.5 rounded-xl border border-zinc-800 text-[11px]">
+          <div className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 text-[10px] sm:text-[11px] shrink-0">
             <button
               type="button"
               onClick={() => setLabelMode('both')}
-              className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md font-medium transition-all min-h-[26px] cursor-pointer ${
                 labelMode === 'both' ? 'bg-zinc-700 text-zinc-100 font-bold' : 'text-zinc-400 hover:text-zinc-200'
               }`}
               title="Show both Numbered Notation numbers and pitch names"
             >
-              1-7 + Pitch
+              1-7+Pitch
             </button>
             <button
               type="button"
               onClick={() => setLabelMode('numberedNotations')}
-              className={`px-2 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+              className={`px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-md font-medium transition-all min-h-[26px] cursor-pointer ${
                 labelMode === 'numberedNotations' ? 'bg-zinc-700 text-zinc-100 font-bold' : 'text-zinc-400 hover:text-zinc-200'
               }`}
               title="Show only Numbered Notation 1-7"
@@ -778,22 +783,22 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         </div>
 
         {/* MIDI & QWERTY Status Badges */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 shrink-0 pl-1">
           {midiState.isConnected ? (
             <span
-              className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-600/70 text-emerald-400 text-[10px] font-bold"
+              className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-emerald-950/80 border border-emerald-600/70 text-emerald-400 text-[10px] font-bold shrink-0"
               title={`Hardware MIDI Connected: ${midiState.activeDevice || 'Device Ready'}`}
             >
               <Radio className="w-2.5 h-2.5 animate-pulse text-emerald-400" />
-              <span>MIDI Active</span>
+              <span>MIDI</span>
             </span>
           ) : (
             <span
-              className="hidden xl:flex items-center gap-1 px-2 py-0.5 rounded-md bg-zinc-900 border border-zinc-700/60 text-zinc-400 text-[10px] font-mono"
+              className="hidden lg:flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-zinc-900 border border-zinc-700/60 text-zinc-400 text-[10px] font-mono shrink-0"
               title="QWERTY Keys [A-K], [W-P] active for musical typing"
             >
               <Keyboard className="w-2.5 h-2.5 text-amber-400" />
-              <span>QWERTY Keys Ready</span>
+              <span>QWERTY</span>
             </span>
           )}
         </div>

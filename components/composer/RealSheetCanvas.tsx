@@ -1327,10 +1327,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     <div
       id="real-sheet-viewport-container"
       ref={canvasWrapperRef}
-      className="relative w-full min-h-screen bg-zinc-100 dark:bg-zinc-950 flex flex-col items-center py-6 sm:py-10 px-2 sm:px-6 select-none print:p-0 print:m-0 print:bg-white overflow-x-auto"
+      className="relative w-full min-h-screen bg-zinc-100 dark:bg-zinc-950 flex flex-col items-center pt-1 sm:pt-1.5 pb-6 sm:pb-10 px-2 sm:px-6 select-none print:p-0 print:m-0 print:bg-white overflow-x-auto"
     >
       {/* Top Floating Paper Control Bar */}
-      <div className="w-full max-w-5xl flex items-center justify-between mb-4 px-2 print:hidden">
+      <div className="w-full max-w-5xl flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden">
         <div className="flex items-center gap-2">
           <span className="text-xs font-serif tracking-wider font-bold text-zinc-500 uppercase">
             Sheet Music Canvas
