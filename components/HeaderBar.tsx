@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Song, InstrumentType } from '@/types/song';
+import { Song, InstrumentType, VerseDisplayOption } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
-import { INSTRUMENT_OPTIONS } from '@/lib/taigiUtils';
+import { INSTRUMENT_OPTIONS, getVerseDisplayOption } from '@/lib/taigiUtils';
 import {
   Music,
   Library,
@@ -25,6 +25,8 @@ import {
   Download,
   Search,
   RotateCcw,
+  RotateCw,
+  Languages,
   Sparkles,
 } from 'lucide-react';
 import { UiZoomControl } from '@/components/UiZoomControl';
@@ -67,6 +69,7 @@ interface HeaderBarProps {
   onResetAllPresets?: () => void;
   onRestoreDefaultSong?: () => void;
   onRestoreSettingsToDefault?: (options?: { restorePresetSong?: boolean }) => void;
+  onUpdateSong?: (updatedSong: Song) => void;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -103,11 +106,69 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onResetAllPresets,
   onRestoreDefaultSong,
   onRestoreSettingsToDefault,
+  onUpdateSong,
 }) => {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [isStudioMenuOpen, setIsStudioMenuOpen] = useState<boolean>(false);
   const [defaultRestoreNotice, setDefaultRestoreNotice] = useState<string | null>(null);
   const isStudioOpen = isStudioMenuOpen && !isAnyModalOpen;
+
+  const FORMAT_CYCLE: {
+    id: VerseDisplayOption;
+    label: string;
+    badge?: string;
+    isSerif?: boolean;
+    desc: string;
+  }[] = [
+    {
+      id: 'hanlo',
+      label: 'Hàn-lô',
+      desc: 'Displays only Hàn-lô / Hanji characters',
+    },
+    {
+      id: 'poj',
+      label: 'POJ',
+      isSerif: true,
+      desc: 'Displays only Pe̍h-ōe-jī romanization in italicized serif styling',
+    },
+    {
+      id: 'both_poj_top',
+      label: 'POJ / Hàn',
+      badge: 'POJ on top',
+      desc: 'Stacked layout with POJ on top and Hàn-lô below',
+    },
+    {
+      id: 'both_hanlo_top',
+      label: 'Hàn / POJ',
+      badge: 'Hàn on top',
+      desc: 'Stacked layout with Hàn-lô on top and POJ below',
+    },
+  ];
+
+  const currentLyricOption = getVerseDisplayOption(song);
+  const activeLyricOpt =
+    currentLyricOption === 'both' ? 'both_poj_top' : (currentLyricOption || 'both_poj_top');
+  const activeLyricIdx = Math.max(0, FORMAT_CYCLE.findIndex(item => item.id === activeLyricOpt));
+  const activeLyricConfig = FORMAT_CYCLE[activeLyricIdx];
+  const nextLyricConfig = FORMAT_CYCLE[(activeLyricIdx + 1) % FORMAT_CYCLE.length];
+
+  const handleCycleLyricFormat = () => {
+    if (onUpdateSong) {
+      onUpdateSong({
+        ...song,
+        verseDisplayOption: nextLyricConfig.id,
+      });
+    }
+  };
+
+  const handleSelectLyricFormat = (optId: VerseDisplayOption) => {
+    if (onUpdateSong) {
+      onUpdateSong({
+        ...song,
+        verseDisplayOption: optId,
+      });
+    }
+  };
 
   // Close Studio popup when Escape is pressed
   useEffect(() => {
@@ -374,7 +435,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           id="header-studio-menu-popover"
           role="dialog"
           aria-modal="true"
-          aria-label="Studio Deck & Tools"
+          aria-label="Studio Settings & Tools"
           className="fixed top-12 sm:top-13 right-2 sm:right-4 z-50 w-[min(384px,calc(100vw-16px))] max-h-[calc(100dvh-56px)] overflow-y-auto no-scrollbar p-3.5 bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-3"
         >
           {/* Header in Popover */}
@@ -382,7 +443,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <div className="flex items-center gap-2">
               <SlidersHorizontal className="w-4 h-4 text-amber-500 shrink-0" />
               <span className="font-extrabold text-xs text-zinc-900 dark:text-zinc-100 uppercase tracking-wider">
-                Studio Deck & Tools
+                Studio Settings & Tools
               </span>
             </div>
             <button
@@ -494,7 +555,102 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             )}
           </div>
 
-          {/* Section 2: Display & UI Text Zoom */}
+          {/* Section 2: Lyric Display Format (4-Stage Rotational Toggle & Direct Selector) */}
+          <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Languages className="w-3.5 h-3.5 text-amber-500" />
+                <span>Lyric Display Format</span>
+              </span>
+              {/* Quick Cycle Rotational Button */}
+              <button
+                id="header-studio-rotational-cycle-btn"
+                type="button"
+                onClick={handleCycleLyricFormat}
+                className="group flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 text-[10px] font-bold transition-all cursor-pointer border border-amber-500/30 touch-manipulation active:scale-95"
+                title={`Click to rotate format to: ${nextLyricConfig.label} (${nextLyricConfig.desc})`}
+              >
+                <span>Rotate</span>
+                <RotateCw className="w-2.5 h-2.5 group-hover:rotate-180 transition-all duration-300 shrink-0" />
+              </button>
+            </div>
+
+            <div className="p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750 flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
+                  4-Format Display Support
+                </span>
+                <span className="text-[10px] font-mono font-bold text-amber-600 dark:text-amber-400">
+                  {activeLyricConfig.label} {activeLyricConfig.badge ? `(${activeLyricConfig.badge})` : ''}
+                </span>
+              </div>
+
+              {/* 4 Format Direct Option Cards */}
+              <div className="grid grid-cols-2 gap-1.5">
+                {FORMAT_CYCLE.map(opt => {
+                  const isSelected = activeLyricOpt === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => handleSelectLyricFormat(opt.id)}
+                      className={`p-2 rounded-xl text-left flex flex-col justify-between gap-1 transition-all cursor-pointer border touch-manipulation min-h-[58px] ${
+                        isSelected
+                          ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs ring-1 ring-amber-400/50'
+                          : 'bg-white/90 dark:bg-zinc-800/90 hover:bg-zinc-200/70 dark:hover:bg-zinc-750 text-zinc-800 dark:text-zinc-200 border-zinc-200/80 dark:border-zinc-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between w-full">
+                        <span className={`text-xs font-bold ${opt.isSerif ? 'font-serif italic' : ''}`}>
+                          {opt.label}
+                        </span>
+                        {isSelected ? (
+                          <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] shrink-0" />
+                        ) : opt.badge ? (
+                          <span className="text-[9px] font-medium px-1 py-0.2 rounded bg-zinc-200/80 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">
+                            {opt.badge}
+                          </span>
+                        ) : null}
+                      </div>
+                      <span
+                        className={`text-[9.5px] leading-tight ${
+                          isSelected ? 'text-zinc-950 font-medium' : 'text-zinc-500 dark:text-zinc-400'
+                        }`}
+                      >
+                        {opt.desc}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Single 4-Stage Rotational Toggle Button (Moved from HUD) */}
+              <div className="flex items-center justify-between pt-1.5 border-t border-zinc-200 dark:border-zinc-750">
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  Single Rotational Toggle:
+                </span>
+                <button
+                  id="studio-settings-rotational-toggle-btn"
+                  type="button"
+                  onClick={handleCycleLyricFormat}
+                  className="group flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-800 hover:bg-amber-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-2xs border border-zinc-300 dark:border-zinc-650 text-xs font-bold transition-all cursor-pointer active:scale-95 touch-manipulation"
+                  title={`Lyric Format: ${activeLyricConfig.label} (${activeLyricConfig.desc}). Click to rotate to ${nextLyricConfig.label} (${nextLyricConfig.desc})`}
+                >
+                  <span className={activeLyricConfig.isSerif ? 'font-serif italic tracking-wide' : ''}>
+                    {activeLyricConfig.label}
+                  </span>
+                  {activeLyricConfig.badge && (
+                    <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 leading-none">
+                      {activeLyricConfig.badge}
+                    </span>
+                  )}
+                  <RotateCw className="w-3 h-3 text-zinc-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:rotate-180 transition-all duration-300 shrink-0" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Section 3: Display & UI Text Zoom */}
           <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">

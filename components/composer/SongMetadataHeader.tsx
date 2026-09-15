@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { KeySignature, LyricDisplayMode, Song, TimeSignature, InstrumentType } from '@/types/song';
+import { KeySignature, LyricDisplayMode, Song, TimeSignature, InstrumentType, VerseDisplayOption } from '@/types/song';
 import {
   AlignLeft,
   ChevronDown,
@@ -18,6 +18,8 @@ import {
   SlidersHorizontal,
   Info,
   RotateCcw,
+  RotateCw,
+  Languages,
 } from 'lucide-react';
 import { PRESET_SONGS } from '@/lib/presets';
 import {
@@ -35,6 +37,7 @@ import {
   transposeSongChords,
   autoFillSongMeasureRests,
   smartRebarSong,
+  getVerseDisplayOption,
 } from '@/lib/taigiUtils';
 
 interface SongMetadataHeaderProps {
@@ -948,6 +951,121 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                 </div>
               </div>
             </div>
+
+            {/* Lyric Display Format (4-Format Display Support & 4-Stage Rotational Toggle) */}
+            {(() => {
+              const FORMAT_CYCLE: {
+                id: VerseDisplayOption;
+                label: string;
+                badge?: string;
+                isSerif?: boolean;
+                desc: string;
+              }[] = [
+                {
+                  id: 'hanlo',
+                  label: 'Hàn-lô',
+                  desc: 'Displays only Hàn-lô / Hanji characters',
+                },
+                {
+                  id: 'poj',
+                  label: 'POJ',
+                  isSerif: true,
+                  desc: 'Displays only Pe̍h-ōe-jī romanization in italicized serif styling',
+                },
+                {
+                  id: 'both_poj_top',
+                  label: 'POJ / Hàn',
+                  badge: 'POJ on top',
+                  desc: 'Stacked layout with POJ on top and Hàn-lô below',
+                },
+                {
+                  id: 'both_hanlo_top',
+                  label: 'Hàn / POJ',
+                  badge: 'Hàn on top',
+                  desc: 'Stacked layout with Hàn-lô on top and POJ below',
+                },
+              ];
+
+              const currentLyricOption = getVerseDisplayOption(song);
+              const activeLyricOpt =
+                currentLyricOption === 'both' ? 'both_poj_top' : (currentLyricOption || 'both_poj_top');
+              const activeLyricIdx = Math.max(0, FORMAT_CYCLE.findIndex(item => item.id === activeLyricOpt));
+              const activeLyricConfig = FORMAT_CYCLE[activeLyricIdx];
+              const nextLyricConfig = FORMAT_CYCLE[(activeLyricIdx + 1) % FORMAT_CYCLE.length];
+
+              const handleCycleLyricFormat = () => {
+                onUpdateSong({
+                  ...song,
+                  verseDisplayOption: nextLyricConfig.id,
+                });
+              };
+
+              const handleSelectLyricFormat = (optId: VerseDisplayOption) => {
+                onUpdateSong({
+                  ...song,
+                  verseDisplayOption: optId,
+                });
+              };
+
+              return (
+                <div className="flex flex-col gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Languages className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Lyric Display Format (4-Stage Support)</span>
+                    </label>
+                    <button
+                      id="song-settings-rotational-cycle-btn"
+                      type="button"
+                      onClick={handleCycleLyricFormat}
+                      className="group flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 text-xs font-bold transition-all cursor-pointer border border-amber-500/30 touch-manipulation active:scale-95"
+                      title={`Rotate format to: ${nextLyricConfig.label} (${nextLyricConfig.desc})`}
+                    >
+                      <span>Rotate ({nextLyricConfig.label})</span>
+                      <RotateCw className="w-3 h-3 group-hover:rotate-180 transition-all duration-300 shrink-0" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {FORMAT_CYCLE.map(opt => {
+                      const isSelected = activeLyricOpt === opt.id;
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => handleSelectLyricFormat(opt.id)}
+                          className={`p-2 rounded-xl text-left flex flex-col justify-between gap-1 transition-all cursor-pointer border min-h-[64px] touch-manipulation ${
+                            isSelected
+                              ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs ring-1 ring-amber-400/50'
+                              : 'bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-200/70 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between w-full">
+                            <span className={`text-xs font-bold ${opt.isSerif ? 'font-serif italic' : ''}`}>
+                              {opt.label}
+                            </span>
+                            {isSelected ? (
+                              <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] shrink-0" />
+                            ) : opt.badge ? (
+                              <span className="text-[9px] font-medium px-1 py-0.2 rounded bg-zinc-200/80 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300">
+                                {opt.badge}
+                              </span>
+                            ) : null}
+                          </div>
+                          <span
+                            className={`text-[9.5px] leading-tight ${
+                              isSelected ? 'text-zinc-950 font-medium' : 'text-zinc-500 dark:text-zinc-400'
+                            }`}
+                          >
+                            {opt.desc}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })()}
 
             {/* Section 3: Melody Instrument Timbre Selector */}
             {onSetInstrument && (

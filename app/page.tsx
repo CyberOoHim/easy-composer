@@ -659,6 +659,7 @@ export default function Home() {
         onResetAllPresets={handleResetAllPresets}
         onRestoreDefaultSong={handleRestoreDefaultSong}
         onRestoreSettingsToDefault={handleRestoreSettingsToDefault}
+        onUpdateSong={setSong}
       />
 
       {/* Main Studio Canvas - Consolidated WYSIWYG Sheet */}
