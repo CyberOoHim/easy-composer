@@ -2508,134 +2508,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                           </button>
                         )}
 
-                        {/* Interactive Section Badge Editor Popover */}
-                        {editingSectionMeasureIdx === engravedM.measureIndex && (
-                          <>
-                            <div
-                              className="fixed inset-0 z-40 bg-black/10 dark:bg-black/30 backdrop-blur-[0.5px] cursor-default"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setEditingSectionMeasureIdx(null);
-                              }}
-                            />
-                            <div
-                              id="section-badge-editor-popover"
-                              onClick={(e) => e.stopPropagation()}
-                              className="absolute right-0 top-full mt-1.5 z-50 w-64 p-3 bg-white dark:bg-[#181b24] border border-amber-400/90 dark:border-amber-500/90 rounded-xl shadow-2xl text-left animate-in fade-in zoom-in-95 duration-150 print:hidden select-none"
-                            >
-                              <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-zinc-200 dark:border-zinc-800">
-                                <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
-                                  <Bookmark className="w-3.5 h-3.5 text-amber-500" />
-                                  Edit Section Badge (Bar #{engravedM.measureNumber})
-                                </span>
-                                <button
-                                  type="button"
-                                  onClick={() => setEditingSectionMeasureIdx(null)}
-                                  className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md cursor-pointer transition-colors"
-                                  title="Close (Esc)"
-                                >
-                                  <X className="w-3.5 h-3.5" />
-                                </button>
-                              </div>
-
-                              <div className="flex items-center gap-1.5 mb-2.5">
-                                <input
-                                  type="text"
-                                  ref={sectionInputRef}
-                                  value={editingSectionValue}
-                                  onChange={(e) => setEditingSectionValue(e.target.value)}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      handleSaveSection(engravedM.measureIndex, editingSectionValue);
-                                    } else if (e.key === 'Escape') {
-                                      setEditingSectionMeasureIdx(null);
-                                    }
-                                  }}
-                                  placeholder="e.g. Intro, Verse 1, Chorus, [A]"
-                                  className="flex-1 px-2.5 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveSection(engravedM.measureIndex, editingSectionValue)}
-                                  className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-2xs"
-                                  title="Save badge (Enter)"
-                                >
-                                  <Check className="w-3.5 h-3.5" />
-                                  <span>Save</span>
-                                </button>
-                              </div>
-
-                              {/* Quick Presets (All English) */}
-                              <div className="mb-2.5 space-y-2">
-                                <div>
-                                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                                    Instrumental & Passages:
-                                  </div>
-                                  <div className="grid grid-cols-3 gap-1">
-                                    {[
-                                      { label: 'Intro', tip: 'Intro (前奏)' },
-                                      { label: 'Interlude', tip: 'Interlude (間奏)' },
-                                      { label: 'Outro', tip: 'Outro (尾奏)' },
-                                    ].map((item) => (
-                                      <button
-                                        key={item.label}
-                                        type="button"
-                                        title={item.tip}
-                                        onClick={() => handleSaveSection(engravedM.measureIndex, item.label)}
-                                        className="py-1 text-center text-[10.5px] font-mono font-extrabold rounded-md bg-amber-500/10 hover:bg-amber-500 hover:text-zinc-950 text-amber-700 dark:text-amber-300 border border-amber-300/80 dark:border-amber-600/60 cursor-pointer transition-all active:scale-95"
-                                      >
-                                        {item.label}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-
-                                <div>
-                                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
-                                    Song Sections & Form:
-                                  </div>
-                                  <div className="grid grid-cols-4 gap-1 mb-1">
-                                    {['[A]', '[B]', '[C]', '[D]'].map((preset) => (
-                                      <button
-                                        key={preset}
-                                        type="button"
-                                        onClick={() => handleSaveSection(engravedM.measureIndex, preset)}
-                                        className="py-0.5 text-center text-[10px] font-mono font-bold rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 cursor-pointer transition-all active:scale-95"
-                                      >
-                                        {preset}
-                                      </button>
-                                    ))}
-                                  </div>
-                                  <div className="flex flex-wrap gap-1">
-                                    {['Verse 1', 'Verse 2', 'Chorus', 'Bridge', 'Coda'].map((preset) => (
-                                      <button
-                                        key={preset}
-                                        type="button"
-                                        onClick={() => handleSaveSection(engravedM.measureIndex, preset)}
-                                        className="px-2 py-0.5 text-[10px] font-sans font-bold rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 cursor-pointer transition-all active:scale-95"
-                                      >
-                                        {preset}
-                                      </button>
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* Footer: Remove badge & keyboard hint */}
-                              <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center text-[10px]">
-                                <button
-                                  type="button"
-                                  onClick={() => handleSaveSection(engravedM.measureIndex, '')}
-                                  className="text-rose-600 hover:text-rose-700 dark:text-rose-400 font-bold flex items-center gap-1 cursor-pointer transition-colors"
-                                >
-                                  <Trash2 className="w-3 h-3" />
-                                  <span>Clear Badge</span>
-                                </button>
-                                <span className="text-zinc-400 font-mono text-[9px]">↵ Save · Esc Close</span>
-                              </div>
-                            </div>
-                          </>
-                        )}
+                        {/* Section badge trigger */}
                       </div>
                     </div>
 
@@ -3483,6 +3356,133 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
               >
                 Save
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Interactive Section Badge Editor Modal - Top Layer */}
+      {editingSectionMeasureIdx !== null && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4 print:hidden"
+          onClick={() => setEditingSectionMeasureIdx(null)}
+        >
+          <div
+            id="section-badge-editor-popover"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-[#181b24] border border-amber-400/90 dark:border-amber-500/90 rounded-2xl shadow-2xl p-4 sm:p-5 max-w-sm w-full text-left animate-in fade-in zoom-in-95 duration-150 select-none z-50"
+          >
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+              <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                <Bookmark className="w-4 h-4 text-amber-500 shrink-0" />
+                Edit Section Badge (Bar #{
+                  song.measures[editingSectionMeasureIdx]?.measureNumber ?? (editingSectionMeasureIdx + 1)
+                })
+              </span>
+              <button
+                type="button"
+                onClick={() => setEditingSectionMeasureIdx(null)}
+                className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md cursor-pointer transition-colors"
+                title="Close (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex items-center gap-1.5 mb-3">
+              <input
+                type="text"
+                ref={sectionInputRef}
+                value={editingSectionValue}
+                onChange={(e) => setEditingSectionValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    handleSaveSection(editingSectionMeasureIdx, editingSectionValue);
+                  } else if (e.key === 'Escape') {
+                    setEditingSectionMeasureIdx(null);
+                  }
+                }}
+                placeholder="e.g. Intro, Verse 1, Chorus, [A]"
+                className="flex-1 px-3 py-2 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-mono font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
+              />
+              <button
+                type="button"
+                onClick={() => handleSaveSection(editingSectionMeasureIdx, editingSectionValue)}
+                className="px-3 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-xl text-sm flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-2xs"
+                title="Save badge (Enter)"
+              >
+                <Check className="w-4 h-4" />
+                <span>Save</span>
+              </button>
+            </div>
+
+            {/* Quick Presets (All English) */}
+            <div className="mb-3 space-y-2.5">
+              <div>
+                <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                  Instrumental & Passages:
+                </div>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {[
+                    { label: 'Intro', tip: 'Intro (前奏)' },
+                    { label: 'Interlude', tip: 'Interlude (間奏)' },
+                    { label: 'Outro', tip: 'Outro (尾奏)' },
+                  ].map((item) => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      title={item.tip}
+                      onClick={() => handleSaveSection(editingSectionMeasureIdx, item.label)}
+                      className="py-1.5 text-center text-xs font-mono font-extrabold rounded-lg bg-amber-500/10 hover:bg-amber-500 hover:text-zinc-950 text-amber-700 dark:text-amber-300 border border-amber-300/80 dark:border-amber-600/60 cursor-pointer transition-all active:scale-95"
+                    >
+                      {item.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1.5">
+                  Song Sections & Form:
+                </div>
+                <div className="grid grid-cols-4 gap-1.5 mb-1.5">
+                  {['[A]', '[B]', '[C]', '[D]'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handleSaveSection(editingSectionMeasureIdx, preset)}
+                      className="py-1 text-center text-xs font-mono font-bold rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 cursor-pointer transition-all active:scale-95"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {['Verse 1', 'Verse 2', 'Chorus', 'Bridge', 'Coda'].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => handleSaveSection(editingSectionMeasureIdx, preset)}
+                      className="px-2.5 py-1 text-xs font-sans font-bold rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 cursor-pointer transition-all active:scale-95"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer: Remove badge & keyboard hint */}
+            <div className="pt-2.5 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center text-xs">
+              <button
+                type="button"
+                onClick={() => handleSaveSection(editingSectionMeasureIdx, '')}
+                className="text-rose-600 hover:text-rose-700 dark:text-rose-400 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Clear Badge</span>
+              </button>
+              <span className="text-zinc-400 font-mono text-[10px]">↵ Save · Esc Close</span>
             </div>
           </div>
         </div>
