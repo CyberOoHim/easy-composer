@@ -224,7 +224,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   futureCount = 0,
 }) => {
   // Theme state: light (parchment) vs dark (studio stage)
-  const [internalSheetTheme, setInternalSheetTheme] = useState<RealSheetTheme>(() => getStoredRealSheetTheme('light'));
+  const [internalSheetTheme, setInternalSheetTheme] = useState<RealSheetTheme>(() => getStoredRealSheetTheme('dark'));
   const sheetTheme = propSheetTheme ?? internalSheetTheme;
 
   const handleToggleSheetTheme = useCallback(() => {
@@ -388,7 +388,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     const handleReset = () => {
       setZoomScaleState(getStoredSheetZoom(1.0));
       setActiveHudDrawerState(getStoredHudDrawer('none'));
-      setInternalSheetTheme(getStoredRealSheetTheme('light'));
+      setInternalSheetTheme(getStoredRealSheetTheme('dark'));
       setInternalNoteInputMode(getStoredNoteInputMode('progressive_replace'));
       setInternalShowRhythmWarnings(getStoredShowRhythmWarnings(true));
     };
@@ -1669,7 +1669,11 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     <div
       id="real-sheet-viewport-container"
       ref={canvasWrapperRef}
-      className="relative w-full min-h-screen bg-zinc-100 dark:bg-zinc-950 flex flex-col items-center pt-1 sm:pt-1.5 pb-6 sm:pb-10 px-2 sm:px-6 select-none print:p-0 print:m-0 print:bg-white overflow-x-auto"
+      className={`relative w-full min-h-screen flex flex-col items-center pt-1 sm:pt-1.5 pb-6 sm:pb-10 px-2 sm:px-6 select-none print:p-0 print:m-0 print:bg-white overflow-x-auto transition-colors duration-150 ${
+        sheetTheme === 'dark'
+          ? 'bg-[#0c0e15] dark:bg-[#0c0e15] text-zinc-100 dark:text-zinc-100'
+          : 'bg-[#ede8de] dark:bg-[#ede8de] text-zinc-900 dark:text-zinc-900'
+      }`}
     >
       {/* Top Floating Paper Control Bar */}
       <div className="w-full max-w-5xl flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden">
@@ -2160,6 +2164,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                   activeVerseRow
                                 );
                               }}
+                              style={{
+                                zoom: 'var(--note-zoom, 1)',
+                              }}
                               className={`relative flex flex-col items-center justify-center p-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[38px] min-w-[28px] sm:min-w-[32px] ${
                                 isSelectedNote
                                   ? sheetTheme === 'dark'
@@ -2363,13 +2370,18 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                           <div
                             key={`measure-${engravedM.measureIndex}-v${vNum}`}
                             className={`flex items-center w-full text-xs sm:text-sm font-sans font-medium relative group/vrow ${
-                              sheetTheme === 'dark' ? 'text-zinc-200' : 'text-zinc-900'
+                              sheetTheme === 'dark' ? 'text-zinc-200' : 'text-zinc-950'
                             }`}
                           >
                             {/* Verse Numbering at Start of System (Requirement 1: Only show numbering when > 1 verse in parallel; no in-sheet toggle) */}
                             {isFirstInSystem && hasMultipleVerses && (
-                              <div className="flex items-center shrink-0 -ml-1 mr-1.5 select-none">
-                                <span className="text-[11px] font-serif text-zinc-500 dark:text-zinc-400 font-bold min-w-[14px] text-right">
+                              <div
+                                className="flex items-center shrink-0 -ml-1 mr-1.5 select-none"
+                                style={{ zoom: 'var(--lyric-zoom, 1)' }}
+                              >
+                                <span className={`text-[11px] font-serif font-bold min-w-[14px] text-right ${
+                                  sheetTheme === 'dark' ? 'text-zinc-400' : 'text-zinc-700'
+                                }`}>
                                   {vNum}.
                                 </span>
                               </div>
@@ -2435,7 +2447,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                 // Typography classes for POJ:
                                 // - If continuous syllables connecting with semi-hyphen: NO space between (tight tracking, pull towards partner)
                                 // - If end of POJ word: ensure space between POJ words (distinct margin)
-                                const pojSyllableClass = `font-serif italic font-semibold text-teal-950 dark:text-teal-200 whitespace-nowrap overflow-visible leading-tight inline-block transition-transform ${
+                                const pojSyllableClass = `font-serif italic font-semibold ${
+                                  sheetTheme === 'dark' ? 'text-teal-300' : 'text-teal-950 font-bold'
+                                } whitespace-nowrap overflow-visible leading-tight inline-block transition-transform ${
                                   connectsToNextWithSemiHyphen
                                     ? 'mr-0 pr-0 tracking-tight translate-x-1 sm:translate-x-1.5'
                                     : connectedFromPrevSemiHyphen
@@ -2451,6 +2465,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     onClick={e => {
                                       e.stopPropagation();
                                       handleNoteClick(engravedM.measureIndex, nIdx, 'lyric', vNum);
+                                    }}
+                                    style={{
+                                      zoom: 'var(--lyric-zoom, 1)',
                                     }}
                                     className={`flex-1 text-center min-w-[26px] sm:min-w-[30px] min-h-[26px] sm:min-h-[30px] flex items-center ${
                                       connectsToNextWithSemiHyphen
@@ -2468,7 +2485,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                         : isPlayingLyric
                                         ? sheetTheme === 'dark'
                                           ? 'bg-emerald-950/80 ring-2 ring-emerald-400 font-bold text-emerald-200 animate-pulse scale-[1.05]'
-                                          : 'bg-emerald-100 ring-2 ring-emerald-500 font-bold text-emerald-950 animate-pulse scale-[1.05]'
+                                          : 'bg-emerald-100 ring-2 ring-emerald-600 font-bold text-emerald-950 animate-pulse scale-[1.05]'
                                         : sheetTheme === 'dark'
                                         ? 'hover:bg-zinc-800/80'
                                         : 'hover:bg-zinc-100'
@@ -2484,10 +2501,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                           onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
                                           placeholder="Hàn-lô"
-                                          className="w-full min-w-[32px] text-center bg-transparent border-none outline-none font-bold text-sm sm:text-base text-zinc-950 dark:text-zinc-50 touch-manipulation"
+                                          className={`w-full min-w-[32px] text-center bg-transparent border-none outline-none font-bold text-sm sm:text-base touch-manipulation ${
+                                            sheetTheme === 'dark' ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-zinc-950 placeholder:text-zinc-400'
+                                          }`}
                                         />
                                       ) : (
-                                        <span className="text-sm sm:text-base font-bold text-zinc-950 dark:text-zinc-50 whitespace-nowrap overflow-visible leading-tight">
+                                        <span className={`text-sm sm:text-base font-bold whitespace-nowrap overflow-visible leading-tight ${
+                                          sheetTheme === 'dark' ? 'text-zinc-100' : 'text-zinc-950'
+                                        }`}>
                                           {hanloText || ' '}
                                         </span>
                                       ))}
@@ -2502,7 +2523,11 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                           onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
                                           placeholder="POJ"
-                                          className={`w-full min-w-[40px] font-serif italic bg-transparent border-none outline-none font-semibold text-xs sm:text-sm text-teal-950 dark:text-teal-200 touch-manipulation ${
+                                          className={`w-full min-w-[40px] font-serif italic bg-transparent border-none outline-none font-semibold text-xs sm:text-sm touch-manipulation ${
+                                            sheetTheme === 'dark'
+                                              ? 'text-teal-300 placeholder:text-teal-500'
+                                              : 'text-teal-950 font-bold placeholder:text-teal-800/60'
+                                          } ${
                                             connectsToNextWithSemiHyphen
                                               ? 'text-right pr-0'
                                               : connectedFromPrevSemiHyphen
@@ -2537,8 +2562,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                                 : 'text-center'
                                             } ${
                                               activeLyricSubfield === 'poj'
-                                                ? 'ring-1 ring-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200'
-                                                : 'text-teal-950 dark:text-teal-200'
+                                                ? sheetTheme === 'dark'
+                                                  ? 'ring-1 ring-emerald-500 bg-emerald-950/60 text-emerald-200 font-semibold'
+                                                  : 'ring-1 ring-emerald-600 bg-emerald-100/70 text-emerald-950 font-bold'
+                                                : sheetTheme === 'dark'
+                                                ? 'text-teal-300'
+                                                : 'text-teal-950 font-bold'
                                             }`}
                                             title="POJ Romanization (top)"
                                           />
@@ -2553,8 +2582,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                             placeholder="Hàn-lô"
                                             className={`w-full min-w-[36px] text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
                                               activeLyricSubfield === 'hanlo'
-                                                ? 'ring-1 ring-amber-500 bg-amber-50/70 dark:bg-amber-950/60 text-zinc-950 dark:text-zinc-100'
-                                                : 'text-zinc-950 dark:text-zinc-50'
+                                                ? sheetTheme === 'dark'
+                                                  ? 'ring-1 ring-amber-500 bg-amber-950/60 text-zinc-100 font-bold'
+                                                  : 'ring-1 ring-amber-500 bg-amber-100/70 text-zinc-950 font-bold'
+                                                : sheetTheme === 'dark'
+                                                ? 'text-zinc-100 font-bold'
+                                                : 'text-zinc-950 font-bold'
                                             }`}
                                             title="Hàn-lô text (bottom)"
                                           />
@@ -2564,7 +2597,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           <span className={`${pojSyllableClass} text-xs sm:text-[13px]`}>
                                             {effectivePojText || ' '}
                                           </span>
-                                          <span className="text-xs sm:text-sm font-bold text-zinc-950 dark:text-zinc-50 whitespace-nowrap overflow-visible leading-tight">
+                                          <span className={`text-xs sm:text-sm font-bold whitespace-nowrap overflow-visible leading-tight ${
+                                            sheetTheme === 'dark' ? 'text-zinc-100' : 'text-zinc-950'
+                                          }`}>
                                             {hanloText || ' '}
                                           </span>
                                         </div>
@@ -2585,8 +2620,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                             placeholder="Hàn-lô"
                                             className={`w-full min-w-[36px] text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
                                               activeLyricSubfield === 'hanlo'
-                                                ? 'ring-1 ring-amber-500 bg-amber-50/70 dark:bg-amber-950/60 text-zinc-950 dark:text-zinc-100'
-                                                : 'text-zinc-950 dark:text-zinc-50'
+                                                ? sheetTheme === 'dark'
+                                                  ? 'ring-1 ring-amber-500 bg-amber-950/60 text-zinc-100 font-bold'
+                                                  : 'ring-1 ring-amber-500 bg-amber-100/70 text-zinc-950 font-bold'
+                                                : sheetTheme === 'dark'
+                                                ? 'text-zinc-100 font-bold'
+                                                : 'text-zinc-950 font-bold'
                                             }`}
                                             title="Hàn-lô text (top)"
                                           />
@@ -2607,15 +2646,21 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                                 : 'text-center'
                                             } ${
                                               activeLyricSubfield === 'poj'
-                                                ? 'ring-1 ring-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200'
-                                                : 'text-teal-950 dark:text-teal-200'
+                                                ? sheetTheme === 'dark'
+                                                  ? 'ring-1 ring-emerald-500 bg-emerald-950/60 text-emerald-200 font-semibold'
+                                                  : 'ring-1 ring-emerald-600 bg-emerald-100/70 text-emerald-950 font-bold'
+                                                : sheetTheme === 'dark'
+                                                ? 'text-teal-300'
+                                                : 'text-teal-950 font-bold'
                                             }`}
                                             title="POJ Romanization (bottom)"
                                           />
                                         </div>
                                       ) : (
                                         <div className="flex flex-col items-center justify-center leading-tight py-0.5 max-w-full overflow-visible">
-                                          <span className="text-xs sm:text-sm font-bold text-zinc-950 dark:text-zinc-50 whitespace-nowrap overflow-visible leading-tight mb-0.5">
+                                          <span className={`text-xs sm:text-sm font-bold whitespace-nowrap overflow-visible leading-tight mb-0.5 ${
+                                            sheetTheme === 'dark' ? 'text-zinc-100' : 'text-zinc-950'
+                                          }`}>
                                             {hanloText || ' '}
                                           </span>
                                           <span className={`${pojSyllableClass} text-xs sm:text-[13px]`}>

@@ -260,7 +260,12 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
       )}
 
       {/* Note Number Container */}
-      <div className="flex items-center justify-center relative min-h-[36px] px-1">
+      <div
+        style={{
+          zoom: 'var(--note-zoom, 1)',
+        }}
+        className="flex items-center justify-center relative min-h-[36px] px-1"
+      >
         {/* Top Articulation mark (Fermata, Accent, Staccato, Tenuto, Portamento) */}
         {note.articulation && note.articulation !== 'none' && !isNonNotation && (
           <span className="absolute -top-5 text-amber-600 dark:text-amber-400 font-black text-xs select-none">
@@ -477,7 +482,12 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
       </div>
 
       {/* Aligned Lyric Row */}
-      <div className="mt-1.5 w-full flex items-center justify-center text-center min-h-[40px]">
+      <div
+        style={{
+          zoom: 'var(--lyric-zoom, 1)',
+        }}
+        className="mt-1.5 w-full flex items-center justify-center text-center min-h-[40px]"
+      >
         {renderLyricContent()}
       </div>
     </div>

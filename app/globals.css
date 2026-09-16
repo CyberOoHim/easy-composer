@@ -7,10 +7,12 @@
 }
 
 /* =========================================================================
-   UI TEXT ZOOM ACCESSIBILITY ENGINE
+   UI TEXT, NOTE & LYRIC ZOOM ENGINE
    ========================================================================= */
 :root {
   --ui-text-zoom: 1;
+  --note-zoom: 1;
+  --lyric-zoom: 1;
 }
 
 /* Dynamically scaled arbitrary pixel font-size utilities */

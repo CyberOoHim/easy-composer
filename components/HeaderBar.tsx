@@ -28,8 +28,10 @@ import {
   RotateCw,
   Languages,
   Sparkles,
+  Type,
 } from 'lucide-react';
 import { UiZoomControl } from '@/components/UiZoomControl';
+import { NoteZoomControl, LyricZoomControl } from '@/components/ScoreZoomControls';
 import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 import { MetronomePlaybackControl } from '@/components/MetronomePlaybackControl';
 import { KeyboardShortcutsModal } from '@/components/composer/KeyboardShortcutsModal';
@@ -650,18 +652,56 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </div>
           </div>
 
-          {/* Section 3: Display & UI Text Zoom */}
+          {/* Section 3: Score & UI Zoom */}
           <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                UI Zoom & Autosave
+                Score & UI Zoom
               </span>
             </div>
 
+            {/* Note Zoom (-/+) */}
             <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750">
-              <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
-                UI Text Zoom
-              </span>
+              <div className="flex items-center gap-2">
+                <Music className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 shrink-0" />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
+                    Notes Zoom
+                  </span>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                    Scale Jianpu note digits & beams
+                  </span>
+                </div>
+              </div>
+              <NoteZoomControl idPrefix="header-menu-note-zoom" />
+            </div>
+
+            {/* Lyric Zoom (-/+) */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750">
+              <div className="flex items-center gap-2">
+                <Type className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400 shrink-0" />
+                <div className="flex flex-col">
+                  <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
+                    Lyrics Zoom
+                  </span>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                    Scale Hàn-lô & POJ lyrics
+                  </span>
+                </div>
+              </div>
+              <LyricZoomControl idPrefix="header-menu-lyric-zoom" />
+            </div>
+
+            {/* UI Text Zoom */}
+            <div className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750">
+              <div className="flex flex-col">
+                <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
+                  UI Text Zoom
+                </span>
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
+                  Global app interface scaling
+                </span>
+              </div>
               <UiZoomControl idPrefix="header-menu-ui-zoom" />
             </div>
 

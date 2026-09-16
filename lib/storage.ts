@@ -20,6 +20,8 @@ export const STORAGE_KEYS = {
   SHOW_MIXER: 'taigi_composer_show_mixer',
   STAGE_MODE_ZOOM: 'taigi_composer_stage_zoom',
   UI_TEXT_ZOOM: 'taigi_composer_ui_text_zoom',
+  NOTE_ZOOM: 'taigi_composer_note_zoom',
+  LYRIC_ZOOM: 'taigi_composer_lyric_zoom',
   KARAOKE_LEAD_IN_ENABLED: 'taigi_karaoke_lead_in_enabled',
   EDITOR_EDIT_MODE: 'taigi_composer_editor_edit_mode',
   NOTE_SUB_MODE: 'taigi_composer_note_sub_mode',
@@ -410,6 +412,43 @@ export function setStoredUiZoom(zoom: number): void {
   safeSetItem(STORAGE_KEYS.UI_TEXT_ZOOM, String(zoom));
 }
 
+export const NOTE_ZOOM_EVENT = 'taigi_composer_note_zoom_change';
+export const LYRIC_ZOOM_EVENT = 'taigi_composer_lyric_zoom_change';
+
+export function getStoredNoteZoom(defaultVal = 1.0): number {
+  const val = safeGetItem(STORAGE_KEYS.NOTE_ZOOM);
+  if (val !== null) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0.6 && num <= 2.2) return Math.round(num * 10) / 10;
+  }
+  return defaultVal;
+}
+
+export function setStoredNoteZoom(zoom: number): void {
+  const clamped = Math.min(2.0, Math.max(0.6, Math.round(zoom * 10) / 10));
+  safeSetItem(STORAGE_KEYS.NOTE_ZOOM, String(clamped));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(NOTE_ZOOM_EVENT, { detail: { zoom: clamped } }));
+  }
+}
+
+export function getStoredLyricZoom(defaultVal = 1.0): number {
+  const val = safeGetItem(STORAGE_KEYS.LYRIC_ZOOM);
+  if (val !== null) {
+    const num = parseFloat(val);
+    if (!isNaN(num) && num >= 0.6 && num <= 2.2) return Math.round(num * 10) / 10;
+  }
+  return defaultVal;
+}
+
+export function setStoredLyricZoom(zoom: number): void {
+  const clamped = Math.min(2.0, Math.max(0.6, Math.round(zoom * 10) / 10));
+  safeSetItem(STORAGE_KEYS.LYRIC_ZOOM, String(clamped));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(LYRIC_ZOOM_EVENT, { detail: { zoom: clamped } }));
+  }
+}
+
 // ============================================================================
 // 6. COMPOSER EDITOR SETTINGS
 // ============================================================================
@@ -499,7 +538,7 @@ export function setStoredStageTheme(theme: KaraokeStageTheme): void {
 
 export type RealSheetTheme = 'light' | 'dark';
 
-export function getStoredRealSheetTheme(defaultVal: RealSheetTheme = 'light'): RealSheetTheme {
+export function getStoredRealSheetTheme(defaultVal: RealSheetTheme = 'dark'): RealSheetTheme {
   const val = safeGetItem(STORAGE_KEYS.REAL_SHEET_THEME);
   if (val === 'light' || val === 'dark') return val;
   return defaultVal;
@@ -809,10 +848,12 @@ export function resetAllSettingsToDefault(): void {
   setStoredTempoMultiplier(1.0);
   setStoredShowMixer(false);
   setStoredUiZoom(1.0);
+  setStoredNoteZoom(1.0);
+  setStoredLyricZoom(1.0);
   setStoredSheetZoom(1.0);
   setStoredAutosaveInterval(0);
   setStoredDisplayMode('roman_major_hanlo');
-  setStoredRealSheetTheme('light');
+  setStoredRealSheetTheme('dark');
   setStoredNoteInputMode('progressive_replace');
   setStoredShowRhythmWarnings(true);
   setStoredAutoStepAdvance(false);
@@ -845,6 +886,10 @@ export function resetAllSettingsToDefault(): void {
     document.documentElement.style.fontSize = '100%';
     document.documentElement.style.setProperty('--ui-text-zoom', '1');
     document.documentElement.setAttribute('data-ui-zoom', '100');
+    document.documentElement.style.setProperty('--note-zoom', '1');
+    document.documentElement.setAttribute('data-note-zoom', '100');
+    document.documentElement.style.setProperty('--lyric-zoom', '1');
+    document.documentElement.setAttribute('data-lyric-zoom', '100');
   }
 
   // Notify listeners that global settings have been reset

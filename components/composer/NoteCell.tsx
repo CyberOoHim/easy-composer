@@ -265,6 +265,9 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
           e.stopPropagation();
           onSelectNote(mIdx, nIdx);
         }}
+        style={{
+          zoom: 'var(--note-zoom, 1)',
+        }}
         className="w-full h-[112px] shrink-0 flex flex-col items-center justify-end pb-1 cursor-pointer touch-manipulation select-none relative"
         title="Click or tap to select note and preview"
       >
@@ -468,7 +471,12 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
       </div>
 
       {/* LOWER ZONE: DIRECT IN-SCORE EDITABLE LYRIC INPUTS (ROMAN AND HANLO) */}
-      <div className="w-full flex flex-col gap-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80 shrink-0">
+      <div
+        style={{
+          zoom: 'var(--lyric-zoom, 1)',
+        }}
+        className="w-full flex flex-col gap-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80 shrink-0"
+      >
         {/* Roman (POJ) Lyric Input - on top */}
         {displayMode !== 'hanlo' && displayMode !== 'hanji_only' && displayMode !== 'custom_only' && (
           <div className="w-full flex flex-col shrink-0">
@@ -502,7 +510,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 }
               }}
               placeholder="Roman (POJ)"
-              className="w-full text-center font-serif italic text-[22px] leading-tight font-semibold px-1 py-1 rounded-lg bg-emerald-50/60 dark:bg-[#0c1410] border border-emerald-200/90 dark:border-emerald-800/60 text-emerald-800 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 h-[42px] min-h-[42px] placeholder:text-[13px] placeholder:font-normal placeholder:not-italic placeholder:text-emerald-700/50 dark:placeholder:text-emerald-400/40 touch-manipulation"
+              className="w-full text-center font-serif italic text-[22px] leading-tight font-bold px-1 py-1 rounded-lg bg-emerald-50/80 dark:bg-[#0c1410] border border-emerald-300 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 h-[42px] min-h-[42px] placeholder:text-[13px] placeholder:font-normal placeholder:not-italic placeholder:text-emerald-800/50 dark:placeholder:text-emerald-400/40 touch-manipulation"
               title="Romanization (POJ) - Space, hyphen, or Tab moves to next note"
             />
           </div>
@@ -536,7 +544,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 }
               }}
               placeholder="Han-lô"
-              className="w-full text-center font-bold text-[25px] leading-tight px-1 py-1 rounded-lg bg-zinc-50 dark:bg-[#0a0c10] border border-zinc-200 dark:border-zinc-700 text-zinc-900 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 h-[46px] min-h-[46px] placeholder:text-[14px] placeholder:font-normal placeholder:text-zinc-400 dark:placeholder:text-zinc-500 touch-manipulation"
+              className="w-full text-center font-black text-[25px] leading-tight px-1 py-1 rounded-lg bg-zinc-100/90 dark:bg-[#0a0c10] border border-zinc-300 dark:border-zinc-700 text-zinc-950 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 h-[46px] min-h-[46px] placeholder:text-[14px] placeholder:font-normal placeholder:text-zinc-500 dark:placeholder:text-zinc-500 touch-manipulation"
               title="Han-lô / Lyrics - Space or Tab moves to next note"
             />
           </div>
