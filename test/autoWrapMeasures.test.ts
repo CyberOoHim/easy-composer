@@ -151,26 +151,30 @@ describe('autoWrapSongMeasures', () => {
   });
 
   describe('3-Mode Measure Arrangement in Portrait & Landscape', () => {
-    it('Mode 1 (no_wrap): respects manual breaks AND guards sheet boundary to prevent overflowing sheet', async () => {
+    it('Mode 1 (no_wrap): lines spread completely and only wrap at delimiters and manual breaks for both portrait and landscape', async () => {
       const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
-      // 8 standard measures without manual line breaks
+      // 8 standard measures without manual line breaks or delimiters
       const rawMeasures: Measure[] = Array.from({ length: 8 }, (_, i) =>
-        makeMockMeasure(`m${i + 1}`, i + 1, 4)
+        makeMockMeasure(`m${i + 1}`, i + 1, 4, { isLineBreak: false })
       );
 
-      // In Portrait (750px max content width): 8 measures (~160px each) cannot fit on one line
+      // In no_wrap, measures without breaks or delimiters stay on a single line (extending the sheet)
       const portraitSystems = groupMeasuresIntoSystems(rawMeasures, '4/4', 4, 'no_wrap', 'portrait');
-      assert.ok(portraitSystems.length > 1, 'no_wrap must wrap across multiple systems when exceeding portrait sheet boundary');
-      for (const sys of portraitSystems) {
-        const totalW = sys.measures.reduce((acc, m) => acc + (m.requiredWidth || 140), 0);
-        // Each system width must stay within sheet bounds
-        assert.ok(totalW <= 750 * 1.25, `System width ${totalW}px should not overflow sheet boundary`);
-      }
+      assert.equal(portraitSystems.length, 1, 'no_wrap should not arbitrarily break without delimiters in portrait');
+      assert.equal(portraitSystems[0].measures.length, 8, 'All 8 measures should be on one line');
 
-      // In Landscape (1050px max content width): can hold more measures per system
       const landscapeSystems = groupMeasuresIntoSystems(rawMeasures, '4/4', 4, 'no_wrap', 'landscape');
-      assert.ok(landscapeSystems[0].measures.length >= portraitSystems[0].measures.length,
-        'Landscape should accommodate more measures in first system than Portrait');
+      assert.equal(landscapeSystems.length, 1, 'no_wrap should not arbitrarily break without delimiters in landscape');
+      assert.equal(landscapeSystems[0].measures.length, 8, 'All 8 measures should be on one line');
+
+      // Now add explicit break on measure 4: should cleanly wrap into 2 systems (4 and 4)
+      const breakMeasures = Array.from({ length: 8 }, (_, i) =>
+        makeMockMeasure(`m${i + 1}`, i + 1, 4, { isLineBreak: i === 3 })
+      );
+      const brokenSystems = groupMeasuresIntoSystems(breakMeasures, '4/4', 4, 'no_wrap', 'portrait');
+      assert.equal(brokenSystems.length, 2, 'no_wrap should wrap at explicit break');
+      assert.equal(brokenSystems[0].measures.length, 4);
+      assert.equal(brokenSystems[1].measures.length, 4);
     });
 
     it('Mode 2 (auto_fit): targets 4 measures in Portrait and 5 in Landscape, breaking early for dense measures', async () => {
@@ -304,16 +308,47 @@ describe('autoWrapSongMeasures', () => {
       assert.equal(systems.length, 4, '20 measures at 5 per line should produce exactly 4 systems');
     });
 
-    it('groupMeasuresIntoSystems wraps when line exceeds sheet budget in no_wrap mode to prevent sheet overflow', async () => {
+    it('groupMeasuresIntoSystems in no_wrap spreads completely and wraps only at delimiters and break/new line for portrait and landscape', async () => {
       const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
-      // 10 measures without manual breaks
-      const measures = Array.from({ length: 10 }, (_, i) =>
+      
+      // 10 measures without manual breaks or delimiters
+      const continuousMeasures = Array.from({ length: 10 }, (_, i) =>
         makeMockMeasure(`m${i + 1}`, i + 1, 4, { isLineBreak: false })
       );
 
-      // In no_wrap, boundary guard breaks before overflow
-      const systemsPortrait = groupMeasuresIntoSystems(measures, '4/4', 4, 'no_wrap', 'portrait');
-      assert.ok(systemsPortrait.length > 1, 'no_wrap must break into multiple systems if width exceeds sheet canvas');
+      // In no_wrap, continuous measures without delimiters stay on 1 system (sheet extends to the right)
+      const systemsPortrait = groupMeasuresIntoSystems(continuousMeasures, '4/4', 4, 'no_wrap', 'portrait');
+      assert.equal(systemsPortrait.length, 1, 'In no_wrap portrait, measures without delimiters should remain on a single line');
+      assert.equal(systemsPortrait[0].measures.length, 10, 'All 10 measures should be in the single system');
+      assert.ok(systemsPortrait[0].totalRequiredWidth > 896, 'Total width extends beyond standard A4 portrait width');
+
+      const systemsLandscape = groupMeasuresIntoSystems(continuousMeasures, '4/4', 4, 'no_wrap', 'landscape');
+      assert.equal(systemsLandscape.length, 1, 'In no_wrap landscape, measures without delimiters should remain on a single line');
+      assert.equal(systemsLandscape[0].measures.length, 10, 'All 10 measures should be in the single system');
+
+      // Now test delimiters: double barline, repeat_end, section header, and manual line breaks
+      const delimitedMeasures = [
+        makeMockMeasure('m1', 1, 4, { isLineBreak: false }),
+        makeMockMeasure('m2', 2, 4, { isLineBreak: false, barlineType: 'double' }), // Delimiter: double barline
+        makeMockMeasure('m3', 3, 4, { isLineBreak: false }),
+        makeMockMeasure('m4', 4, 4, { isLineBreak: true }), // Delimiter: manual line break
+        makeMockMeasure('m5', 5, 4, { isLineBreak: false, section: 'Chorus' }), // Delimiter: section header
+        makeMockMeasure('m6', 6, 4, { isLineBreak: false, barlineType: 'repeat_end' }), // Delimiter: repeat end
+        makeMockMeasure('m7', 7, 4, { isLineBreak: false }),
+      ];
+
+      const delimitedSystems = groupMeasuresIntoSystems(delimitedMeasures, '4/4', 4, 'no_wrap', 'portrait');
+      // Should wrap after m2 (double barline), after m4 (isLineBreak), after m6 (repeat_end)
+      // Line 1: m1, m2 (ends at double barline)
+      // Line 2: m3, m4 (ends at isLineBreak)
+      // Line 3: m5, m6 (starts with section Chorus, ends at repeat_end)
+      // Line 4: m7
+      assert.equal(delimitedSystems.length, 4, 'Should produce 4 systems separated by delimiters');
+      assert.deepEqual(
+        delimitedSystems.map(s => s.measures.map(m => m.measureNumber)),
+        [[1, 2], [3, 4], [5, 6], [7]],
+        'Systems should be split precisely at delimiter barlines, section starts, and line breaks'
+      );
     });
   });
 });

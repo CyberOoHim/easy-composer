@@ -63,6 +63,17 @@ export interface EngravedMeasure {
 }
 
 /**
+ * Calculated engraving data for a full system (staff line) on the sheet.
+ */
+export interface EngravedSystem {
+  systemIndex: number;
+  measures: EngravedMeasure[];
+  startMeasureNumber: number;
+  endMeasureNumber: number;
+  totalRequiredWidth: number;
+}
+
+/**
  * Parse time signature into beats per measure and beat unit duration.
  */
 export function parseTimeSignature(timeSig: TimeSignature): {
@@ -459,18 +470,8 @@ export function groupMeasuresIntoSystems(
   defaultMeasuresPerSystem = 4,
   wrapMode: SheetWrapMode = 'no_wrap',
   orientation: SheetOrientation = 'portrait'
-): Array<{
-  systemIndex: number;
-  measures: EngravedMeasure[];
-  startMeasureNumber: number;
-  endMeasureNumber: number;
-}> {
-  const systems: Array<{
-    systemIndex: number;
-    measures: EngravedMeasure[];
-    startMeasureNumber: number;
-    endMeasureNumber: number;
-  }> = [];
+): EngravedSystem[] {
+  const systems: EngravedSystem[] = [];
 
   let currentSystem: EngravedMeasure[] = [];
   let currentSystemWidth = 0;
@@ -526,13 +527,29 @@ export function groupMeasuresIntoSystems(
         }
       }
     } else {
-      // 1. No Fit / No Wrap: ONLY break if previous measure explicitly had isLineBreak,
-      // OR sheet boundary guard: break before this measure if cumulative width exceeds sheet boundary
+      // 1. No Wrap: lines spread completely and ONLY wrap at delimiters and break/new line.
+      // Delimiters include:
+      // - Manual line break on the previous measure (measure.isLineBreak)
+      // - Delimiter barlines on previous measure ('end', 'repeat_end', 'double')
+      // - Section start delimiter on current measure (measure.section)
+      // - Note delimiter / newline in lyrics on previous measure
       if (currentSystem.length > 0) {
-        const prevHadBreak = currentSystem[currentSystem.length - 1].isLineBreak;
-        const exceedsSheet = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH && currentSystem.length >= 2;
+        const prevMeasure = currentSystem[currentSystem.length - 1];
+        const prevHadBreak = Boolean(prevMeasure.isLineBreak);
+        const prevHadDelimiterBarline =
+          prevMeasure.barlineType === 'end' ||
+          prevMeasure.barlineType === 'repeat_end' ||
+          prevMeasure.barlineType === 'double';
+        const isSectionStartDelimiter = Boolean(measure.section && measure.section.trim());
+        const prevHadLyricNewline = Boolean(
+          prevMeasure.notes?.some(n => {
+            const h = n.note?.lyric?.hanlo || n.note?.lyric?.hanji || n.note?.lyric?.custom || '';
+            const p = n.note?.lyric?.poj || n.note?.lyric?.tl || '';
+            return h.includes('\n') || p.includes('\n');
+          })
+        );
 
-        if (prevHadBreak || exceedsSheet) {
+        if (prevHadBreak || prevHadDelimiterBarline || isSectionStartDelimiter || prevHadLyricNewline) {
           shouldBreakBefore = true;
         }
       }
@@ -544,6 +561,7 @@ export function groupMeasuresIntoSystems(
         measures: currentSystem,
         startMeasureNumber: currentSystem[0].measureNumber,
         endMeasureNumber: currentSystem[currentSystem.length - 1].measureNumber,
+        totalRequiredWidth: currentSystem.reduce((sum, m) => sum + (m.requiredWidth || 120), 0),
       });
       currentSystem = [];
       currentSystemWidth = 0;
@@ -561,6 +579,7 @@ export function groupMeasuresIntoSystems(
           measures: currentSystem,
           startMeasureNumber: currentSystem[0].measureNumber,
           endMeasureNumber: currentSystem[currentSystem.length - 1].measureNumber,
+          totalRequiredWidth: currentSystem.reduce((sum, m) => sum + (m.requiredWidth || 120), 0),
         });
         currentSystem = [];
         currentSystemWidth = 0;
@@ -574,6 +593,7 @@ export function groupMeasuresIntoSystems(
       measures: currentSystem,
       startMeasureNumber: currentSystem[0].measureNumber,
       endMeasureNumber: currentSystem[currentSystem.length - 1].measureNumber,
+      totalRequiredWidth: currentSystem.reduce((sum, m) => sum + (m.requiredWidth || 120), 0),
     });
   }
 

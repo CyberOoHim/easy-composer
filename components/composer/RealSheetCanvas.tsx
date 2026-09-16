@@ -518,6 +518,30 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     );
   }, [song.measures, song.timeSignature, song.notesPerLine, sheetWrapMode, sheetOrientation]);
 
+  // Standard realistic physical sheet widths (A4)
+  // Portrait: 210mm (~896px / max-w-4xl)
+  // Landscape: 297mm (~1240px / max-w-[1240px])
+  const standardSheetWidth = sheetOrientation === 'landscape' ? 1240 : 896;
+
+  // Compute required width for longest system line
+  const longestSystemLineWidth = useMemo(() => {
+    if (!systems || systems.length === 0) return 0;
+    return Math.max(
+      ...systems.map(sys =>
+        sys.measures.reduce((sum, m) => sum + (m.requiredWidth || 120), 0)
+      )
+    );
+  }, [systems]);
+
+  // Total required sheet width for no_wrap: accommodates longest line plus paper padding
+  // Paper padding: p-3.5 (14px) sm:p-6 (24px) md:p-8 (32px each side = 64px) + margin clearance
+  const extendedSheetWidth = useMemo(() => {
+    if (sheetWrapMode !== 'no_wrap') return standardSheetWidth;
+    return Math.max(standardSheetWidth, longestSystemLineWidth + 80);
+  }, [sheetWrapMode, standardSheetWidth, longestSystemLineWidth]);
+
+  const isSheetExtended = sheetWrapMode === 'no_wrap' && extendedSheetWidth > standardSheetWidth;
+
   // Handle Note Selection
   const handleNoteClick = useCallback(
     (
@@ -1807,8 +1831,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       {/* Top Floating Paper Control Bar */}
       <div
         id="sheet-top-action-bar"
+        style={
+          sheetWrapMode === 'no_wrap' && isSheetExtended
+            ? { width: `${extendedSheetWidth}px`, minWidth: `${extendedSheetWidth}px`, maxWidth: 'none' }
+            : undefined
+        }
         className={`w-full ${
-          sheetOrientation === 'landscape' ? 'max-w-[1240px]' : 'max-w-4xl'
+          sheetWrapMode === 'no_wrap' && isSheetExtended
+            ? ''
+            : sheetOrientation === 'landscape'
+            ? 'max-w-[1240px]'
+            : 'max-w-4xl'
         } flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden`}
       >
         <div className="flex items-center gap-2">
@@ -1885,7 +1918,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             }`}
             title={`Layout Mode: ${
               sheetWrapMode === 'no_wrap'
-                ? '1. No fit in nor wrap (Manual breaks only). Click to switch to 2. Auto Fit.'
+                ? '1. No Wrap (Lines spread completely; wraps only at delimiters & breaks). Click to switch to 2. Auto Fit.'
                 : sheetWrapMode === 'auto_fit'
                 ? '2. Auto fit in (Forced measures per line). Click to switch to 3. Auto Wrap.'
                 : '3. Auto wrap (Dynamic collision-free spacing). Click to switch to 1. No Wrap.'
@@ -1923,17 +1956,52 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         style={{
           transform: `scale(${zoomScale})`,
           transformOrigin: 'top center',
+          ...(sheetWrapMode === 'no_wrap' && isSheetExtended
+            ? {
+                width: `${extendedSheetWidth}px`,
+                minWidth: `${extendedSheetWidth}px`,
+                maxWidth: 'none',
+              }
+            : {}),
         }}
         className={`relative w-full ${
-          sheetOrientation === 'landscape'
-            ? 'max-w-[1240px] min-h-[640px]'
-            : 'max-w-4xl min-h-[960px]'
+          sheetWrapMode === 'no_wrap' && isSheetExtended
+            ? ''
+            : sheetOrientation === 'landscape'
+            ? 'max-w-[1240px]'
+            : 'max-w-4xl'
+        } ${
+          sheetOrientation === 'landscape' ? 'min-h-[640px]' : 'min-h-[960px]'
         } rounded-xs p-3.5 sm:p-6 md:p-8 transition-all duration-150 print:shadow-none print:border-none print:p-0 print:max-w-none print:w-full print:rounded-none select-none ${
           sheetTheme === 'dark'
             ? 'bg-[#14161f] text-zinc-100 border border-zinc-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.06)]'
             : 'bg-[#FCFAF6] text-zinc-900 border border-[#E7E2D8] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.06)]'
         } print:bg-white print:text-black`}
       >
+        {/* Realistic Sheet Right Edge Vertical Boundary (when extended in No Wrap mode) */}
+        {sheetWrapMode === 'no_wrap' && isSheetExtended && (
+          <div
+            id="sheet-realistic-right-boundary"
+            className="absolute top-0 bottom-0 pointer-events-none z-20 print:hidden flex flex-col items-center"
+            style={{ left: `${standardSheetWidth}px` }}
+          >
+            {/* Top Guideline Badge */}
+            <div className="sticky top-2 z-20 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold shadow-xs border bg-zinc-100/95 dark:bg-zinc-800/95 text-zinc-600 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700 whitespace-nowrap backdrop-blur-xs select-none">
+              <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 shrink-0" />
+              <span>
+                Realistic A4 Right Edge · {sheetOrientation === 'landscape' ? '297mm (1240px)' : '210mm (896px)'}
+              </span>
+            </div>
+
+            {/* Light Grey Vertical Guideline */}
+            <div className="w-px flex-1 border-r border-dashed border-zinc-400/60 dark:border-zinc-600/60 my-1" />
+
+            {/* Bottom Guideline Marker */}
+            <div className="mb-3 -translate-x-1/2 px-2 py-0.5 rounded text-[9px] font-mono text-zinc-500 dark:text-zinc-400 border border-zinc-300/60 dark:border-zinc-700/60 bg-zinc-100/90 dark:bg-zinc-800/90 whitespace-nowrap select-none">
+              A4 Page Cut-off
+            </div>
+          </div>
+        )}
         {/* Subtle physical paper watermark / registration corner marks */}
         <div className={`absolute top-3 left-3 font-mono text-[10px] select-none pointer-events-none print:hidden ${
           sheetTheme === 'dark' ? 'text-zinc-700' : 'text-zinc-300'
@@ -2216,8 +2284,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
               key={`system-${system.systemIndex}`}
               id={`sheet-system-${system.systemIndex}`}
               className={`relative w-full flex items-stretch border-l-2 print:overflow-visible print:w-full print:break-inside-avoid ${
-                sheetWrapMode === 'no_wrap' ? 'overflow-x-auto touch-momentum min-w-full pb-1' : ''
-              } ${
                 sheetTheme === 'dark' ? 'border-zinc-400' : 'border-zinc-800'
               }`}
             >
