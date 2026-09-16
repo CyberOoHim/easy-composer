@@ -588,13 +588,11 @@ export function setStoredLyricAlign(align: KaraokeLyricAlign): void {
 // 9. CHORD ENABLED PREFERENCE
 // ============================================================================
 export function getStoredEnableChords(defaultVal = true): boolean {
-  const val = safeGetItem(STORAGE_KEYS.CHORD_ENABLED);
-  if (val !== null) return val === 'true';
-  return defaultVal;
+  return getStoredChordEnabled(defaultVal);
 }
 
 export function setStoredEnableChords(enabled: boolean): void {
-  safeSetItem(STORAGE_KEYS.CHORD_ENABLED, String(enabled));
+  setStoredChordEnabled(enabled);
 }
 
 // ============================================================================

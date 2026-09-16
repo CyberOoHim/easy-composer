@@ -1,5 +1,5 @@
-import { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, KeySignature, Measure, Song } from '@/types/song';
-import { getChordNotes, getEffectiveMeasureChords, getMeasureChords, getPitchFrequency, isNonNotationItem, isSamePitch, isSlurActive, isTieActive } from './taigiUtils';
+import type { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, KeySignature, Measure, Song } from '../types/song.ts';
+import { getChordNotes, getEffectiveMeasureChords, getMeasureChords, getPitchFrequency, isNonNotationItem, isSamePitch, isSlurActive, isTieActive } from './taigiUtils.ts';
 
 export interface PlaybackState {
   isPlaying: boolean;
@@ -189,6 +189,9 @@ export class AudioEngine {
     this.endedListeners.forEach(l => l({ reason }));
   }
 
+  public static readonly IDLE_SUSPEND_DELAY_MS = 30000;
+  private playSessionId = 0;
+
   /**
    * Transparent iOS Web Audio unlocker triggered on first user interaction.
    * Plays a 1ms inaudible buffer to wake up the iOS/iPadOS audio mixer if interrupted.
@@ -203,8 +206,9 @@ export class AudioEngine {
 
     const state = this.ctx.state as string;
     if (state !== 'suspended' && state !== 'interrupted') {
-      if (!this.isPlaying) {
-        this.scheduleAutoSuspend(3000);
+      this.cancelAutoSuspend();
+      if (!this.isPlaying && this.activeSustainedVoices.size === 0) {
+        this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
       }
       return;
     }
@@ -221,8 +225,9 @@ export class AudioEngine {
       // ignore
     }
 
-    if (!this.isPlaying) {
-      this.scheduleAutoSuspend(3000);
+    this.cancelAutoSuspend();
+    if (!this.isPlaying && this.activeSustainedVoices.size === 0) {
+      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
     }
   };
 
@@ -304,14 +309,24 @@ export class AudioEngine {
   };
 
   private handleWindowFocus = () => {
-    if (typeof document !== 'undefined' && !document.hidden && this.isPlaying) {
-      this.ensureContextActive().catch(() => {});
+    if (typeof document !== 'undefined' && !document.hidden) {
+      this.cancelAutoSuspend();
+      if (this.isPlaying || this.activeSustainedVoices.size > 0) {
+        this.ensureContextActive().catch(() => {});
+      } else {
+        this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
+      }
     }
   };
 
   private handleWindowBlur = () => {
-    if (!this.isPlaying) {
-      this.scheduleAutoSuspend(500);
+    // If the document is still visible (e.g. native select dropdown or modal open),
+    // do NOT aggressively suspend audio! Keep audio responsive.
+    if (typeof document !== 'undefined' && !document.hidden) {
+      return;
+    }
+    if (!this.isPlaying && this.activeSustainedVoices.size === 0) {
+      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
     }
   };
 
@@ -319,6 +334,9 @@ export class AudioEngine {
     if (this.isBackgrounded) return;
     this.isBackgrounded = true;
     this.cancelAutoSuspend();
+
+    // Release any active sustained keyboard voices so they do not drone in the background
+    this.stopAllSustainedNotes();
 
     if (this.isPlaying) {
       // Accurately capture current playback timestamp before iOS freezes timers
@@ -372,6 +390,7 @@ export class AudioEngine {
       return;
     }
     this.isBackgrounded = false;
+    this.cancelAutoSuspend();
 
     if (!this.ctx || this.ctx.state === 'closed') {
       this.initContext(true);
@@ -392,20 +411,21 @@ export class AudioEngine {
       });
     }
 
-    if (!this.isPlaying) {
-      this.scheduleAutoSuspend(3000);
+    if (!this.isPlaying && this.activeSustainedVoices.size === 0) {
+      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
     }
   };
 
   /**
-   * Schedule automatic AudioContext suspension after inactivity (e.g. 3000ms)
-   * Prevents mobile/iPad audio DSP hardware from draining battery when idle.
+   * Schedule automatic AudioContext suspension after prolonged inactivity (e.g. 30000ms).
+   * Prevents mobile/iPad audio DSP hardware from draining battery when idle, while keeping
+   * it responsive during active composing and playing.
    */
-  public scheduleAutoSuspend(delayMs = 3000) {
+  public scheduleAutoSuspend(delayMs = AudioEngine.IDLE_SUSPEND_DELAY_MS) {
     this.cancelAutoSuspend();
     if (typeof window === 'undefined') return;
     this.idleSuspendTimer = setTimeout(() => {
-      if (!this.isPlaying && this.ctx && this.ctx.state === 'running') {
+      if (!this.isPlaying && this.activeSustainedVoices.size === 0 && this.ctx && this.ctx.state === 'running') {
         this.ctx.suspend().catch(() => {});
       }
     }, delayMs);
@@ -547,15 +567,30 @@ export class AudioEngine {
     }
     if (this.ctx) {
       if (this.melodyGain && this.options.melodyVolume !== undefined) {
-        this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
+        try {
+          this.melodyGain.gain.cancelScheduledValues(this.ctx.currentTime);
+          this.melodyGain.gain.setValueAtTime(this.options.melodyVolume, this.ctx.currentTime);
+        } catch {
+          this.melodyGain.gain.value = this.options.melodyVolume;
+        }
       }
       if (this.backingGain && (this.options.backingVolume !== undefined || this.options.chordEnabled !== undefined)) {
         const effectiveBacking = this.options.chordEnabled !== false ? this.options.backingVolume : 0;
-        this.backingGain.gain.setValueAtTime(effectiveBacking, this.ctx.currentTime);
+        try {
+          this.backingGain.gain.cancelScheduledValues(this.ctx.currentTime);
+          this.backingGain.gain.setValueAtTime(effectiveBacking, this.ctx.currentTime);
+        } catch {
+          this.backingGain.gain.value = effectiveBacking;
+        }
       }
       if (this.metronomeGain && (this.options.metronomeVolume !== undefined || this.options.metronomeEnabled !== undefined)) {
         const effectiveMetronome = this.options.metronomeEnabled !== false ? this.options.metronomeVolume : 0;
-        this.metronomeGain.gain.setValueAtTime(effectiveMetronome, this.ctx.currentTime);
+        try {
+          this.metronomeGain.gain.cancelScheduledValues(this.ctx.currentTime);
+          this.metronomeGain.gain.setValueAtTime(effectiveMetronome, this.ctx.currentTime);
+        } catch {
+          this.metronomeGain.gain.value = effectiveMetronome;
+        }
       }
     }
     // Seamlessly re-seek if primary instrument changed during active playback so subsequent notes use the new sound tone
@@ -588,13 +623,19 @@ export class AudioEngine {
   /**
    * Play a single preview note (e.g. clicking a note in the editor)
    */
-  public previewNote(key: KeySignature, note: NumberedNotationNote) {
+  public async previewNote(key: KeySignature, note: NumberedNotationNote) {
     if (isNonNotationItem(note)) return; // Punctuation, annotations, and whitespace produce no sound
     this.initContext();
     if (!this.ctx || !this.melodyGain) return;
-    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
-      this.ctx.resume().catch(() => {});
+    this.cancelAutoSuspend();
+
+    const state = this.ctx.state as string;
+    if (state === 'suspended' || state === 'interrupted') {
+      try {
+        await this.ctx.resume();
+      } catch {}
     }
+    if (!this.ctx || !this.melodyGain) return;
 
     const freq = getPitchFrequency(key, note.pitch, note.octave, note.accidental, this.options.transpose);
     if (freq <= 0) return;
@@ -606,15 +647,15 @@ export class AudioEngine {
     this.playMelodyNoteWithDetails(
       key,
       note,
-      this.ctx.currentTime,
+      this.ctx.currentTime + 0.005,
       playDuration,
       this.melodyGain,
       note.instrument || this.options.instrument,
       { isPreview: true }
     );
 
-    // Auto suspend AudioContext after preview note finishes to power down audio hardware
-    this.scheduleAutoSuspend(Math.round((playDuration + 2.0) * 1000));
+    // Keep AudioContext awake for responsive interactive composing
+    this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
   }
 
   // =========================================================================
@@ -725,6 +766,10 @@ export class AudioEngine {
     if (!this.ctx || !this.melodyGain) return;
     this.cancelAutoSuspend();
 
+    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
+      this.ctx.resume().catch(() => {});
+    }
+
     // If this voice is already singing, release old instance first
     this.stopSustainedNote(voiceId, 0.03);
 
@@ -732,7 +777,7 @@ export class AudioEngine {
     if (freq <= 0) return;
 
     const chosenInstrument: InstrumentType = instrument || note.instrument || this.options.instrument || 'piano';
-    const startTime = this.ctx.currentTime;
+    const startTime = Math.max(this.ctx.currentTime, 0.0001);
     const oscs: OscillatorNode[] = [];
     const gains: GainNode[] = [];
 
@@ -1102,8 +1147,8 @@ export class AudioEngine {
       } catch {}
     }, stopDelayMs);
 
-    if (this.activeSustainedVoices.size === 0) {
-      this.scheduleAutoSuspend(3000);
+    if (this.activeSustainedVoices.size === 0 && !this.isPlaying) {
+      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
     }
   }
 
@@ -1125,10 +1170,21 @@ export class AudioEngine {
   public previewChord(chordName: string) {
     if (!chordName) return;
     this.initContext();
-    if (!this.ctx || !this.backingGain) return;
-    const now = this.ctx.currentTime;
-    this.playChordBeat(chordName, now, 0.7, true);
-    this.scheduleAutoSuspend(2500);
+    if (!this.ctx) return;
+    this.cancelAutoSuspend();
+
+    const doPlay = () => {
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      this.playChordBeat(chordName, now + 0.005, 0.7, true, true);
+      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
+    };
+
+    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
+      this.ctx.resume().then(doPlay).catch(doPlay);
+    } else {
+      doPlay();
+    }
   }
 
   /**
@@ -1136,9 +1192,20 @@ export class AudioEngine {
    */
   public playMetronomeTick(isDownbeat = false) {
     this.initContext();
-    if (!this.ctx || !this.metronomeGain) return;
-    this.playMetronomeClick(this.ctx.currentTime, isDownbeat);
-    this.scheduleAutoSuspend(2000);
+    if (!this.ctx) return;
+    this.cancelAutoSuspend();
+
+    const doPlay = () => {
+      if (!this.ctx) return;
+      this.playMetronomeClick(this.ctx.currentTime + 0.005, isDownbeat, true);
+      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
+    };
+
+    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
+      this.ctx.resume().then(doPlay).catch(doPlay);
+    } else {
+      doPlay();
+    }
   }
 
   /**
@@ -1147,9 +1214,20 @@ export class AudioEngine {
    */
   public playCountdownTick(isFinalBeat = false) {
     this.initContext();
-    if (!this.ctx || !this.metronomeGain) return;
-    this.playCountdownClick(this.ctx.currentTime, isFinalBeat);
-    this.scheduleAutoSuspend(2000);
+    if (!this.ctx) return;
+    this.cancelAutoSuspend();
+
+    const doPlay = () => {
+      if (!this.ctx) return;
+      this.playCountdownClick(this.ctx.currentTime + 0.005, isFinalBeat);
+      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
+    };
+
+    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
+      this.ctx.resume().then(doPlay).catch(doPlay);
+    } else {
+      doPlay();
+    }
   }
 
   public getAudioContextState(): AudioContextState | 'none' {
@@ -1773,9 +1851,10 @@ export class AudioEngine {
   /**
    * Play a metronome click (punchy woodblock tone with crisp transient)
    */
-  public playMetronomeClick(startTime?: number, isDownbeat: boolean = false) {
-    if (this.options.metronomeEnabled === false) return;
-    if (!this.ctx || !this.metronomeGain || this.options.metronomeVolume <= 0.01) return;
+  public playMetronomeClick(startTime?: number, isDownbeat: boolean = false, force: boolean = false) {
+    if (!force && this.options.metronomeEnabled === false) return;
+    if (!this.ctx) return;
+    if (!force && this.options.metronomeVolume <= 0.01) return;
 
     try {
       const clickTime = startTime !== undefined ? startTime : this.ctx.currentTime;
@@ -1790,7 +1869,12 @@ export class AudioEngine {
       gain.gain.exponentialRampToValueAtTime(0.0001, clickTime + 0.045);
 
       osc.connect(gain);
-      gain.connect(this.metronomeGain);
+      const targetGain = (force && (this.options.metronomeEnabled === false || this.options.metronomeVolume <= 0.01))
+        ? (this.masterGain || this.metronomeGain)
+        : (this.metronomeGain || this.masterGain);
+      if (targetGain) {
+        gain.connect(targetGain);
+      }
     } catch (err) {
       console.warn('[AudioEngine] playMetronomeClick error:', err);
     }
@@ -1802,7 +1886,7 @@ export class AudioEngine {
    * Final preparatory beat (1 before recording): 2640Hz (E7) high-pitch ready alert.
    */
   private playCountdownClick(startTime: number, isFinalBeat: boolean) {
-    if (!this.ctx || !this.metronomeGain || this.options.metronomeVolume <= 0.01) return;
+    if (!this.ctx) return;
 
     try {
       const cueFreq = isFinalBeat ? 2640 : 1760;
@@ -1815,7 +1899,12 @@ export class AudioEngine {
       gain.gain.exponentialRampToValueAtTime(0.0001, startTime + (isFinalBeat ? 0.065 : 0.045));
 
       osc.connect(gain);
-      gain.connect(this.metronomeGain);
+      const targetGain = (this.options.metronomeVolume <= 0.01 || this.options.metronomeEnabled === false)
+        ? (this.masterGain || this.metronomeGain)
+        : (this.metronomeGain || this.masterGain);
+      if (targetGain) {
+        gain.connect(targetGain);
+      }
     } catch (err) {
       console.warn('[AudioEngine] playCountdownClick error:', err);
     }
@@ -1827,15 +1916,25 @@ export class AudioEngine {
    * When ecoMode is active, uses an energy-efficient reduced oscillator graph (2 voices, direct routing)
    * to conserve CPU and battery without muting the harmonic accompaniment.
    */
-  private playChordBeat(chordName: string, startTime: number, beatDuration: number, isDownbeat: boolean) {
-    if (this.options.chordEnabled === false) return;
-    if (!this.ctx || !this.backingGain || this.options.backingVolume <= 0.01) return;
+  private playChordBeat(
+    chordName: string,
+    startTime: number,
+    beatDuration: number,
+    isDownbeat: boolean,
+    forcePreview = false
+  ) {
+    if (!forcePreview && this.options.chordEnabled === false) return;
+    if (!this.ctx || (!this.backingGain && !this.masterGain)) return;
+    if (!forcePreview && this.options.backingVolume <= 0.01) return;
     const chordFrequencies = getChordNotes(chordName, this.options.transpose);
     if (chordFrequencies.length === 0) return;
 
-    const isEco = Boolean(this.options.ecoMode);
+    const isEco = !forcePreview && Boolean(this.options.ecoMode);
     // In ecoMode, bypass the biquad lowpass filter DSP to conserve processing power
-    const targetDestination: AudioNode = isEco ? this.backingGain : (this.backingFilter || this.backingGain);
+    let targetDestination: AudioNode = isEco ? this.backingGain! : (this.backingFilter || this.backingGain || this.masterGain!);
+    if (forcePreview && (this.options.chordEnabled === false || this.options.backingVolume <= 0.01)) {
+      targetDestination = this.masterGain || targetDestination;
+    }
     const now = this.ctx.currentTime;
     const safeStart = Math.max(startTime, now + 0.005);
 
@@ -1899,12 +1998,17 @@ export class AudioEngine {
   /**
    * Play only a single measure (for instant composer verification)
    */
-  public playMeasure(song: Song, measureIndex: number, onFinished?: () => void) {
+  public async playMeasure(song: Song, measureIndex: number, onFinished?: () => void) {
     this.initContext();
     this.stop(false); // Stop any existing playback without notifying state listeners prior to starting new playback
 
     const targetMeasure = song.measures[measureIndex];
     if (!targetMeasure || targetMeasure.notes.length === 0 || !this.ctx) return;
+    this.cancelAutoSuspend();
+
+    const sessionId = ++this.playSessionId;
+    const isActive = await this.ensureContextActive();
+    if (!isActive || sessionId !== this.playSessionId || !this.ctx) return;
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -1926,7 +2030,7 @@ export class AudioEngine {
     const beatsPerBar = parseInt(tsParts[0], 10) || 4;
     const totalMeasureDurationSec = Math.max(measureBeats, beatsPerBar) * secPerBeat;
 
-    const audioStart = this.ctx!.currentTime + 0.08;
+    const audioStart = this.ctx.currentTime + 0.08;
     this.startAudioTime = audioStart;
 
     const timelineEvents: {
@@ -2002,9 +2106,7 @@ export class AudioEngine {
     const measureChords = getEffectiveMeasureChords(song, measureIndex);
     for (let b = 0; b < beatsPerBar; b++) {
       const beatTime = audioStart + b * secPerBeat;
-      if (!this.options.ecoMode || b === 0) {
-        this.playMetronomeClick(beatTime, b === 0);
-      }
+      this.playMetronomeClick(beatTime, b === 0);
       if (measureChords.length > 0) {
         const chordIdx = Math.min(
           measureChords.length - 1,
@@ -2034,11 +2136,16 @@ export class AudioEngine {
   /**
    * Play a system of measures (a staff line across the score)
    */
-  public playSystem(song: Song, measureIndices: number[], onFinished?: () => void) {
+  public async playSystem(song: Song, measureIndices: number[], onFinished?: () => void) {
     this.initContext();
     this.stop(false); // Stop any existing playback without notifying state listeners prior to starting new playback
 
     if (!measureIndices || measureIndices.length === 0 || !this.ctx) return;
+    this.cancelAutoSuspend();
+
+    const sessionId = ++this.playSessionId;
+    const isActive = await this.ensureContextActive();
+    if (!isActive || sessionId !== this.playSessionId || !this.ctx) return;
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -2163,9 +2270,7 @@ export class AudioEngine {
 
       for (let b = 0; b < beatsPerBar; b++) {
         const beatTime = audioStart + measureAccumTime + b * secPerBeat;
-        if (!this.options.ecoMode || b === 0) {
-          this.playMetronomeClick(beatTime, b === 0);
-        }
+        this.playMetronomeClick(beatTime, b === 0);
         if (measureChords.length > 0) {
           const chordIdx = Math.min(
             measureChords.length - 1,
@@ -2204,7 +2309,7 @@ export class AudioEngine {
   /**
    * Play only a specific verse (sequence of notes across measures)
    */
-  public playVerse(
+  public async playVerse(
     song: Song,
     verseNotes: { note: NumberedNotationNote; measureIdx: number; noteIdx: number }[],
     onFinished?: () => void
@@ -2213,6 +2318,11 @@ export class AudioEngine {
     this.stop(false); // Stop any existing playback without notifying state listeners prior to starting new playback
 
     if (!verseNotes || verseNotes.length === 0 || !this.ctx) return;
+    this.cancelAutoSuspend();
+
+    const sessionId = ++this.playSessionId;
+    const isActive = await this.ensureContextActive();
+    if (!isActive || sessionId !== this.playSessionId || !this.ctx) return;
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -2319,9 +2429,7 @@ export class AudioEngine {
 
       for (let b = 0; b < beatsPerBar; b++) {
         const beatTime = audioStart + mStartTimeSec + b * secPerBeat;
-        if (!this.options.ecoMode || b === 0) {
-          this.playMetronomeClick(beatTime, b === 0);
-        }
+        this.playMetronomeClick(beatTime, b === 0);
 
         if (measureChords.length > 0) {
           const chordIdx = Math.min(
@@ -2357,32 +2465,18 @@ export class AudioEngine {
     if (typeof window === 'undefined') return;
     this.initContext();
     if (!this.ctx) return;
+    this.cancelAutoSuspend();
 
-    const state = this.ctx.state as string;
-    if (state === 'suspended' || state === 'interrupted') {
-      this.ctx.resume().catch(() => {});
-    }
+    const doPlay = () => {
+      if (!this.ctx) return;
+      this.playMetronomeClick(this.ctx.currentTime + 0.005, isDownbeat, true);
+      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
+    };
 
-    if (!this.metronomeGain && this.masterGain) {
-      this.metronomeGain = this.ctx.createGain();
-      this.metronomeGain.connect(this.masterGain);
-    }
-
-    if (!this.metronomeGain) return;
-
-    // Use current metronome volume if > 0, otherwise temporary audible volume for preview
-    const originalVol = this.options.metronomeVolume;
-    const testVol = originalVol > 0.01 ? originalVol : 0.45;
-    this.metronomeGain.gain.setValueAtTime(testVol, this.ctx.currentTime);
-
-    this.playMetronomeClick(this.ctx.currentTime + 0.01, isDownbeat);
-
-    if (originalVol <= 0.01) {
-      setTimeout(() => {
-        if (this.ctx && this.metronomeGain) {
-          this.metronomeGain.gain.setValueAtTime(originalVol, this.ctx.currentTime);
-        }
-      }, 70);
+    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
+      this.ctx.resume().then(doPlay).catch(doPlay);
+    } else {
+      doPlay();
     }
   }
 
@@ -2390,7 +2484,7 @@ export class AudioEngine {
    * Play a 1-measure preparatory count-in (1, 2, 3, 4) with audible metronome clicks
    * and visual beat callbacks before song starts.
    */
-  public playCountIn(
+  public async playCountIn(
     song: Song,
     onBeat: (currentBeat: number, totalBeats: number) => void,
     onFinished: () => void
@@ -2399,6 +2493,14 @@ export class AudioEngine {
     this.stop();
 
     if (!this.ctx) {
+      onFinished();
+      return;
+    }
+    this.cancelAutoSuspend();
+
+    const sessionId = ++this.playSessionId;
+    const isActive = await this.ensureContextActive();
+    if (!isActive || sessionId !== this.playSessionId || !this.ctx) {
       onFinished();
       return;
     }
@@ -2448,11 +2550,16 @@ export class AudioEngine {
   /**
    * Start song playback from specified time or beginning
    */
-  public play(song: Song, startFromSec: number = 0) {
+  public async play(song: Song, startFromSec: number = 0) {
     this.initContext();
     this.stop(false); // Stop any existing playback without notifying state listeners prior to starting new playback
 
     if (!this.ctx) return;
+    this.cancelAutoSuspend();
+
+    const sessionId = ++this.playSessionId;
+    const isActive = await this.ensureContextActive();
+    if (!isActive || sessionId !== this.playSessionId || !this.ctx) return;
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -2464,7 +2571,7 @@ export class AudioEngine {
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
 
-    const audioStart = this.ctx!.currentTime + 0.08; // Small lookahead buffer
+    const audioStart = this.ctx.currentTime + 0.08; // Small lookahead buffer
     this.startAudioTime = audioStart - startFromSec;
 
     // Immediately notify UI state with initial playback position
@@ -2657,9 +2764,7 @@ export class AudioEngine {
       if (ev.songTime > horizon) break;
       const scheduleAt = this.startAudioTime + ev.songTime;
       if (scheduleAt >= audioNow - 0.01) {
-        if (!isEco || ev.isDownbeat) {
-          this.playMetronomeClick(scheduleAt, ev.isDownbeat);
-        }
+        this.playMetronomeClick(scheduleAt, ev.isDownbeat);
         if (ev.chord) {
           this.playChordBeat(ev.chord, scheduleAt, ev.beatDuration, ev.isChordChange);
         }
@@ -2815,6 +2920,7 @@ export class AudioEngine {
 
   public pause() {
     if (!this.isPlaying || this.isPaused) return;
+    this.playSessionId++;
     this.pausedSongTime = this.getCurrentPlaybackTime();
     this.isPaused = true;
     this.isPlaying = false;
@@ -2844,7 +2950,7 @@ export class AudioEngine {
       totalDuration: duration,
       progressPercent: duration > 0 ? (this.pausedSongTime / duration) * 100 : 0,
     });
-    this.scheduleAutoSuspend(2000);
+    this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
   }
 
   public resume() {
@@ -2855,10 +2961,12 @@ export class AudioEngine {
   }
 
   public stop(notify: boolean = true) {
+    this.playSessionId++;
     this.isPlaying = false;
     this.isPaused = false;
     this.pausedSongTime = 0;
     this.wasInterruptedByTabSwitch = false;
+    this.stopAllSustainedNotes();
     this.stopAudioNodes();
     this.cancelTrackingLoop();
     this.clearPlaybackSchedule();
@@ -2877,7 +2985,7 @@ export class AudioEngine {
         totalDuration: duration,
         progressPercent: 0,
       });
-      this.scheduleAutoSuspend(1500);
+      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
     }
   }
 

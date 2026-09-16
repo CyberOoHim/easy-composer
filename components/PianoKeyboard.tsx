@@ -383,7 +383,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
       // Metronome audio click
       try {
         const isDownbeat = b === 1;
-        audioEngine.playMetronomeClick(undefined, isDownbeat);
+        audioEngine.playMetronomeClick(undefined, isDownbeat, true);
       } catch {
         // Fallback silent pulse if audio unavailable
       }

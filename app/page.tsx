@@ -13,6 +13,8 @@ import { LyricSearchModal } from '@/components/LyricSearchModal';
 import { NewSongModal } from '@/components/NewSongModal';
 import { useSongHistory } from '@/hooks/useSongHistory';
 import { usePowerSaveMode } from '@/hooks/usePowerSaveMode';
+import { useChordPlayback } from '@/hooks/useChordPlayback';
+import { useMetronomePlayback } from '@/hooks/useMetronomePlayback';
 import {
   getStoredDisplayMode,
   setStoredDisplayMode,
@@ -21,17 +23,10 @@ import {
   saveSongToCustomLibrary,
   getStoredAutosaveInterval,
   setStoredAutosaveInterval,
-  getStoredEnableChords,
-  setStoredEnableChords,
-  getStoredMetronomeEnabled,
-  setStoredMetronomeEnabled,
-  getStoredMetronomeVolume,
-  setStoredMetronomeVolume,
   getStoredInstrument,
   setStoredInstrument,
   resetAllSettingsToDefault,
   STORAGE_KEYS,
-  METRONOME_SETTINGS_EVENT,
 } from '@/lib/storage';
 import {
   saveSongToDB,
@@ -70,38 +65,17 @@ export default function Home() {
     isCharging,
   } = usePowerSaveMode();
 
-  const [enableChords, setEnableChords] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') return getStoredEnableChords(true);
-    return true;
-  });
+  const {
+    chordEnabled,
+    setChordEnabled,
+  } = useChordPlayback();
 
-  const toggleEnableChords = useCallback(() => {
-    setEnableChords(prev => {
-      const next = !prev;
-      setStoredEnableChords(next);
-      audioEngine.setOptions({ chordEnabled: next });
-      return next;
-    });
-  }, []);
-
-  const [metronomeEnabled, setMetronomeEnabled] = useState<boolean>(() => {
-    if (typeof window !== 'undefined') return getStoredMetronomeEnabled(true);
-    return true;
-  });
-
-  const [metronomeVolume, setMetronomeVolume] = useState<number>(() => {
-    if (typeof window !== 'undefined') return getStoredMetronomeVolume(0.45);
-    return 0.45;
-  });
-
-  const toggleMetronomeEnabled = useCallback(() => {
-    setMetronomeEnabled(prev => {
-      const next = !prev;
-      setStoredMetronomeEnabled(next);
-      audioEngine.setOptions({ metronomeEnabled: next });
-      return next;
-    });
-  }, []);
+  const {
+    metronomeEnabled,
+    metronomeVolume,
+    setMetronomeEnabled,
+    setMetronomeVolume,
+  } = useMetronomePlayback();
 
   const [instrument, setInstrumentState] = useState<InstrumentType>(() => {
     if (typeof window !== 'undefined') return getStoredInstrument();
@@ -117,43 +91,19 @@ export default function Home() {
     }
   }, [song.key]);
 
-  // Keep instrument & metronome synced if updated in another component
+  // Keep instrument synced if updated in another component
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.INSTRUMENT && e.newValue) {
         const newInst = e.newValue as InstrumentType;
         setInstrumentState(newInst);
         audioEngine.setOptions({ instrument: newInst });
-      } else if (e.key === STORAGE_KEYS.METRONOME_ENABLED && e.newValue !== null) {
-        const enabled = e.newValue === 'true';
-        setMetronomeEnabled(enabled);
-        audioEngine.setOptions({ metronomeEnabled: enabled });
-      } else if (e.key === STORAGE_KEYS.METRONOME_VOLUME && e.newValue !== null) {
-        const num = parseFloat(e.newValue);
-        if (!isNaN(num)) {
-          setMetronomeVolume(num);
-          audioEngine.setOptions({ metronomeVolume: num });
-        }
-      }
-    };
-
-    const handleMetronomeCustom = (e: Event) => {
-      const customEvent = e as CustomEvent<{ metronomeEnabled?: boolean; metronomeVolume?: number }>;
-      if (customEvent.detail) {
-        if (typeof customEvent.detail.metronomeEnabled === 'boolean') {
-          setMetronomeEnabled(customEvent.detail.metronomeEnabled);
-        }
-        if (typeof customEvent.detail.metronomeVolume === 'number') {
-          setMetronomeVolume(customEvent.detail.metronomeVolume);
-        }
       }
     };
 
     window.addEventListener('storage', handleStorage);
-    window.addEventListener(METRONOME_SETTINGS_EVENT, handleMetronomeCustom);
     return () => {
       window.removeEventListener('storage', handleStorage);
-      window.removeEventListener(METRONOME_SETTINGS_EVENT, handleMetronomeCustom);
     };
   }, []);
 
@@ -161,12 +111,12 @@ export default function Home() {
     audioEngine.setOptions({
       ecoMode: isEcoMode,
       targetFps: isEcoMode ? 20 : 30,
-      chordEnabled: enableChords,
+      chordEnabled,
       metronomeEnabled,
       metronomeVolume,
       instrument,
     });
-  }, [isEcoMode, enableChords, metronomeEnabled, metronomeVolume, instrument]);
+  }, [isEcoMode, chordEnabled, metronomeEnabled, metronomeVolume, instrument]);
 
   const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>(() => {
     if (typeof window !== 'undefined') return getStoredDisplayMode();
@@ -385,7 +335,7 @@ export default function Home() {
     audioEngine.setOptions({ instrument: 'piano', metronomeVolume: 0.45, metronomeEnabled: true, chordEnabled: true });
     setMetronomeEnabled(true);
     setMetronomeVolume(0.45);
-    setEnableChords(true);
+    setChordEnabled(true);
     setDisplayModeState('roman_major_hanlo');
     setAutosaveIntervalState(0);
     setUiZoomGlobal(1.0);
@@ -401,7 +351,7 @@ export default function Home() {
         await handleRestoreDefaultSong();
       }
     }
-  }, [isEcoMode, toggleEcoMode, song.id, handleResetPreset, handleRestoreDefaultSong]);
+  }, [isEcoMode, toggleEcoMode, song.id, handleResetPreset, handleRestoreDefaultSong, setChordEnabled, setMetronomeEnabled, setMetronomeVolume]);
 
   const handleConfirmFreshSong = useCallback(async (saveCurrentFirst: boolean) => {
     if (saveCurrentFirst || isDirty) {
