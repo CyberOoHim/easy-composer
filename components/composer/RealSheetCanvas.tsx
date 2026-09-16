@@ -16,6 +16,7 @@ import {
   LyricSyllable,
   VerseDisplayOption,
   SheetWrapMode,
+  SheetOrientation,
 } from '@/types/song';
 import {
   engraveMeasure,
@@ -48,6 +49,8 @@ import {
   AlertCircle,
   WrapText,
   AlignJustify,
+  RectangleHorizontal,
+  RectangleVertical,
 } from 'lucide-react';
 import {
   getStoredRealSheetTheme,
@@ -65,6 +68,8 @@ import {
   HudDrawerType,
   getStoredSheetWrapMode,
   setStoredSheetWrapMode,
+  getStoredSheetOrientation,
+  setStoredSheetOrientation,
   getStoredPianoDeckMode,
   setStoredPianoDeckMode,
   SETTINGS_RESET_EVENT,
@@ -126,6 +131,8 @@ export interface RealSheetCanvasProps {
   onAutoWrapMeasures?: () => void;
   sheetWrapMode?: SheetWrapMode;
   onRotateWrapMode?: () => void;
+  sheetOrientation?: SheetOrientation;
+  onToggleOrientation?: () => void;
   onPushNotesToNextMeasure?: () => void;
   onShiftNotesToPrevMeasure?: () => void;
 
@@ -217,6 +224,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   onAutoWrapMeasures: propOnAutoWrapMeasures,
   sheetWrapMode: propSheetWrapMode,
   onRotateWrapMode: propOnRotateWrapMode,
+  sheetOrientation: propSheetOrientation,
+  onToggleOrientation: propOnToggleOrientation,
   onPushNotesToNextMeasure: propOnPushNotesToNextMeasure,
   onShiftNotesToPrevMeasure: propOnShiftNotesToPrevMeasure,
   noteInputMode: propNoteInputMode,
@@ -314,6 +323,27 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       return next;
     });
   }, [propOnRotateWrapMode]);
+
+  // Realistic Sheet Paper Orientation: 'portrait' | 'landscape'
+  const [internalOrientation, setInternalOrientation] = useState<SheetOrientation>(() => {
+    if (typeof window !== 'undefined') {
+      return getStoredSheetOrientation(song.orientation || 'portrait');
+    }
+    return song.orientation || 'portrait';
+  });
+  const sheetOrientation = propSheetOrientation ?? internalOrientation;
+
+  const handleToggleOrientation = useCallback(() => {
+    if (propOnToggleOrientation) {
+      propOnToggleOrientation();
+      return;
+    }
+    setInternalOrientation(prev => {
+      const next: SheetOrientation = prev === 'portrait' ? 'landscape' : 'portrait';
+      setStoredSheetOrientation(next);
+      return next;
+    });
+  }, [propOnToggleOrientation]);
 
   // Zoom scaling (Persisted in browser local storage)
   const [zoomScale, setZoomScaleState] = useState<number>(() => {
@@ -443,6 +473,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       setInternalNoteInputMode(getStoredNoteInputMode('progressive_replace'));
       setInternalShowRhythmWarnings(getStoredShowRhythmWarnings(true));
       setInternalWrapMode(getStoredSheetWrapMode('no_wrap'));
+      setInternalOrientation(getStoredSheetOrientation('portrait'));
       setPianoDeckMode(getStoredPianoDeckMode('step'));
     };
     const handleZoomChange = (e: Event) => {
@@ -472,15 +503,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   );
   const currentNote = currentMeasure?.notes[currentNIdx];
 
-  // Engrave score into systems with horizontal continuous beams and 3 wrap modes
+  // Engrave score into systems with horizontal continuous beams, 3 wrap modes, and orientation budget
   const systems = useMemo(() => {
     return groupMeasuresIntoSystems(
       song.measures,
       song.timeSignature || '4/4',
       song.notesPerLine || 4,
-      sheetWrapMode
+      sheetWrapMode,
+      sheetOrientation
     );
-  }, [song.measures, song.timeSignature, song.notesPerLine, sheetWrapMode]);
+  }, [song.measures, song.timeSignature, song.notesPerLine, sheetWrapMode, sheetOrientation]);
 
   // Handle Note Selection
   const handleNoteClick = useCallback(
@@ -1761,8 +1793,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           : 'bg-[#ede8de] dark:bg-[#ede8de] text-zinc-900 dark:text-zinc-900'
       }`}
     >
+      {/* Dynamic @page orientation for WYSIWYG Print / PDF Export */}
+      <style
+        dangerouslySetInnerHTML={{
+          __html: `@media print { @page { size: ${sheetOrientation}; margin: 10mm 12mm 12mm 12mm; } }`,
+        }}
+      />
+
       {/* Top Floating Paper Control Bar */}
-      <div id="sheet-top-action-bar" className="w-full max-w-5xl flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden">
+      <div
+        id="sheet-top-action-bar"
+        className={`w-full ${
+          sheetOrientation === 'landscape' ? 'max-w-[1140px]' : 'max-w-4xl'
+        } flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden`}
+      >
         <div className="flex items-center gap-2">
           <span className="text-xs font-serif tracking-wider font-bold text-zinc-500 uppercase">
             Sheet Music Canvas
@@ -1791,6 +1835,35 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
               <>
                 <Moon className="w-3.5 h-3.5 text-zinc-600" />
                 <span>Dark Sheet</span>
+              </>
+            )}
+          </button>
+
+          {/* Sheet Orientation Toggle Button */}
+          <button
+            id="sheet-orientation-toggle-btn"
+            type="button"
+            onClick={handleToggleOrientation}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs cursor-pointer ${
+              sheetOrientation === 'landscape'
+                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
+                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+            }`}
+            title={`Sheet Orientation: ${
+              sheetOrientation === 'portrait'
+                ? 'Portrait (210×297mm). Click to switch to Landscape (297×210mm).'
+                : 'Landscape (297×210mm). Click to switch to Portrait (210×297mm).'
+            }`}
+          >
+            {sheetOrientation === 'portrait' ? (
+              <>
+                <RectangleVertical className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                <span>Portrait</span>
+              </>
+            ) : (
+              <>
+                <RectangleHorizontal className="w-3.5 h-3.5 text-emerald-500" />
+                <span>Landscape</span>
               </>
             )}
           </button>
@@ -1842,11 +1915,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       {/* The Physical Sheet Paper Canvas */}
       <div
         id="real-sheet-paper-stage"
+        data-sheet-orientation={sheetOrientation}
         style={{
           transform: `scale(${zoomScale})`,
           transformOrigin: 'top center',
         }}
-        className={`relative w-full max-w-5xl rounded-xs p-3.5 sm:p-6 md:p-8 transition-all duration-150 print:shadow-none print:border-none print:p-0 print:max-w-none print:w-full print:rounded-none select-none ${
+        className={`relative w-full ${
+          sheetOrientation === 'landscape' ? 'max-w-[1140px]' : 'max-w-4xl'
+        } rounded-xs p-3.5 sm:p-6 md:p-8 transition-all duration-150 print:shadow-none print:border-none print:p-0 print:max-w-none print:w-full print:rounded-none select-none ${
           sheetTheme === 'dark'
             ? 'bg-[#14161f] text-zinc-100 border border-zinc-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.06)]'
             : 'bg-[#FCFAF6] text-zinc-900 border border-[#E7E2D8] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.06)]'
@@ -2148,15 +2224,11 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                       }
                     }}
                     style={{
-                      flex: sheetWrapMode === 'auto_wrap'
+                      flex: sheetWrapMode === 'auto_wrap' || sheetWrapMode === 'no_wrap'
                         ? `${Math.max(1, Math.round(engravedM.requiredWidth || 100))}`
-                        : sheetWrapMode === 'no_wrap'
-                        ? '0 0 auto'
                         : 1,
-                      minWidth: sheetWrapMode === 'no_wrap'
-                        ? `${Math.max(160, Math.round(engravedM.requiredWidth || 160))}px`
-                        : sheetWrapMode === 'auto_wrap'
-                        ? `${Math.min(220, Math.round((engravedM.requiredWidth || 110) * 0.75))}px`
+                      minWidth: sheetWrapMode === 'auto_wrap' || sheetWrapMode === 'no_wrap'
+                        ? `${Math.min(240, Math.round((engravedM.requiredWidth || 110) * 0.75))}px`
                         : 0,
                     }}
                     className={`relative flex-1 flex flex-col justify-between px-1.5 sm:px-2 pt-1.5 pb-1 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
@@ -2296,16 +2368,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               }}
                               style={{
                                 zoom: 'var(--note-zoom, 1)',
-                                flex: sheetWrapMode === 'auto_wrap'
-                                  ? `${Math.max(1, Math.round((engNote.requiredWidth || 32) / 10))} 0 auto`
-                                  : undefined,
-                                minWidth: sheetWrapMode === 'auto_wrap'
-                                  ? `${Math.round(engNote.requiredWidth || 28)}px`
-                                  : undefined,
+                                flex: `${Math.max(1, Math.round((engNote.requiredWidth || 32) / 10))} 0 auto`,
+                                minWidth: `${Math.round(engNote.requiredWidth || 28)}px`,
                               }}
                               className={`relative flex flex-col items-center justify-center p-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[38px] print:ring-0 print:bg-transparent ${
-                                sheetWrapMode === 'auto_wrap' ? '' : 'min-w-[28px] sm:min-w-[32px]'
-                              } ${
                                 isSelectedNote
                                   ? sheetTheme === 'dark'
                                     ? 'ring-2 ring-amber-400 bg-amber-950/60'
@@ -2606,16 +2672,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     }}
                                     style={{
                                       zoom: 'var(--lyric-zoom, 1)',
-                                      flex: sheetWrapMode === 'auto_wrap'
-                                        ? `${Math.max(1, Math.round((engNote.requiredWidth || 32) / 10))} 0 auto`
-                                        : undefined,
-                                      minWidth: sheetWrapMode === 'auto_wrap'
-                                        ? `${Math.round(engNote.requiredWidth || 28)}px`
-                                        : undefined,
+                                      flex: `${Math.max(1, Math.round((engNote.requiredWidth || 32) / 10))} 0 auto`,
+                                      minWidth: `${Math.round(engNote.requiredWidth || 28)}px`,
                                     }}
-                                    className={`flex-1 text-center ${
-                                      sheetWrapMode === 'auto_wrap' ? '' : 'min-w-[26px] sm:min-w-[30px]'
-                                    } min-h-[26px] sm:min-h-[30px] flex items-center ${
+                                    className={`flex-1 text-center min-h-[26px] sm:min-h-[30px] flex items-center ${
                                       connectsToNextWithSemiHyphen
                                         ? 'justify-end pr-0 mr-0'
                                         : connectedFromPrevSemiHyphen
@@ -2997,6 +3057,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         onAutoWrapMeasures={handleAutoWrapMeasures}
         sheetWrapMode={sheetWrapMode}
         onRotateWrapMode={handleRotateWrapMode}
+        sheetOrientation={sheetOrientation}
+        onToggleOrientation={handleToggleOrientation}
         onPushNotesToNextMeasure={handlePushNotesToNextMeasure}
         onShiftNotesToPrevMeasure={handleShiftNotesToPrevMeasure}
       />

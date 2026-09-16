@@ -1,4 +1,4 @@
-import type { Measure, NumberedNotationNote, TimeSignature, PitchNumber, NoteDuration, BarlineType, SheetWrapMode } from '../types/song.ts';
+import type { Measure, NumberedNotationNote, TimeSignature, PitchNumber, NoteDuration, BarlineType, SheetWrapMode, SheetOrientation } from '../types/song.ts';
 
 /**
  * Calculated engraving data for a single numbered notation note on a printed sheet.
@@ -457,7 +457,8 @@ export function groupMeasuresIntoSystems(
   measures: Measure[],
   timeSignature: TimeSignature,
   defaultMeasuresPerSystem = 4,
-  wrapMode: SheetWrapMode = 'no_wrap'
+  wrapMode: SheetWrapMode = 'no_wrap',
+  orientation: SheetOrientation = 'portrait'
 ): Array<{
   systemIndex: number;
   measures: EngravedMeasure[];
@@ -473,7 +474,12 @@ export function groupMeasuresIntoSystems(
 
   let currentSystem: EngravedMeasure[] = [];
   let currentSystemWidth = 0;
-  const MAX_SYSTEM_LINE_WIDTH = 740; // Target printable sheet system content width in pixels
+  // Content line width budgets: ~750px for Portrait (A4 210mm), ~1050px for Landscape (A4 297mm)
+  const MAX_SYSTEM_LINE_WIDTH = orientation === 'landscape' ? 1050 : 750;
+  const effectiveDefaultMeasures =
+    orientation === 'landscape' && defaultMeasuresPerSystem === 4
+      ? 5
+      : defaultMeasuresPerSystem;
 
   measures.forEach((measure, idx) => {
     const engraved = engraveMeasure(measure, idx, timeSignature, measures);
@@ -487,7 +493,7 @@ export function groupMeasuresIntoSystems(
         const isMajorSection = Boolean(measure.section && measure.section.trim());
         const sectionBreak = isMajorSection && currentSystem.length >= 2;
 
-        // Break if adding this measure would exceed the line budget (preventing collision)
+        // Break if adding this measure would exceed the line budget (preventing collision & overflow)
         const exceedsWidth = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH;
 
         // Break if previous measure explicitly had isLineBreak
@@ -498,19 +504,27 @@ export function groupMeasuresIntoSystems(
         }
       }
     } else if (wrapMode === 'auto_fit') {
-      // 2. Auto Fit (Forced fit): break at defaultMeasuresPerSystem or explicit isLineBreak
+      // 2. Auto Fit (Forced fit / Auto fix): break at target measures per line or explicit isLineBreak
       if (currentSystem.length > 0) {
-        const reachesLimit = currentSystem.length >= defaultMeasuresPerSystem;
+        const reachesLimit = currentSystem.length >= effectiveDefaultMeasures;
         const prevHadBreak = currentSystem[currentSystem.length - 1].isLineBreak;
-        if (reachesLimit || prevHadBreak) {
+
+        // Density guard: if adding this measure would push the line beyond sheet boundaries,
+        // break early so syllables never collide and measures never overflow the sheet
+        const exceedsWidth = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH;
+
+        if (reachesLimit || prevHadBreak || (exceedsWidth && currentSystem.length >= 2)) {
           shouldBreakBefore = true;
         }
       }
     } else {
-      // 1. No Fit / No Wrap: ONLY break if previous measure explicitly had isLineBreak
+      // 1. No Fit / No Wrap: ONLY break if previous measure explicitly had isLineBreak,
+      // OR sheet boundary guard: break before this measure if cumulative width exceeds sheet boundary
       if (currentSystem.length > 0) {
         const prevHadBreak = currentSystem[currentSystem.length - 1].isLineBreak;
-        if (prevHadBreak) {
+        const exceedsSheet = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH;
+
+        if (prevHadBreak || exceedsSheet) {
           shouldBreakBefore = true;
         }
       }

@@ -51,6 +51,8 @@ export type BarlineType = 'single' | 'double' | 'end' | 'repeat_start' | 'repeat
 
 export type SheetWrapMode = 'no_wrap' | 'auto_fit' | 'auto_wrap';
 
+export type SheetOrientation = 'portrait' | 'landscape';
+
 export interface Measure {
   id: string;
   measureNumber: number;
@@ -80,6 +82,7 @@ export interface Song {
   bpm: number;
   measures: Measure[];
   notesPerLine?: number;    // Measures per line display (default 4)
+  orientation?: SheetOrientation; // Realistic score sheet paper orientation ('portrait' | 'landscape')
   description?: string;
   footnote?: string;        // Publication footnote / copyright / community attribution text
   updatedAt?: number;       // Last modified timestamp

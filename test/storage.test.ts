@@ -4,6 +4,8 @@ import {
   STORAGE_KEYS,
   getStoredSheetWrapMode,
   setStoredSheetWrapMode,
+  getStoredSheetOrientation,
+  setStoredSheetOrientation,
   getStoredQuickAlignTarget,
   setStoredQuickAlignTarget,
   getStoredMidiInstrument,
@@ -74,6 +76,15 @@ describe('Local Storage UI Selections Management', () => {
     assert.strictEqual(getStoredSheetWrapMode(), 'auto_fit');
   });
 
+  it('manages sheetOrientation with persistence and defaults', () => {
+    assert.strictEqual(getStoredSheetOrientation(), 'portrait');
+    setStoredSheetOrientation('landscape');
+    assert.strictEqual(getStoredSheetOrientation(), 'landscape');
+    assert.strictEqual(store[STORAGE_KEYS.REAL_SHEET_ORIENTATION], 'landscape');
+    setStoredSheetOrientation('portrait');
+    assert.strictEqual(getStoredSheetOrientation(), 'portrait');
+  });
+
   it('manages quickAlignTarget with persistence and defaults', () => {
     assert.strictEqual(getStoredQuickAlignTarget(), 'roman');
     setStoredQuickAlignTarget('hanlo');
@@ -106,6 +117,7 @@ describe('Local Storage UI Selections Management', () => {
 
   it('resets all UI selections in resetAllSettingsToDefault', () => {
     setStoredSheetWrapMode('auto_wrap');
+    setStoredSheetOrientation('landscape');
     setStoredQuickAlignTarget('dual');
     setStoredMidiInstrument('synth');
     setStoredPianoDeckMode('transcribe');
@@ -115,6 +127,7 @@ describe('Local Storage UI Selections Management', () => {
     resetAllSettingsToDefault();
 
     assert.strictEqual(getStoredSheetWrapMode(), 'no_wrap');
+    assert.strictEqual(getStoredSheetOrientation(), 'portrait');
     assert.strictEqual(getStoredQuickAlignTarget(), 'roman');
     assert.strictEqual(getStoredMidiInstrument(), 'piano');
     assert.strictEqual(getStoredPianoDeckMode(), 'step');

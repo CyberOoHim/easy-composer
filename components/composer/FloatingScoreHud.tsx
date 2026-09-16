@@ -38,8 +38,10 @@ import {
   RotateCw,
   WrapText,
   AlignJustify,
+  RectangleHorizontal,
+  RectangleVertical,
 } from 'lucide-react';
-import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode, VerseDisplayOption, SheetWrapMode } from '@/types/song';
+import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode, VerseDisplayOption, SheetWrapMode, SheetOrientation } from '@/types/song';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 
 export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit';
@@ -62,6 +64,8 @@ export interface FloatingScoreHudProps {
   onAutoWrapMeasures?: () => void;
   sheetWrapMode?: SheetWrapMode;
   onRotateWrapMode?: () => void;
+  sheetOrientation?: SheetOrientation;
+  onToggleOrientation?: () => void;
 
   // Note editing operations
   onInsertNoteAfter?: () => void;
@@ -184,6 +188,8 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   onAutoWrapMeasures,
   sheetWrapMode = 'no_wrap',
   onRotateWrapMode,
+  sheetOrientation = 'portrait',
+  onToggleOrientation,
   onInsertNoteAfter,
   onInsertNoteBefore,
   onDeleteCurrentNote,
@@ -1381,6 +1387,33 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 <span className="hidden lg:inline">Wrap Up</span>
               </button>
             ) : null}
+
+            {onToggleOrientation && (
+              <button
+                id="floating-hud-orientation-btn"
+                type="button"
+                onClick={onToggleOrientation}
+                className={`flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                  sheetOrientation === 'landscape'
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
+                    : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+                title={`Sheet Orientation: ${
+                  sheetOrientation === 'portrait'
+                    ? 'Portrait (210×297mm). Click to switch to Landscape.'
+                    : 'Landscape (297×210mm). Click to switch to Portrait.'
+                }`}
+              >
+                {sheetOrientation === 'portrait' ? (
+                  <RectangleVertical className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                ) : (
+                  <RectangleHorizontal className="w-3.5 h-3.5 text-emerald-500" />
+                )}
+                <span className="inline font-mono text-[11px]">
+                  {sheetOrientation === 'portrait' ? 'Portrait' : 'Landscape'}
+                </span>
+              </button>
+            )}
 
             {canFillRest && onAutoFillRest && (
               <button

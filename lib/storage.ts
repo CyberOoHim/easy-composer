@@ -1,6 +1,6 @@
 'use client';
 
-import type { Song, LyricDisplayMode, InstrumentType, EditorEditMode, NoteEditSubMode, NoteInputMode, Measure, NumberedNotationNote, SheetWrapMode } from '../types/song.ts';
+import type { Song, LyricDisplayMode, InstrumentType, EditorEditMode, NoteEditSubMode, NoteInputMode, Measure, NumberedNotationNote, SheetWrapMode, SheetOrientation } from '../types/song.ts';
 import { PRESET_SONGS } from './presets.ts';
 
 export const STORAGE_KEYS = {
@@ -33,6 +33,7 @@ export const STORAGE_KEYS = {
   KARAOKE_STAGE_THEME: 'taigi_karaoke_stage_theme',
   REAL_SHEET_THEME: 'taigi_real_sheet_theme',
   REAL_SHEET_WRAP_MODE: 'real_sheet_wrap_mode',
+  REAL_SHEET_ORIENTATION: 'real_sheet_orientation',
   KARAOKE_SHOW_NOTATION: 'taigi_karaoke_show_notation',
   KARAOKE_LAYOUT_MODE: 'taigi_karaoke_layout_mode',
   KARAOKE_LYRIC_ALIGN: 'taigi_karaoke_lyric_align',
@@ -82,7 +83,7 @@ export type SearchScope = 'all' | 'current';
 export type SearchMatchFilter = 'all' | 'measure' | 'verse';
 export type InSongFilter = 'all' | 'measure' | 'verse';
 export type QuickAlignTarget = 'roman' | 'hanlo' | 'dual';
-export type { NoteInputMode, SheetWrapMode };
+export type { NoteInputMode, SheetWrapMode, SheetOrientation };
 
 /**
  * Safe local storage getter with fallback
@@ -865,6 +866,19 @@ export function setStoredSheetWrapMode(mode: SheetWrapMode): void {
 }
 
 // ============================================================================
+// 16b. REAL SHEET ORIENTATION PREFERENCE
+// ============================================================================
+export function getStoredSheetOrientation(defaultVal: SheetOrientation = 'portrait'): SheetOrientation {
+  const val = safeGetItem(STORAGE_KEYS.REAL_SHEET_ORIENTATION);
+  if (val === 'portrait' || val === 'landscape') return val;
+  return defaultVal;
+}
+
+export function setStoredSheetOrientation(orientation: SheetOrientation): void {
+  safeSetItem(STORAGE_KEYS.REAL_SHEET_ORIENTATION, orientation);
+}
+
+// ============================================================================
 // 17. QUICK LYRIC ALIGNER PREFERENCE
 // ============================================================================
 export function getStoredQuickAlignTarget(defaultVal: QuickAlignTarget = 'roman'): QuickAlignTarget {
@@ -936,6 +950,7 @@ export function resetAllSettingsToDefault(): void {
   setStoredDisplayMode('roman_major_hanlo');
   setStoredRealSheetTheme('dark');
   setStoredSheetWrapMode('no_wrap');
+  setStoredSheetOrientation('portrait');
   setStoredNoteInputMode('progressive_replace');
   setStoredShowRhythmWarnings(true);
   setStoredAutoStepAdvance(false);

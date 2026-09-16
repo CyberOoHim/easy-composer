@@ -13,6 +13,7 @@ import type {
   VerseNoteRef,
   LyricSyllable,
   VerseDisplayOption,
+  SheetOrientation,
 } from '../types/song.ts';
 
 // Semitones relative to C4 (MIDI note 60)
@@ -1851,12 +1852,24 @@ export function autoRearrangeSongMeasures(song: Song): Song {
  * - Section transitions (e.g. Intro, Verse, Chorus)
  * - Ending barlines and volta repeat endings
  */
-export function autoWrapSongMeasures(song: Song, targetMeasuresPerLine?: number): Song {
+export function autoWrapSongMeasures(
+  song: Song,
+  targetMeasuresPerLine?: number,
+  orientation?: SheetOrientation
+): Song {
   if (!song.measures || song.measures.length <= 1) {
     return song;
   }
 
-  const baseCapacity = Math.max(2, Math.min(6, targetMeasuresPerLine || song.notesPerLine || 4));
+  const effectiveOrientation = orientation || song.orientation || 'portrait';
+  const defaultTarget = effectiveOrientation === 'landscape' ? 5 : 4;
+  const baseCapacity = Math.max(
+    2,
+    Math.min(
+      effectiveOrientation === 'landscape' ? 8 : 6,
+      targetMeasuresPerLine || song.notesPerLine || defaultTarget
+    )
+  );
   const newMeasures = song.measures.map(m => ({ ...m }));
 
   // Helper to compute visual density weight of a measure
@@ -1910,7 +1923,7 @@ export function autoWrapSongMeasures(song: Song, targetMeasuresPerLine?: number)
   // Build systems dynamically
   let currentSystemMeasures: number[] = [];
   let currentSystemWeight = 0;
-  const maxLineWeight = baseCapacity * 1.15;
+  const maxLineWeight = baseCapacity * (effectiveOrientation === 'landscape' ? 1.25 : 1.15);
 
   for (let i = 0; i < newMeasures.length; i++) {
     const m = newMeasures[i];

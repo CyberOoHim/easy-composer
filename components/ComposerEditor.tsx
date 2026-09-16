@@ -12,6 +12,7 @@ import {
   ArticulationType,
   InstrumentType,
   SheetWrapMode,
+  SheetOrientation,
 } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import {
@@ -37,6 +38,8 @@ import {
   setStoredAutoStepAdvance,
   getStoredSheetWrapMode,
   setStoredSheetWrapMode,
+  getStoredSheetOrientation,
+  setStoredSheetOrientation,
   SETTINGS_RESET_EVENT,
 } from '@/lib/storage';
 import { SongMetadataHeader } from './composer/SongMetadataHeader';
@@ -1155,11 +1158,20 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     return 'no_wrap'; // Button default is not auto wrapping
   });
 
+  // Realistic Sheet Paper Orientation: 'portrait' | 'landscape'
+  const [sheetOrientation, setSheetOrientation] = useState<SheetOrientation>(() => {
+    if (typeof window !== 'undefined') {
+      return getStoredSheetOrientation(song.orientation || 'portrait');
+    }
+    return song.orientation || 'portrait';
+  });
+
   // Keep settings synced on global settings reset
   useEffect(() => {
     const handleReset = () => {
       setAutoStepAdvanceState(getStoredAutoStepAdvance(false));
       setSheetWrapMode(getStoredSheetWrapMode('no_wrap'));
+      setSheetOrientation(getStoredSheetOrientation('portrait'));
     };
     window.addEventListener(SETTINGS_RESET_EVENT, handleReset);
     return () => window.removeEventListener(SETTINGS_RESET_EVENT, handleReset);
@@ -1176,26 +1188,36 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       if (next === 'no_wrap') {
         showNotice('Layout: 1. No Fit / No Wrap (Manual breaks only)');
       } else if (next === 'auto_fit') {
-        showNotice(`Layout: 2. Auto Fit (Forced ${song.notesPerLine || 4} measures per line)`);
+        showNotice(`Layout: 2. Auto Fit (Forced ${song.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4)} measures per line)`);
       } else {
         showNotice('Layout: 3. Auto Wrap (Dynamic spacing, zero syllable collision)');
       }
       return next;
     });
-  }, [showNotice, song.notesPerLine]);
+  }, [showNotice, song.notesPerLine, sheetOrientation]);
+
+  const handleToggleOrientation = useCallback(() => {
+    setSheetOrientation(prev => {
+      const next: SheetOrientation = prev === 'portrait' ? 'landscape' : 'portrait';
+      setStoredSheetOrientation(next);
+      showNotice(`Orientation: ${next === 'portrait' ? 'Portrait (210×297mm)' : 'Landscape (297×210mm)'}`);
+      return next;
+    });
+  }, [showNotice]);
 
   // Auto wrap song measures to fit within the realistic sheet
   const handleAutoWrapMeasures = useCallback(() => {
-    const wrapped = autoWrapSongMeasures(song);
+    const wrapped = autoWrapSongMeasures(song, undefined, sheetOrientation);
     handleUpdateSong(wrapped);
     const systems = groupMeasuresIntoSystems(
       wrapped.measures,
       wrapped.timeSignature || '4/4',
-      wrapped.notesPerLine || 4,
-      'auto_wrap'
+      wrapped.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4),
+      'auto_wrap',
+      sheetOrientation
     );
-    showNotice(`Auto-wrapped ${wrapped.measures.length} measures across ${systems.length} sheet systems`);
-  }, [song, handleUpdateSong, showNotice]);
+    showNotice(`Auto-wrapped ${wrapped.measures.length} measures across ${systems.length} sheet systems (${sheetOrientation})`);
+  }, [song, handleUpdateSong, showNotice, sheetOrientation]);
 
   // Measure Management: Delete Measure
   const handleDeleteMeasure = (mIdx: number) => {
@@ -2355,6 +2377,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           onAutoWrapMeasures={handleAutoWrapMeasures}
           sheetWrapMode={sheetWrapMode}
           onRotateWrapMode={handleRotateWrapMode}
+          sheetOrientation={sheetOrientation}
+          onToggleOrientation={handleToggleOrientation}
           onPushNotesToNextMeasure={handlePushNotesToNextMeasure}
           onShiftNotesToPrevMeasure={handleShiftNotesToPrevMeasure}
           onDeleteMeasure={handleDeleteMeasure}

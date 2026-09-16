@@ -149,5 +149,128 @@ describe('autoWrapSongMeasures', () => {
     assert.equal(bch.measures[3].section, undefined);
     assert.equal(bch.measures[4].section, 'Verse');
   });
+
+  describe('3-Mode Measure Arrangement in Portrait & Landscape', () => {
+    it('Mode 1 (no_wrap): respects manual breaks AND guards sheet boundary to prevent overflowing sheet', async () => {
+      const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
+      // 8 standard measures without manual line breaks
+      const rawMeasures: Measure[] = Array.from({ length: 8 }, (_, i) =>
+        makeMockMeasure(`m${i + 1}`, i + 1, 4)
+      );
+
+      // In Portrait (750px max content width): 8 measures (~160px each) cannot fit on one line
+      const portraitSystems = groupMeasuresIntoSystems(rawMeasures, '4/4', 4, 'no_wrap', 'portrait');
+      assert.ok(portraitSystems.length > 1, 'no_wrap must wrap across multiple systems when exceeding portrait sheet boundary');
+      for (const sys of portraitSystems) {
+        const totalW = sys.measures.reduce((acc, m) => acc + (m.requiredWidth || 140), 0);
+        // Each system width must stay within sheet bounds
+        assert.ok(totalW <= 750 * 1.25, `System width ${totalW}px should not overflow sheet boundary`);
+      }
+
+      // In Landscape (1050px max content width): can hold more measures per system
+      const landscapeSystems = groupMeasuresIntoSystems(rawMeasures, '4/4', 4, 'no_wrap', 'landscape');
+      assert.ok(landscapeSystems[0].measures.length >= portraitSystems[0].measures.length,
+        'Landscape should accommodate more measures in first system than Portrait');
+    });
+
+    it('Mode 2 (auto_fit): targets 4 measures in Portrait and 5 in Landscape, breaking early for dense measures', async () => {
+      const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
+      const standardMeasures: Measure[] = Array.from({ length: 10 }, (_, i) =>
+        makeMockMeasure(`m${i + 1}`, i + 1, 4)
+      );
+
+      // Portrait auto_fit defaults to 4 measures per line
+      const pSystems = groupMeasuresIntoSystems(standardMeasures, '4/4', 4, 'auto_fit', 'portrait');
+      assert.equal(pSystems[0].measures.length, 4);
+
+      // Landscape auto_fit defaults to 5 measures per line
+      const lSystems = groupMeasuresIntoSystems(standardMeasures, '4/4', 4, 'auto_fit', 'landscape');
+      assert.equal(lSystems[0].measures.length, 5);
+
+      // High density measures trigger density safeguard to prevent syllable collisions
+      const denseMeasures: Measure[] = [
+        makeMockMeasure('d1', 1, 16), // 16 notes (very dense)
+        makeMockMeasure('d2', 2, 16),
+        makeMockMeasure('d3', 3, 16),
+        makeMockMeasure('d4', 4, 16),
+      ];
+      const denseSystems = groupMeasuresIntoSystems(denseMeasures, '4/4', 4, 'auto_fit', 'portrait');
+      // Should break before cramming all 4 ultra-dense measures on one portrait line
+      assert.ok(denseSystems.length > 1, 'Dense measures must break early to prevent text collision');
+      assert.ok(denseSystems[0].measures.length < 4, 'First system should have fewer than 4 measures for ultra-dense notes');
+    });
+
+    it('Mode 3 (auto_wrap): dynamically budgets line width for Portrait (750px) vs Landscape (1050px)', async () => {
+      const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
+      const rawMeasures: Measure[] = Array.from({ length: 12 }, (_, i) =>
+        makeMockMeasure(`m${i + 1}`, i + 1, 4)
+      );
+
+      const pSystems = groupMeasuresIntoSystems(rawMeasures, '4/4', 4, 'auto_wrap', 'portrait');
+      const lSystems = groupMeasuresIntoSystems(rawMeasures, '4/4', 4, 'auto_wrap', 'landscape');
+
+      // Landscape should require fewer systems because each line has a 1050px budget instead of 750px
+      assert.ok(lSystems.length <= pSystems.length, 'Landscape requires fewer or equal systems than portrait');
+      assert.ok(lSystems[0].measures.length >= pSystems[0].measures.length, 'Landscape first line should pack more measures');
+    });
+
+    it('allocates sufficient requiredWidth for long POJ syllables and multi-verse lyrics to prevent collision', async () => {
+      const { calculateNoteRequiredWidth } = await import('../lib/numberedNotationEngraver.ts');
+      // Note with short syllable
+      const shortNote: NumberedNotationNote = {
+        id: 'n1',
+        pitch: 1,
+        octave: 0,
+        duration: 1,
+        lyric: { hanlo: '你', poj: 'lí' },
+      };
+      const shortWidth = calculateNoteRequiredWidth(shortNote);
+
+      // Note with long POJ syllable (e.g. chháichheng)
+      const longNote: NumberedNotationNote = {
+        id: 'n2',
+        pitch: 1,
+        octave: 0,
+        duration: 1,
+        lyric: { hanlo: '採茶', poj: 'chháichheng' },
+      };
+      const longWidth = calculateNoteRequiredWidth(longNote);
+
+      assert.ok(longWidth > shortWidth, 'Long POJ syllable must have significantly larger required width');
+      assert.ok(longWidth >= 80, `Long syllable should have >= 80px required width, got ${longWidth}`);
+
+      // Note with 3 stacked verses
+      const multiVerseNote: NumberedNotationNote = {
+        id: 'n3',
+        pitch: 1,
+        octave: 0,
+        duration: 1,
+        lyric: { hanlo: '一', poj: 'chit' },
+        lyricsByVerse: {
+          1: { hanlo: '一', poj: 'chit' },
+          2: { hanlo: '重重', poj: 'têng-têng' },
+          3: { hanlo: '穿過', poj: 'chhoan-kòe' },
+        },
+      };
+      const mvWidth = calculateNoteRequiredWidth(multiVerseNote);
+      assert.ok(mvWidth >= 60, `Multi-verse note should have >= 60px required width, got ${mvWidth}`);
+    });
+
+    it('autoWrapSongMeasures adapts wrapping density based on orientation', () => {
+      const denseMeasures = Array.from({ length: 12 }, (_, i) =>
+        makeMockMeasure(`m${i + 1}`, i + 1, 8)
+      );
+      const song = makeMockSong(denseMeasures, 4);
+
+      const wrappedPortrait = autoWrapSongMeasures(song, undefined, 'portrait');
+      const wrappedLandscape = autoWrapSongMeasures(song, undefined, 'landscape');
+
+      const portraitBreaks = wrappedPortrait.measures.filter(m => m.isLineBreak).length;
+      const landscapeBreaks = wrappedLandscape.measures.filter(m => m.isLineBreak).length;
+
+      // Portrait should have more line breaks than Landscape because Landscape has ~40% wider lines
+      assert.ok(portraitBreaks >= landscapeBreaks, 'Portrait should have more or equal line breaks than Landscape');
+    });
+  });
 });
 
