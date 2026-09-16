@@ -1362,7 +1362,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 }`}
                 title={`Layout mode: ${
                   sheetWrapMode === 'no_wrap'
-                    ? '1. No Wrap (Lines spread completely; wraps only at delimiters & breaks). Click to rotate to 2. Auto Fit.'
+                    ? '1. No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to rotate to 2. Auto Fit.'
                     : sheetWrapMode === 'auto_fit'
                     ? '2. Auto fit in (Forced measures per line). Click to rotate to 3. Auto Wrap.'
                     : '3. Auto wrap (Dynamic collision-free spacing). Click to rotate to 1. No Wrap.'

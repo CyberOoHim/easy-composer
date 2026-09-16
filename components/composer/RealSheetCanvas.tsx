@@ -523,15 +523,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   // Landscape: 297mm (~1240px / max-w-[1240px])
   const standardSheetWidth = sheetOrientation === 'landscape' ? 1240 : 896;
 
+  // Natural measure width for no_wrap mode (spacious, collision-free, unstretched)
+  const getNaturalMeasureWidth = useCallback((engravedM: EngravedMeasure) => {
+    return Math.max(160, Math.round((engravedM.requiredWidth || 160) * 1.08));
+  }, []);
+
   // Compute required width for longest system line
   const longestSystemLineWidth = useMemo(() => {
     if (!systems || systems.length === 0) return 0;
     return Math.max(
       ...systems.map(sys =>
-        sys.measures.reduce((sum, m) => sum + (m.requiredWidth || 120), 0)
+        sys.measures.reduce((sum, m) => sum + getNaturalMeasureWidth(m), 0)
       )
     );
-  }, [systems]);
+  }, [systems, getNaturalMeasureWidth]);
 
   // Total required sheet width for no_wrap: accommodates longest line plus paper padding
   // Paper padding: p-3.5 (14px) sm:p-6 (24px) md:p-8 (32px each side = 64px) + margin clearance
@@ -1918,7 +1923,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             }`}
             title={`Layout Mode: ${
               sheetWrapMode === 'no_wrap'
-                ? '1. No Wrap (Lines spread completely; wraps only at delimiters & breaks). Click to switch to 2. Auto Fit.'
+                ? '1. No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to switch to 2. Auto Fit.'
                 : sheetWrapMode === 'auto_fit'
                 ? '2. Auto fit in (Forced measures per line). Click to switch to 3. Auto Wrap.'
                 : '3. Auto wrap (Dynamic collision-free spacing). Click to switch to 1. No Wrap.'
@@ -2283,7 +2288,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             <div
               key={`system-${system.systemIndex}`}
               id={`sheet-system-${system.systemIndex}`}
-              className={`relative w-full flex items-stretch border-l-2 print:overflow-visible print:w-full print:break-inside-avoid ${
+              className={`relative flex items-stretch border-l-2 print:overflow-visible print:w-full print:break-inside-avoid ${
+                sheetWrapMode === 'no_wrap' ? 'w-fit self-start' : 'w-full'
+              } ${
                 sheetTheme === 'dark' ? 'border-zinc-400' : 'border-zinc-800'
               }`}
             >
@@ -2303,14 +2310,23 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                       }
                     }}
                     style={{
-                      flex: sheetWrapMode === 'auto_wrap' || sheetWrapMode === 'no_wrap'
+                      flex: sheetWrapMode === 'no_wrap'
+                        ? '0 0 auto'
+                        : sheetWrapMode === 'auto_wrap'
                         ? `${Math.max(1, Math.round(engravedM.requiredWidth || 100))}`
                         : 1,
-                      minWidth: sheetWrapMode === 'auto_wrap' || sheetWrapMode === 'no_wrap'
+                      width: sheetWrapMode === 'no_wrap'
+                        ? `${getNaturalMeasureWidth(engravedM)}px`
+                        : undefined,
+                      minWidth: sheetWrapMode === 'no_wrap'
+                        ? `${Math.max(150, Math.round((engravedM.requiredWidth || 150) * 1.02))}px`
+                        : sheetWrapMode === 'auto_wrap'
                         ? `${Math.min(240, Math.round((engravedM.requiredWidth || 110) * 0.75))}px`
                         : `${Math.round((engravedM.requiredWidth || 110) * 0.65)}px`,
                     }}
-                    className={`relative flex-1 flex flex-col justify-between px-1.5 sm:px-2 pt-1.5 pb-1 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
+                    className={`relative ${
+                      sheetWrapMode === 'no_wrap' ? 'flex-none' : 'flex-1'
+                    } flex flex-col justify-between px-1.5 sm:px-2 pt-1.5 pb-1 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
                       isSelectedMeasure
                         ? sheetTheme === 'dark' ? 'bg-amber-950/30' : 'bg-amber-50/40'
                         : sheetTheme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50/80'
