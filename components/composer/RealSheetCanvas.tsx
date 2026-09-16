@@ -301,7 +301,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
   }, [propOnToggleShowRhythmWarnings]);
 
-  // 3-Mode Sheet Layout: 'no_wrap' | 'auto_fit' | 'auto_wrap'
+  // 3-Mode Sheet Layout: 'no_wrap' -> 'auto_wrap' -> 'auto_fit' ('auto fix')
   // Default is 'no_wrap' (1. no fit in nor wrap)
   const [internalWrapMode, setInternalWrapMode] = useState<SheetWrapMode>(() => {
     if (typeof window !== 'undefined') {
@@ -318,8 +318,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
     setInternalWrapMode(prev => {
       let next: SheetWrapMode;
-      if (prev === 'no_wrap') next = 'auto_fit';
-      else if (prev === 'auto_fit') next = 'auto_wrap';
+      if (prev === 'no_wrap') next = 'auto_wrap';
+      else if (prev === 'auto_wrap') next = 'auto_fit';
       else next = 'no_wrap';
 
       setStoredSheetWrapMode(next);
@@ -565,7 +565,43 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   // Standard realistic physical sheet widths (A4)
   // Portrait: 210mm (~896px / max-w-4xl)
   // Landscape: 297mm (~1240px / max-w-[1240px])
-  const standardSheetWidth = sheetOrientation === 'landscape' ? 1240 : 896;
+  // In Auto Fit and Auto Wrap modes, the sheet paper has `w-full max-w-...`, so its actual width is:
+  // Math.min(viewportAvailWidth, maxPhysicalSheetWidth).
+  // In No Wrap mode, we dynamically match this exact same width so the realistic sheet range
+  // within the vertical boundary line is visually identical to the paper width in the other two modes!
+  const [viewportAvailWidth, setViewportAvailWidth] = useState<number>(0);
+
+  useEffect(() => {
+    if (!canvasWrapperRef.current) return;
+    const el = canvasWrapperRef.current;
+    const updateWidth = () => {
+      const computed = window.getComputedStyle(el);
+      const pl = parseFloat(computed.paddingLeft) || 0;
+      const pr = parseFloat(computed.paddingRight) || 0;
+      const avail = el.clientWidth - pl - pr;
+      if (avail > 0) {
+        setViewportAvailWidth(avail);
+      }
+    };
+    updateWidth();
+    const ro = new ResizeObserver(updateWidth);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const maxPhysicalSheetWidth = sheetOrientation === 'landscape' ? 1240 : 896;
+  const standardSheetWidth = useMemo(() => {
+    if (viewportAvailWidth > 0) {
+      return Math.min(viewportAvailWidth, maxPhysicalSheetWidth);
+    }
+    return maxPhysicalSheetWidth;
+  }, [viewportAvailWidth, maxPhysicalSheetWidth]);
+
+  const paperPadding = useMemo(() => {
+    if (viewportAvailWidth > 0 && viewportAvailWidth < 640) return 28;
+    if (viewportAvailWidth > 0 && viewportAvailWidth < 768) return 48;
+    return 64;
+  }, [viewportAvailWidth]);
 
   // Natural measure width for no_wrap mode (spacious, collision-free, unstretched)
   const getNaturalMeasureWidth = useCallback((engravedM: EngravedMeasure) => {
@@ -1891,18 +1927,11 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       {/* Top Floating Paper Control Bar */}
       <div
         id="sheet-top-action-bar"
-        style={
-          sheetWrapMode === 'no_wrap'
-            ? { width: `${extendedSheetWidth}px`, minWidth: `${extendedSheetWidth}px`, maxWidth: 'none' }
-            : undefined
-        }
-        className={`w-full ${
-          sheetWrapMode === 'no_wrap'
-            ? ''
-            : sheetOrientation === 'landscape'
-            ? 'max-w-[1240px]'
-            : 'max-w-4xl'
-        } flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden`}
+        style={{
+          width: '100%',
+          maxWidth: `${standardSheetWidth}px`,
+        }}
+        className="flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden"
       >
         <div className="flex items-center gap-2">
           <span className="text-xs font-serif tracking-wider font-bold text-zinc-500 uppercase">
@@ -1978,21 +2007,21 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             }`}
             title={`Layout Mode: ${
               sheetWrapMode === 'no_wrap'
-                ? '1. No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to switch to 2. Auto Fit.'
-                : sheetWrapMode === 'auto_fit'
-                ? '2. Auto fit in (Forced measures per line). Click to switch to 3. Auto Wrap.'
-                : '3. Auto wrap (Dynamic collision-free spacing). Click to switch to 1. No Wrap.'
+                ? '1. No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to switch to 2. Auto Wrap.'
+                : sheetWrapMode === 'auto_wrap'
+                ? '2. Auto Wrap (Dynamic collision-free spacing). Click to switch to 3. Auto Fix.'
+                : '3. Auto Fix (Forced measures per line). Click to switch to 1. No Wrap.'
             }`}
           >
             {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5 text-zinc-500" />}
-            {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5 text-sky-500" />}
             {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5 text-amber-500" />}
+            {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5 text-sky-500" />}
             <span>
               {sheetWrapMode === 'no_wrap'
                 ? '1. No Wrap'
-                : sheetWrapMode === 'auto_fit'
-                ? '2. Auto Fit'
-                : '3. Auto Wrap'}
+                : sheetWrapMode === 'auto_wrap'
+                ? '2. Auto Wrap'
+                : '3. Auto Fix'}
             </span>
           </button>
 
@@ -2049,7 +2078,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             <div className="sticky top-2 z-20 -translate-x-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-mono font-bold shadow-xs border bg-zinc-100/95 dark:bg-zinc-800/95 text-zinc-600 dark:text-zinc-300 border-zinc-300 dark:border-zinc-700 whitespace-nowrap backdrop-blur-xs select-none">
               <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 dark:bg-zinc-500 shrink-0" />
               <span>
-                Realistic A4 Right Edge · {sheetOrientation === 'landscape' ? '297mm (1240px)' : '210mm (896px)'}
+                Realistic A4 Right Edge · {sheetOrientation === 'landscape' ? `Landscape (${Math.round(standardSheetWidth)}px)` : `Portrait (${Math.round(standardSheetWidth)}px)`}
               </span>
             </div>
 
@@ -2085,9 +2114,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         </div>
 
         {/* Paper Header: Catalog ID, Title, Credits, Key & Meter */}
-        <header id="real-sheet-header" className={`relative pb-2.5 mb-3 border-b ${
-          sheetTheme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/80'
-        }`}>
+        <header
+          id="real-sheet-header"
+          style={
+            sheetWrapMode === 'no_wrap' && isSheetExtended
+              ? {
+                  width: '100%',
+                  maxWidth: `${Math.max(280, standardSheetWidth - paperPadding)}px`,
+                }
+              : undefined
+          }
+          className={`relative pb-2.5 mb-3 border-b print:max-w-full ${
+            sheetTheme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/80'
+          }`}
+        >
           {/* Top Row: Catalog ID (Left) & Controls (Right) */}
           <div className={`flex items-center justify-between text-xs font-mono mb-1.5 ${
             sheetTheme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
@@ -3253,17 +3293,39 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
         {/* Paper Footnote / Attribution Notice (if available) */}
         {song.footnote && (
-          <div id="sheet-footnote-block" className={`mt-6 pt-2.5 border-t text-[11px] font-serif leading-relaxed space-y-1 ${
-            sheetTheme === 'dark' ? 'border-zinc-800 text-zinc-400' : 'border-zinc-200 text-zinc-500'
-          }`}>
+          <div
+            id="sheet-footnote-block"
+            style={
+              sheetWrapMode === 'no_wrap' && isSheetExtended
+                ? {
+                    width: '100%',
+                    maxWidth: `${Math.max(280, standardSheetWidth - paperPadding)}px`,
+                  }
+                : undefined
+            }
+            className={`mt-6 pt-2.5 border-t text-[11px] font-serif leading-relaxed space-y-1 print:max-w-full ${
+              sheetTheme === 'dark' ? 'border-zinc-800 text-zinc-400' : 'border-zinc-200 text-zinc-500'
+            }`}
+          >
             <p>{song.footnote}</p>
           </div>
         )}
 
         {/* Paper Footer with page numbers and standard sheet music footer */}
-        <footer className={`mt-5 pt-2.5 border-t flex items-center justify-between text-xs font-serif ${
-          sheetTheme === 'dark' ? 'border-zinc-800 text-zinc-400' : 'border-zinc-200/80 text-zinc-400'
-        }`}>
+        <footer
+          id="real-sheet-footer"
+          style={
+            sheetWrapMode === 'no_wrap' && isSheetExtended
+              ? {
+                  width: '100%',
+                  maxWidth: `${Math.max(280, standardSheetWidth - paperPadding)}px`,
+                }
+              : undefined
+          }
+          className={`mt-5 pt-2.5 border-t flex items-center justify-between text-xs font-serif print:max-w-full ${
+            sheetTheme === 'dark' ? 'border-zinc-800 text-zinc-400' : 'border-zinc-200/80 text-zinc-400'
+          }`}
+        >
           <span>{song.title}</span>
           <span className={`font-mono font-bold ${sheetTheme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'}`}>— 1 / 1 —</span>
           <span>Numbered Musical Notation</span>

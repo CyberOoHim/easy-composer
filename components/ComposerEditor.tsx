@@ -1147,10 +1147,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     showNotice(`🎼 Auto-rearranged ${rearranged.measures.length} measures to perfectly match ${song.timeSignature || '4/4'} meter!`);
   }, [song, handleUpdateSong, showNotice]);
 
-  // 3-Mode Sheet Layout: 'no_wrap' | 'auto_fit' | 'auto_wrap'
+  // 3-Mode Sheet Layout: 'no_wrap' -> 'auto_wrap' -> 'auto_fit' ('auto fix')
   // 1. no fit in nor wrap (manual breaks only)
-  // 2. auto fit in (forced fit in fixed measures per line)
-  // 3. auto wrap (dynamic collision-free spacing for syllables)
+  // 2. auto wrap (dynamic collision-free spacing for syllables)
+  // 3. auto fix (forced fit in fixed measures per line)
   const [sheetWrapMode, setSheetWrapMode] = useState<SheetWrapMode>(() => {
     if (typeof window !== 'undefined') {
       return getStoredSheetWrapMode('no_wrap');
@@ -1180,17 +1180,17 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const handleRotateWrapMode = useCallback(() => {
     setSheetWrapMode(prev => {
       let next: SheetWrapMode;
-      if (prev === 'no_wrap') next = 'auto_fit';
-      else if (prev === 'auto_fit') next = 'auto_wrap';
+      if (prev === 'no_wrap') next = 'auto_wrap';
+      else if (prev === 'auto_wrap') next = 'auto_fit';
       else next = 'no_wrap';
 
       setStoredSheetWrapMode(next);
       if (next === 'no_wrap') {
-        showNotice('Layout: 1. No Fit / No Wrap (Manual breaks only)');
-      } else if (next === 'auto_fit') {
-        showNotice(`Layout: 2. Auto Fit (Forced ${song.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4)} measures per line)`);
+        showNotice('Layout: 1. No Wrap (Manual breaks only)');
+      } else if (next === 'auto_wrap') {
+        showNotice('Layout: 2. Auto Wrap (Dynamic spacing, zero syllable collision)');
       } else {
-        showNotice('Layout: 3. Auto Wrap (Dynamic spacing, zero syllable collision)');
+        showNotice(`Layout: 3. Auto Fix (Forced ${song.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4)} measures per line)`);
       }
       return next;
     });

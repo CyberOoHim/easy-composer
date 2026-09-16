@@ -457,9 +457,88 @@ export function calculateMeasureRequiredWidth(
 }
 
 /**
+ * Checks if a measure contains any non-empty lyrics (across standard lyrics, custom lyrics, or stacked verses).
+ */
+export function measureHasLyrics(measure: Measure): boolean {
+  if (!measure.notes || measure.notes.length === 0) return false;
+  return measure.notes.some(note => {
+    const h = (note.lyric?.hanlo || note.lyric?.hanji || note.lyric?.custom || '').trim();
+    const p = (note.lyric?.poj || note.lyric?.tl || '').trim();
+    if (h !== '' || p !== '') return true;
+
+    if (note.lyricsByVerse) {
+      for (const vKey of Object.keys(note.lyricsByVerse)) {
+        const v = note.lyricsByVerse[Number(vKey)];
+        if (v) {
+          const vH = (v.hanlo || v.hanji || v.custom || '').trim();
+          const vP = (v.poj || v.tl || '').trim();
+          if (vH !== '' || vP !== '') return true;
+        }
+      }
+    }
+    return false;
+  });
+}
+
+/**
+ * Checks if a measure has a section badge (e.g. Intro, Verse 1, Chorus, [A]).
+ */
+export function measureHasBadge(measure: Measure): boolean {
+  return Boolean(measure.section && measure.section.trim());
+}
+
+/**
+ * Determines whether a measure is considered an empty measure:
+ * - Has no section badge
+ * - Has no lyrics on any note
+ * - Has no notes OR all notes are rests (0) / blank ('empty') / untuned
+ * - Is not an instrumental prelude
+ */
+export function isMeasureEmpty(measure: Measure): boolean {
+  // If it has a section badge, it's not an empty measure (it's a measure with badge)
+  if (measureHasBadge(measure)) return false;
+
+  // If it has lyrics, it's not an empty measure (it's a measure with lyrics)
+  if (measureHasLyrics(measure)) return false;
+
+  // If marked as prelude with melodic notes, it's an instrumental prelude
+  if (measure.isPrelude) return false;
+
+  // If it has no notes, it is empty
+  if (!measure.notes || measure.notes.length === 0) return true;
+
+  // If all notes are rests (0), blank ('empty'), or untuned
+  const allRestsOrBlank = measure.notes.every(
+    n => n.pitch === 0 || n.pitch === 'empty' || n.pitch === undefined
+  );
+  if (allRestsOrBlank) return true;
+
+  // Check if it has any pitched notes (1-7)
+  const hasPitchedNotes = measure.notes.some(
+    n => typeof n.pitch === 'number' && n.pitch >= 1 && n.pitch <= 7
+  );
+  if (!hasPitchedNotes) return true;
+
+  // If it has default placeholder notes (e.g. from Add Measure: 1 2 3 5 with empty lyrics and no custom obbligato/ending)
+  const isDefaultPlaceholder =
+    measure.notes.length === 4 &&
+    measure.notes[0]?.pitch === 1 &&
+    measure.notes[1]?.pitch === 2 &&
+    measure.notes[2]?.pitch === 3 &&
+    measure.notes[3]?.pitch === 5 &&
+    (!measure.obbligato || measure.obbligato.length === 0) &&
+    (!measure.voltaEnding || measure.voltaEnding.length === 0);
+
+  if (isDefaultPlaceholder) return true;
+
+  return false;
+}
+
+/**
  * Groups measures into systems (staff lines on the sheet).
  * Supports three layout modes:
- * 1. 'no_wrap': No forced fit nor auto wrap; breaks ONLY at manual line breaks (measure.isLineBreak).
+ * 1. 'no_wrap': No forced fit nor auto wrap; breaks ONLY at manual line breaks (measure.isLineBreak),
+ *    delimiters, or grouping consecutive empty measures into the same line ending before a measure with badge or lyrics.
  * 2. 'auto_fit': Forced fit in sheet with fixed measures per line (default 4) or on manual breaks.
  * 3. 'auto_wrap': Real auto-wrap that dynamically breaks lines based on note and lyric content width,
  *    guaranteeing generous spacing and zero collision between syllables and barlines.
@@ -527,29 +606,49 @@ export function groupMeasuresIntoSystems(
         }
       }
     } else {
-      // 1. No Wrap: lines spread completely and ONLY wrap at delimiters and break/new line.
+      // 1. No Wrap: lines spread completely and ONLY wrap at delimiters, breaks, or empty measure transitions.
       // Delimiters include:
       // - Manual line break on the previous measure (measure.isLineBreak)
       // - Delimiter barlines on previous measure ('end', 'repeat_end', 'double')
       // - Section start delimiter on current measure (measure.section)
       // - Note delimiter / newline in lyrics on previous measure
+      // - Consecutive empty measures grouped as the same line, ending before a measure with badge or with lyrics
       if (currentSystem.length > 0) {
-        const prevMeasure = currentSystem[currentSystem.length - 1];
-        const prevHadBreak = Boolean(prevMeasure.isLineBreak);
+        const prevEngraved = currentSystem[currentSystem.length - 1];
+        const prevMeasure = prevEngraved.measure;
+        const prevHadBreak = Boolean(prevEngraved.isLineBreak);
         const prevHadDelimiterBarline =
-          prevMeasure.barlineType === 'end' ||
-          prevMeasure.barlineType === 'repeat_end' ||
-          prevMeasure.barlineType === 'double';
+          prevEngraved.barlineType === 'end' ||
+          prevEngraved.barlineType === 'repeat_end' ||
+          prevEngraved.barlineType === 'double';
         const isSectionStartDelimiter = Boolean(measure.section && measure.section.trim());
         const prevHadLyricNewline = Boolean(
-          prevMeasure.notes?.some(n => {
+          prevEngraved.notes?.some(n => {
             const h = n.note?.lyric?.hanlo || n.note?.lyric?.hanji || n.note?.lyric?.custom || '';
             const p = n.note?.lyric?.poj || n.note?.lyric?.tl || '';
             return h.includes('\n') || p.includes('\n');
           })
         );
 
-        if (prevHadBreak || prevHadDelimiterBarline || isSectionStartDelimiter || prevHadLyricNewline) {
+        // Consecutive empty measures grouping:
+        // Group consecutive empty measures as the same line, ending before a measure with badge or with lyrics
+        const prevIsEmpty = isMeasureEmpty(prevMeasure);
+        const currIsEmpty = isMeasureEmpty(measure);
+        const currHasBadgeOrLyrics = measureHasBadge(measure) || measureHasLyrics(measure);
+
+        // 1. Line of consecutive empty measures ends before a measure with badge or lyrics:
+        const emptyEndingBeforeContent = prevIsEmpty && currHasBadgeOrLyrics;
+        // 2. Line of lyrics/sung content ends when transitioning to empty measures:
+        const lyricsEndingBeforeEmpty = measureHasLyrics(prevMeasure) && currIsEmpty;
+
+        if (
+          prevHadBreak ||
+          prevHadDelimiterBarline ||
+          isSectionStartDelimiter ||
+          prevHadLyricNewline ||
+          emptyEndingBeforeContent ||
+          lyricsEndingBeforeEmpty
+        ) {
           shouldBreakBefore = true;
         }
       }

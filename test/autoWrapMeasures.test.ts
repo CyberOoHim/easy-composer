@@ -350,6 +350,101 @@ describe('autoWrapSongMeasures', () => {
         'Systems should be split precisely at delimiter barlines, section starts, and line breaks'
       );
     });
+
+    it('groups consecutive empty measures as the same line, ending before a measure with badge or with lyrics in no_wrap mode', async () => {
+      const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
+
+      // Helper to make an empty measure (rests or empty notes, no lyrics, no badge)
+      const makeEmptyMeasure = (id: string, measureNumber: number): Measure => ({
+        id,
+        measureNumber,
+        isLineBreak: false,
+        notes: [
+          { id: `n-${id}-1`, pitch: 0, octave: 0, duration: 1, lyric: {} },
+          { id: `n-${id}-2`, pitch: 0, octave: 0, duration: 1, lyric: {} },
+          { id: `n-${id}-3`, pitch: 0, octave: 0, duration: 1, lyric: {} },
+          { id: `n-${id}-4`, pitch: 0, octave: 0, duration: 1, lyric: {} },
+        ],
+      });
+
+      // Helper to make a measure with lyrics
+      const makeMeasureWithLyrics = (id: string, measureNumber: number, word: string): Measure => ({
+        id,
+        measureNumber,
+        isLineBreak: false,
+        notes: [
+          { id: `n-${id}-1`, pitch: 1, octave: 0, duration: 1, lyric: { hanlo: word } },
+          { id: `n-${id}-2`, pitch: 2, octave: 0, duration: 1, lyric: {} },
+          { id: `n-${id}-3`, pitch: 3, octave: 0, duration: 1, lyric: {} },
+          { id: `n-${id}-4`, pitch: 5, octave: 0, duration: 1, lyric: {} },
+        ],
+      });
+
+      // Helper to make a measure with a section badge
+      const makeMeasureWithBadge = (id: string, measureNumber: number, section: string): Measure => ({
+        id,
+        measureNumber,
+        isLineBreak: false,
+        section,
+        notes: [
+          { id: `n-${id}-1`, pitch: 0, octave: 0, duration: 1, lyric: {} },
+          { id: `n-${id}-2`, pitch: 0, octave: 0, duration: 1, lyric: {} },
+          { id: `n-${id}-3`, pitch: 0, octave: 0, duration: 1, lyric: {} },
+          { id: `n-${id}-4`, pitch: 0, octave: 0, duration: 1, lyric: {} },
+        ],
+      });
+
+      // Sequence 1: 3 empty measures (m1, m2, m3), then m4 with lyrics, then m5 with lyrics
+      const seq1 = [
+        makeEmptyMeasure('m1', 1),
+        makeEmptyMeasure('m2', 2),
+        makeEmptyMeasure('m3', 3),
+        makeMeasureWithLyrics('m4', 4, 'Goân-iā'),
+        makeMeasureWithLyrics('m5', 5, 'chhiu-hong'),
+      ];
+
+      const systems1 = groupMeasuresIntoSystems(seq1, '4/4', 4, 'no_wrap', 'portrait');
+      assert.equal(systems1.length, 2, 'Should group consecutive empty measures on line 1 and end before measure with lyrics');
+      assert.deepEqual(
+        systems1.map(s => s.measures.map(m => m.measureNumber)),
+        [[1, 2, 3], [4, 5]],
+        'Line 1 should contain consecutive empty measures 1-3, Line 2 should start at measure 4 with lyrics'
+      );
+
+      // Sequence 2: 4 empty measures (m1-m4), then m5 with a section badge [Chorus]
+      const seq2 = [
+        makeEmptyMeasure('m1', 1),
+        makeEmptyMeasure('m2', 2),
+        makeEmptyMeasure('m3', 3),
+        makeEmptyMeasure('m4', 4),
+        makeMeasureWithBadge('m5', 5, 'Chorus'),
+        makeEmptyMeasure('m6', 6),
+      ];
+
+      const systems2 = groupMeasuresIntoSystems(seq2, '4/4', 4, 'no_wrap', 'portrait');
+      assert.deepEqual(
+        systems2.map(s => s.measures.map(m => m.measureNumber)),
+        [[1, 2, 3, 4], [5, 6]],
+        'Line 1 should contain consecutive empty measures 1-4, Line 2 should start before measure 5 with badge'
+      );
+
+      // Sequence 3: Content measures (m1-m2 with lyrics), then consecutive empty measures (m3-m5), then m6 with badge
+      const seq3 = [
+        makeMeasureWithLyrics('m1', 1, 'Taigi'),
+        makeMeasureWithLyrics('m2', 2, 'Koa'),
+        makeEmptyMeasure('m3', 3),
+        makeEmptyMeasure('m4', 4),
+        makeEmptyMeasure('m5', 5),
+        makeMeasureWithBadge('m6', 6, 'Outro'),
+      ];
+
+      const systems3 = groupMeasuresIntoSystems(seq3, '4/4', 4, 'no_wrap', 'portrait');
+      assert.deepEqual(
+        systems3.map(s => s.measures.map(m => m.measureNumber)),
+        [[1, 2], [3, 4, 5], [6]],
+        'Should produce 3 lines: content line (1-2), consecutive empty line (3-5), and section badge line (6)'
+      );
+    });
   });
 });
 

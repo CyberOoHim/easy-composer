@@ -1405,17 +1405,17 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 }`}
                 title={`Layout mode: ${
                   sheetWrapMode === 'no_wrap'
-                    ? '1. No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to rotate to 2. Auto Fit.'
-                    : sheetWrapMode === 'auto_fit'
-                    ? '2. Auto fit in (Forced measures per line). Click to rotate to 3. Auto Wrap.'
-                    : '3. Auto wrap (Dynamic collision-free spacing). Click to rotate to 1. No Wrap.'
+                    ? '1. No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to rotate to 2. Auto Wrap.'
+                    : sheetWrapMode === 'auto_wrap'
+                    ? '2. Auto Wrap (Dynamic collision-free spacing). Click to rotate to 3. Auto Fix.'
+                    : '3. Auto Fix (Forced measures per line). Click to rotate to 1. No Wrap.'
                 }`}
               >
                 {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5" />}
-                {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5" />}
                 {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5" />}
+                {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5" />}
                 <span className="inline font-mono text-[11px]">
-                  {sheetWrapMode === 'no_wrap' ? '1. No Wrap' : sheetWrapMode === 'auto_fit' ? '2. Auto Fit' : '3. Auto Wrap'}
+                  {sheetWrapMode === 'no_wrap' ? '1. No Wrap' : sheetWrapMode === 'auto_wrap' ? '2. Auto Wrap' : '3. Auto Fix'}
                 </span>
               </button>
             ) : onAutoWrapMeasures ? (
