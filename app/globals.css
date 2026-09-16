@@ -218,4 +218,239 @@ html, body {
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
 }
 
+/* =========================================================================
+   REALISTIC SCORE PRINT ENGINE (WYSIWYG PHYSICAL SHEET OUTPUT)
+   ========================================================================= */
+
+@page {
+  size: auto;
+  margin: 10mm 12mm 12mm 12mm;
+}
+
+@media print {
+  /* 1. Strictly hide all web app chrome, headers, navigation bars, toolbars, and floating HUDs */
+  header,
+  nav,
+  aside,
+  #header-bar,
+  #daw-header-bar,
+  #song-metadata-card,
+  #composer-section-rail,
+  #in-song-search-bar,
+  #composer-notice-banner,
+  #score-studio-unified-deck,
+  #floating-score-hud-container,
+  #floating-score-hud,
+  #sheet-top-action-bar,
+  #pwa-install-banner,
+  #pwa-offline-indicator,
+  #pwa-update-indicator,
+  #pwa-manager-root,
+  .print\:hidden {
+    display: none !important;
+  }
+
+  /* 2. Reset html, body, and top-level containers to clean unconstrained page flow */
+  html,
+  body {
+    background: #ffffff !important;
+    color: #18181b !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  div,
+  main,
+  section {
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  /* 3. Collapse wrapping layout structures so only the sheet canvas remains */
+  main {
+    padding: 0 !important;
+    margin: 0 !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    display: block !important;
+  }
+
+  #composer-editor-root {
+    padding: 0 !important;
+    margin: 0 !important;
+    padding-bottom: 0 !important;
+    gap: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
+
+  #wysiwyg-numbered-notation-score-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    gap: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    display: block !important;
+  }
+
+  #real-sheet-viewport-container {
+    padding: 0 !important;
+    margin: 0 !important;
+    min-height: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  /* 4. Realistic Physical Sheet Paper Stage: pure white manuscript paper, 100% width, no zoom distortion */
+  #real-sheet-paper-stage {
+    padding: 0 !important;
+    margin: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background-color: #ffffff !important;
+    color: #18181b !important;
+    transform: none !important; /* Critical: override inline transform: scale(...) for exact 100% page width */
+    overflow: visible !important;
+  }
+
+  /* 5. Suppress interactive visual cues (selection rings, focus outlines, hover effects, playing pulses) */
+  #real-sheet-paper-stage * {
+    outline: none !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    cursor: default !important;
+  }
+
+  /* Suppress note & lyric selection amber/green rings */
+  #real-sheet-paper-stage div[class*="ring-"],
+  #real-sheet-paper-stage span[class*="ring-"],
+  #real-sheet-paper-stage input[class*="ring-"] {
+    --tw-ring-shadow: 0 0 #0000 !important;
+    box-shadow: none !important;
+  }
+
+  /* Suppress measure and note selection highlight backgrounds */
+  #real-sheet-paper-stage div[class*="bg-amber-"],
+  #real-sheet-paper-stage div[class*="bg-emerald-"],
+  #real-sheet-paper-stage div[class*="hover:"] {
+    background-color: transparent !important;
+  }
+
+  /* 6. Systems (Musical Lines) pagination protection: never break mid-system */
+  #real-sheet-systems-container {
+    width: 100% !important;
+    max-width: 100% !important;
+    gap: 16px !important;
+    overflow: visible !important;
+  }
+
+  #real-sheet-systems-container > div {
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+    margin-bottom: 12px !important;
+    overflow: visible !important;
+  }
+
+  /* 7. Publication-grade high-contrast carbon ink tones (even if user is in dark mode) */
+  #real-sheet-paper-stage,
+  #real-sheet-header,
+  #real-sheet-header h1,
+  #real-sheet-header p,
+  #real-sheet-header div,
+  #real-sheet-header span,
+  #real-sheet-header button {
+    color: #18181b !important;
+    border-color: #e4e4e7 !important;
+  }
+
+  #real-sheet-paper-stage #sheet-song-title-display {
+    color: #09090b !important;
+  }
+
+  /* Numbered notation pitch digits, octave dots, and sustain dashes */
+  #real-sheet-paper-stage .font-mono,
+  #real-sheet-paper-stage .font-serif,
+  #real-sheet-paper-stage .font-sans {
+    color: #18181b !important;
+  }
+
+  /* In dark mode, ensure text colors print black/dark */
+  #real-sheet-paper-stage [class*="text-zinc-100"],
+  #real-sheet-paper-stage [class*="text-zinc-200"],
+  #real-sheet-paper-stage [class*="text-zinc-300"],
+  #real-sheet-paper-stage [class*="text-zinc-400"],
+  #real-sheet-paper-stage [class*="text-zinc-50"] {
+    color: #18181b !important;
+  }
+
+  /* Chords */
+  #real-sheet-paper-stage div.font-mono.font-black,
+  #real-sheet-paper-stage [class*="text-amber-400"] {
+    color: #18181b !important;
+  }
+
+  /* Underline beams (8th & 16th notes) and grace note underlines */
+  #real-sheet-paper-stage div[class*="h-\[2px\]"],
+  #real-sheet-paper-stage span[class*="h-\[1px\]"] {
+    background-color: #18181b !important;
+  }
+
+  /* Barlines: solid high-contrast dark lines */
+  #real-sheet-paper-stage div[class*="border-l-2"] {
+    border-left-color: #18181b !important;
+  }
+
+  #real-sheet-paper-stage div[class*="w-\[1px\]"],
+  #real-sheet-paper-stage div[class*="w-\[1.5px\]"],
+  #real-sheet-paper-stage div[class*="w-\[3.5px\]"] {
+    background-color: #18181b !important;
+  }
+
+  /* Ties and Slurs SVG paths */
+  #real-sheet-paper-stage svg path {
+    stroke: #18181b !important;
+  }
+
+  /* Lyrics typography in print */
+  #real-sheet-paper-stage span[class*="text-zinc-"] {
+    color: #18181b !important;
+  }
+
+  /* Taiwanese POJ romanization in crisp dark ink */
+  #real-sheet-paper-stage [class*="text-teal-"] {
+    color: #042f2e !important;
+  }
+
+  /* Volta endings bracket */
+  #real-sheet-paper-stage div[class*="-top-3"] span,
+  #real-sheet-paper-stage div[class*="-top-3"] div {
+    color: #18181b !important;
+    background-color: #ffffff !important;
+    border-color: #18181b !important;
+  }
+
+  /* Paper footnote and footer */
+  #sheet-footnote-block,
+  #real-sheet-paper-stage footer {
+    color: #52525b !important;
+    border-color: #e4e4e7 !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+}
+
 

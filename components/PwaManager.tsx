@@ -79,7 +79,7 @@ export const PwaManager: React.FC = () => {
       {hasUpdate && (
         <div
           id="pwa-update-indicator"
-          className="fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-500 text-zinc-950 text-xs font-bold shadow-xl border border-amber-400 animate-in fade-in duration-200"
+          className="fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-500 text-zinc-950 text-xs font-bold shadow-xl border border-amber-400 animate-in fade-in duration-200 print:hidden"
         >
           <span>發現新版本更新！</span>
           <button
@@ -96,7 +96,7 @@ export const PwaManager: React.FC = () => {
       {isOffline && (
         <div
           id="pwa-offline-indicator"
-          className="fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] left-4 z-40 flex items-center gap-2 px-3 py-2 rounded-full bg-zinc-900/90 text-amber-400 border border-amber-500/30 text-xs font-semibold shadow-lg backdrop-blur-md animate-in fade-in duration-200"
+          className="fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] left-4 z-40 flex items-center gap-2 px-3 py-2 rounded-full bg-zinc-900/90 text-amber-400 border border-amber-500/30 text-xs font-semibold shadow-lg backdrop-blur-md animate-in fade-in duration-200 print:hidden"
         >
           <WifiOff className="w-3.5 h-3.5 shrink-0" />
           <span>iPad 離線模式：樂譜編輯與鋼琴音源皆可在無網路下完整運作</span>
@@ -108,7 +108,7 @@ export const PwaManager: React.FC = () => {
         <aside
           id="pwa-install-banner"
           aria-label="iPad PWA Install Prompt"
-          className="fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] right-4 z-40 max-w-sm w-[calc(100vw-2rem)] p-4 rounded-2xl bg-zinc-900/95 text-white border border-amber-500/40 shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom-5 duration-300"
+          className="fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] right-4 z-40 max-w-sm w-[calc(100vw-2rem)] p-4 rounded-2xl bg-zinc-900/95 text-white border border-amber-500/40 shadow-2xl backdrop-blur-lg animate-in slide-in-from-bottom-5 duration-300 print:hidden"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3">

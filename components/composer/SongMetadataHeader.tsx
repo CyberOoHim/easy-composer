@@ -307,7 +307,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
       {/* COMPACT DAW PROJECT STRIP (High-Density, Maximize Viewport for Notation) */}
       <div
         id="song-metadata-card"
-        className="px-2.5 py-1 sm:py-1.5 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md border border-zinc-200/90 dark:border-zinc-800/80 rounded-xl shadow-2xs flex items-center justify-between gap-1.5 sm:gap-2 flex-wrap select-none relative"
+        className="px-2.5 py-1 sm:py-1.5 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md border border-zinc-200/90 dark:border-zinc-800/80 rounded-xl shadow-2xs flex items-center justify-between gap-1.5 sm:gap-2 flex-wrap select-none relative print:hidden"
       >
         {/* Left: Song Title & Quick Musical LCD Badges */}
         <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap min-w-0">
@@ -804,7 +804,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
       {isSettingsModalOpen && (
         <div
           id="song-settings-modal-backdrop"
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150 print:hidden"
           onClick={() => setIsSettingsModalOpen(false)}
         >
           <div

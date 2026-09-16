@@ -1714,23 +1714,44 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     setHeaderDraftText(initialValue);
   };
 
-  // Print Score handler
+  // Print Score handler - strictly isolate realistic physical sheet
   const handlePrint = useCallback(() => {
+    setActiveSheetPicker(null);
+    setEditingHeaderField(null);
+    setActiveHudDrawer('none');
+    if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
     window.print();
-  }, []);
+  }, [setActiveHudDrawer]);
+
+  useEffect(() => {
+    const handleBeforePrint = () => {
+      setActiveSheetPicker(null);
+      setEditingHeaderField(null);
+      setActiveHudDrawer('none');
+      if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+    };
+    window.addEventListener('beforeprint', handleBeforePrint);
+    return () => {
+      window.removeEventListener('beforeprint', handleBeforePrint);
+    };
+  }, [setActiveHudDrawer]);
 
   return (
     <div
       id="real-sheet-viewport-container"
       ref={canvasWrapperRef}
-      className={`relative w-full min-h-screen flex flex-col items-center pt-1 sm:pt-1.5 pb-6 sm:pb-10 px-2 sm:px-6 select-none print:p-0 print:m-0 print:bg-white overflow-x-auto transition-colors duration-150 ${
+      className={`relative w-full min-h-screen flex flex-col items-center pt-1 sm:pt-1.5 pb-6 sm:pb-10 px-2 sm:px-6 select-none print:p-0 print:m-0 print:min-h-0 print:bg-white print:overflow-visible print:w-full print:block overflow-x-auto transition-colors duration-150 ${
         sheetTheme === 'dark'
           ? 'bg-[#0c0e15] dark:bg-[#0c0e15] text-zinc-100 dark:text-zinc-100'
           : 'bg-[#ede8de] dark:bg-[#ede8de] text-zinc-900 dark:text-zinc-900'
       }`}
     >
       {/* Top Floating Paper Control Bar */}
-      <div className="w-full max-w-5xl flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden">
+      <div id="sheet-top-action-bar" className="w-full max-w-5xl flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden">
         <div className="flex items-center gap-2">
           <span className="text-xs font-serif tracking-wider font-bold text-zinc-500 uppercase">
             Sheet Music Canvas
@@ -1908,7 +1929,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
               {activeSheetPicker && (
                 <div
                   id="sheet-picker-backdrop"
-                  className="fixed inset-0 z-40 bg-transparent"
+                  className="fixed inset-0 z-40 bg-transparent print:hidden"
                   onClick={() => setActiveSheetPicker(null)}
                 />
               )}
@@ -1932,7 +1953,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 </button>
 
                 {activeSheetPicker === 'key' && (
-                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-2 grid grid-cols-4 gap-1 z-50 text-xs font-mono ${
+                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-2 grid grid-cols-4 gap-1 z-50 text-xs font-mono print:hidden ${
                     sheetTheme === 'dark' ? 'bg-zinc-900 border-zinc-700 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'
                   }`}>
                     {ALL_KEYS.map(k => (
@@ -1977,7 +1998,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 </button>
 
                 {activeSheetPicker === 'time' && (
-                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-1.5 flex flex-col gap-1 z-50 text-xs font-mono ${
+                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-1.5 flex flex-col gap-1 z-50 text-xs font-mono print:hidden ${
                     sheetTheme === 'dark' ? 'bg-zinc-900 border-zinc-700 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'
                   }`}>
                     {TIME_SIGNATURES.map(ts => (
@@ -2023,7 +2044,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 </button>
 
                 {activeSheetPicker === 'bpm' && (
-                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-3 flex flex-col gap-2 z-50 text-xs ${
+                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-3 flex flex-col gap-2 z-50 text-xs print:hidden ${
                     sheetTheme === 'dark' ? 'bg-zinc-900 border-zinc-700 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'
                   }`}>
                     <label className={`font-bold ${sheetTheme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'}`}>
@@ -2097,7 +2118,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             <div
               key={`system-${system.systemIndex}`}
               id={`sheet-system-${system.systemIndex}`}
-              className={`relative w-full flex items-stretch border-l-2 ${
+              className={`relative w-full flex items-stretch border-l-2 print:overflow-visible print:w-full print:break-inside-avoid ${
                 sheetWrapMode === 'no_wrap' ? 'overflow-x-auto min-w-full pb-1' : ''
               } ${
                 sheetTheme === 'dark' ? 'border-zinc-400' : 'border-zinc-800'
@@ -2130,7 +2151,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         ? `${Math.min(220, Math.round((engravedM.requiredWidth || 110) * 0.75))}px`
                         : 0,
                     }}
-                    className={`relative flex-1 flex flex-col justify-between px-1.5 sm:px-2 pt-1.5 pb-1 transition-colors cursor-pointer group measure-containment touch-manipulation ${
+                    className={`relative flex-1 flex flex-col justify-between px-1.5 sm:px-2 pt-1.5 pb-1 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
                       isSelectedMeasure
                         ? sheetTheme === 'dark' ? 'bg-amber-950/30' : 'bg-amber-50/40'
                         : sheetTheme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50/80'
@@ -2272,7 +2293,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                   ? `${Math.round(engNote.requiredWidth || 28)}px`
                                   : undefined,
                               }}
-                              className={`relative flex flex-col items-center justify-center p-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[38px] ${
+                              className={`relative flex flex-col items-center justify-center p-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[38px] print:ring-0 print:bg-transparent ${
                                 sheetWrapMode === 'auto_wrap' ? '' : 'min-w-[28px] sm:min-w-[32px]'
                               } ${
                                 isSelectedNote
@@ -2592,7 +2613,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                         : 'justify-center'
                                     } ${
                                       isPojWordEnd ? 'mr-1 sm:mr-1.5' : ''
-                                    } px-0.5 py-0 rounded cursor-text touch-manipulation transition-all overflow-visible relative z-10 ${
+                                    } px-0.5 py-0 rounded cursor-text touch-manipulation transition-all overflow-visible relative z-10 print:ring-0 print:bg-transparent ${
                                       isSelectedLyric
                                         ? sheetTheme === 'dark'
                                           ? 'bg-amber-950/80 ring-2 ring-amber-400 font-bold text-amber-200'
@@ -2972,7 +2993,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
       {/* Inline Header Field Edit Modal */}
       {editingHeaderField && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-xs flex items-center justify-center z-50 p-4 print:hidden">
           <div className="bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 max-w-md w-full">
             <h3 className="text-sm font-bold text-zinc-500 uppercase tracking-wider mb-2">
               Edit {editingHeaderField}

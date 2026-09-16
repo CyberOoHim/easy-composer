@@ -623,7 +623,7 @@ export default function Home() {
     isNewSongConfirmOpen;
 
   return (
-    <div className="min-h-screen bg-zinc-100 dark:bg-[#0c0e14] text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-amber-500/30">
+    <div className="min-h-screen bg-zinc-100 dark:bg-[#0c0e14] text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-amber-500/30 print:bg-white print:text-black print:min-h-0">
       {/* Top DAW Master Transport Console */}
       <HeaderBar
         song={song}
@@ -663,7 +663,7 @@ export default function Home() {
       />
 
       {/* Main Studio Canvas - Consolidated WYSIWYG Sheet */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-1 sm:px-3 lg:px-4 py-1 sm:py-2 flex flex-col gap-1.5 safe-px">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-1 sm:px-3 lg:px-4 py-1 sm:py-2 flex flex-col gap-1.5 safe-px print:p-0 print:m-0 print:max-w-none print:w-full print:block">
         <ComposerEditor
           song={song}
           cursor={cursor}

@@ -200,7 +200,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
       role="dialog"
       aria-modal="true"
       aria-labelledby="lyric-search-modal-title"
-      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-black/65 backdrop-blur-xs animate-in fade-in duration-150"
+      className="fixed inset-0 z-50 flex items-start sm:items-center justify-center p-2 sm:p-4 bg-black/65 backdrop-blur-xs animate-in fade-in duration-150 print:hidden"
       onClick={e => {
         if (e.target === e.currentTarget) {
           onClose();

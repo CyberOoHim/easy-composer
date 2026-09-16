@@ -97,7 +97,7 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
   return (
     <div
       id="composer-section-rail"
-      className="flex items-center gap-1 px-2 py-0.5 sm:py-1 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md rounded-lg sm:rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 shadow-2xs overflow-x-auto select-none no-scrollbar touch-pan-x min-h-[26px]"
+      className="flex items-center gap-1 px-2 py-0.5 sm:py-1 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md rounded-lg sm:rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 shadow-2xs overflow-x-auto select-none no-scrollbar touch-pan-x min-h-[26px] print:hidden"
     >
       <div className="flex items-center gap-1 text-[11px] font-bold text-zinc-500 dark:text-zinc-400 shrink-0">
         <Bookmark className="w-3 h-3 text-amber-500" />

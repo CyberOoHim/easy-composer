@@ -2147,12 +2147,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   ]);
 
   return (
-    <div id="composer-editor-root" className="flex flex-col gap-1 sm:gap-1.5 w-full pb-14 sm:pb-16">
+    <div id="composer-editor-root" className="flex flex-col gap-1 sm:gap-1.5 w-full pb-14 sm:pb-16 print:p-0 print:m-0 print:pb-0 print:gap-0">
       {/* Inline Notification Banner */}
       {notification && (
         <div
           id="composer-notice-banner"
-          className="p-2 bg-amber-500 text-zinc-950 font-bold text-xs rounded-lg sm:rounded-xl shadow-xs flex items-center justify-between animate-in fade-in duration-150"
+          className="p-2 bg-amber-500 text-zinc-950 font-bold text-xs rounded-lg sm:rounded-xl shadow-xs flex items-center justify-between animate-in fade-in duration-150 print:hidden"
         >
           <span>{notification}</span>
           <button
@@ -2203,11 +2203,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       />
 
       {/* WYSIWYG NUMBERED NOTATION SCORE SHEET CONTAINER */}
-      <div id="wysiwyg-numbered-notation-score-container" className="flex flex-col gap-1">
+      <div id="wysiwyg-numbered-notation-score-container" className="flex flex-col gap-1 print:gap-0 print:p-0 print:m-0">
         {/* Sleek Score Action Ribbon */}
         <div
           id="score-studio-unified-deck"
-          className="flex items-center justify-between gap-1.5 p-1 sm:p-1.5 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md rounded-lg sm:rounded-xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xs text-xs min-h-[30px]"
+          className="flex items-center justify-between gap-1.5 p-1 sm:p-1.5 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md rounded-lg sm:rounded-xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xs text-xs min-h-[30px] print:hidden"
         >
           {/* Left: Quick Status & Measures Counter */}
           <div className="flex items-center gap-1 min-w-0">

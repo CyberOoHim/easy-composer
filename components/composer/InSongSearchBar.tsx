@@ -153,7 +153,7 @@ export const InSongSearchBar: React.FC<InSongSearchBarProps> = ({
       id="in-song-search-bar"
       role="search"
       aria-label="In-song measure and verse search"
-      className="bg-white/95 dark:bg-[#131622]/95 backdrop-blur-md border-2 border-amber-500/60 rounded-2xl shadow-xl p-3 sm:p-3.5 flex flex-col gap-2.5 animate-in slide-in-from-top-2 duration-150 transition-all z-20"
+      className="bg-white/95 dark:bg-[#131622]/95 backdrop-blur-md border-2 border-amber-500/60 rounded-2xl shadow-xl p-3 sm:p-3.5 flex flex-col gap-2.5 animate-in slide-in-from-top-2 duration-150 transition-all z-20 print:hidden"
     >
       {/* Search Input Row & Filter Controls */}
       <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
