@@ -69,6 +69,7 @@ import {
   getSongVerseCount,
   getVerseDisplayOption,
   getNoteVerseSyllable,
+  isPunctuationOrSpacer,
 } from '@/lib/taigiUtils';
 
 export interface RealSheetCanvasProps {
@@ -154,6 +155,25 @@ const ALL_KEYS: KeySignature[] = [
 ];
 
 const TIME_SIGNATURES: TimeSignature[] = ['4/4', '3/4', '2/4', '6/8'];
+
+/**
+ * Helper to check whether a note has an actual word or syllable for the given verse.
+ * Empty strings, spacers, and pure punctuation are excluded.
+ */
+function hasActualLyricWord(note: NumberedNotationNote, verseIndex: number): boolean {
+  if (!note) return false;
+  try {
+    const syl = getNoteVerseSyllable(note, verseIndex);
+    if (!syl) return false;
+    const hanlo = String(syl.hanlo || syl.hanji || syl.custom || '').trim();
+    const poj = String(syl.poj || syl.tl || '').trim();
+    const hasHanloWord = Boolean(hanlo && !isPunctuationOrSpacer(hanlo));
+    const hasPojWord = Boolean(poj && !isPunctuationOrSpacer(poj));
+    return hasHanloWord || hasPojWord;
+  } catch {
+    return false;
+  }
+}
 
 export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   song,
@@ -284,6 +304,50 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Ensure activeVerseRow is strictly within [1, verseCount] without cascading render effect
   const activeVerseRow = Math.min(Math.max(1, activeVerseRowState), verseCount);
+
+  // Flattened notes for playback tracking
+  const allSongNotes = useMemo(() => {
+    const list: NumberedNotationNote[] = [];
+    if (!song?.measures || !Array.isArray(song.measures)) return list;
+    for (const m of song.measures) {
+      if (m?.notes && Array.isArray(m.notes)) {
+        for (const n of m.notes) {
+          if (n && n.id) {
+            list.push(n);
+          }
+        }
+      }
+    }
+    return list;
+  }, [song]);
+
+  // Calculate active lyric note ID for each verse during playback:
+  // When in lyric mode, the cue cursor only stays on notes with actual word/syllable,
+  // not jumping through empty lyrics, and jumps to the next word/syllable on its beat.
+  const activeLyricNoteIdByVerse = useMemo(() => {
+    const map: Record<number, string | null> = {};
+    if (!isPlaying || !activePlaybackNoteId || activeField !== 'lyric') {
+      return map;
+    }
+
+    const currentPlayingIdx = allSongNotes.findIndex(n => n.id === activePlaybackNoteId);
+    if (currentPlayingIdx === -1) {
+      return map;
+    }
+
+    for (const vNum of availableVerseRows) {
+      let targetNoteId: string | null = null;
+      for (let i = currentPlayingIdx; i >= 0; i--) {
+        if (hasActualLyricWord(allSongNotes[i], vNum)) {
+          targetNoteId = allSongNotes[i].id;
+          break;
+        }
+      }
+      map[vNum] = targetNoteId;
+    }
+
+    return map;
+  }, [isPlaying, activePlaybackNoteId, activeField, allSongNotes, availableVerseRows]);
 
   // In-place editable header modal / inline editors
   const [editingHeaderField, setEditingHeaderField] = useState<string | null>(null);
@@ -438,18 +502,27 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
   }, [song.key]);
 
-  // Smoothly scroll active playback note into view during playback
+  // Smoothly scroll active playback note or lyric syllable into view during playback
   useEffect(() => {
     if (!isPlaying || !activePlaybackNoteId) return;
-    const el = document.getElementById(`sheet-note-${activePlaybackNoteId}`);
-    if (el) {
-      el.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'nearest',
-      });
+    const currentLyricNoteId = activeLyricNoteIdByVerse[activeVerseRow];
+    const targetEl =
+      activeField === 'lyric'
+        ? (currentLyricNoteId && document.getElementById(`sheet-lyric-v${activeVerseRow}-${currentLyricNoteId}`)) ||
+          document.getElementById(`sheet-note-${activePlaybackNoteId}`)
+        : document.getElementById(`sheet-note-${activePlaybackNoteId}`);
+    if (targetEl && typeof targetEl.scrollIntoView === 'function') {
+      try {
+        targetEl.scrollIntoView({
+          behavior: 'smooth',
+          block: 'nearest',
+          inline: 'nearest',
+        });
+      } catch {
+        // Gracefully ignore scroll exceptions in iframe / test environments
+      }
     }
-  }, [isPlaying, activePlaybackNoteId]);
+  }, [isPlaying, activePlaybackNoteId, activeField, activeVerseRow, activeLyricNoteIdByVerse]);
 
   // Step to Next Note
   const stepToNextNote = useCallback(() => {
@@ -1655,7 +1728,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           transform: `scale(${zoomScale})`,
           transformOrigin: 'top center',
         }}
-        className={`relative w-full max-w-5xl rounded-xs p-5 sm:p-8 md:p-12 transition-all duration-150 print:shadow-none print:border-none print:p-0 print:max-w-none print:w-full print:rounded-none select-none ${
+        className={`relative w-full max-w-5xl rounded-xs p-3.5 sm:p-6 md:p-8 transition-all duration-150 print:shadow-none print:border-none print:p-0 print:max-w-none print:w-full print:rounded-none select-none ${
           sheetTheme === 'dark'
             ? 'bg-[#14161f] text-zinc-100 border border-zinc-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.06)]'
             : 'bg-[#FCFAF6] text-zinc-900 border border-[#E7E2D8] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.06)]'
@@ -1684,11 +1757,11 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         </div>
 
         {/* Paper Header: Catalog ID, Title, Credits, Key & Meter */}
-        <header id="real-sheet-header" className={`relative pb-4 mb-5 border-b ${
+        <header id="real-sheet-header" className={`relative pb-2.5 mb-3 border-b ${
           sheetTheme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/80'
         }`}>
           {/* Top Row: Catalog ID (Left) & Controls (Right) */}
-          <div className={`flex items-center justify-between text-xs font-mono mb-2 ${
+          <div className={`flex items-center justify-between text-xs font-mono mb-1.5 ${
             sheetTheme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
           }`}>
             <div
@@ -1708,7 +1781,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           </div>
 
           {/* Centered Song Title & Subtitle */}
-          <div className="text-center my-2 sm:my-3">
+          <div className="text-center my-1.5 sm:my-2">
             <h1
               id="sheet-song-title-display"
               onClick={() => startHeaderEdit('title', song.title)}
@@ -1724,7 +1797,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
               <p
                 id="sheet-song-subtitle-display"
                 onClick={() => startHeaderEdit('subtitle', song.subtitle || '')}
-                className={`font-serif text-xs sm:text-sm mt-1.5 cursor-pointer hover:opacity-80 ${
+                className={`font-serif text-xs sm:text-sm mt-1 cursor-pointer hover:opacity-80 ${
                   sheetTheme === 'dark' ? 'text-zinc-400' : 'text-zinc-600'
                 }`}
                 title="Click to edit subtitle"
@@ -1735,7 +1808,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           </div>
 
           {/* Key / Time Signature / Tempo (Left) & Credits (Right) */}
-          <div className={`flex flex-wrap items-end justify-between mt-4 pt-2.5 gap-3 border-t ${
+          <div className={`flex flex-wrap items-end justify-between mt-2.5 pt-1.5 gap-3 border-t ${
             sheetTheme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'
           }`}>
             {/* Left Musical Meter Block */}
@@ -1930,7 +2003,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         </header>
 
         {/* Systems (Lines of Measures) */}
-        <main id="real-sheet-systems-container" className="flex flex-col space-y-8 sm:space-y-10">
+        <main id="real-sheet-systems-container" className="flex flex-col space-y-3.5 sm:space-y-4">
           {systems.map((system, sysIdx) => (
             <div
               key={`system-${system.systemIndex}`}
@@ -1954,14 +2027,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         handleNoteClick(engravedM.measureIndex, 0, activeField, activeVerseRow);
                       }
                     }}
-                    className={`relative flex-1 flex flex-col justify-between px-2 sm:px-3 pt-3 pb-2 transition-colors cursor-pointer group measure-containment touch-manipulation ${
+                    className={`relative flex-1 flex flex-col justify-between px-1.5 sm:px-2 pt-1.5 pb-1 transition-colors cursor-pointer group measure-containment touch-manipulation ${
                       isSelectedMeasure
                         ? sheetTheme === 'dark' ? 'bg-amber-950/30' : 'bg-amber-50/40'
                         : sheetTheme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50/80'
                     }`}
                   >
                     {/* Top Annotation Layer: Measure Number, Volta Brackets, Chords, Section & Rhythm Alert */}
-                    <div className="relative flex items-center justify-between w-full min-h-[22px] mb-1 gap-1">
+                    <div className="relative flex items-center justify-between w-full min-h-[18px] mb-0.5 gap-1">
                       {/* Left: Measure Number */}
                       <span className="text-[10px] font-mono text-zinc-400 select-none shrink-0">
                         {engravedM.measureNumber}
@@ -2012,7 +2085,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
                     {/* Upper Obbligato / Counterpoint Layer if present */}
                     {engravedM.obbligatoNotes && engravedM.obbligatoNotes.length > 0 && (
-                      <div className={`w-full flex flex-col items-center justify-center py-0.5 mb-1 border-b border-dashed ${
+                      <div className={`w-full flex flex-col items-center justify-center py-0.5 mb-0.5 border-b border-dashed ${
                         sheetTheme === 'dark' ? 'border-zinc-700' : 'border-zinc-300'
                       }`}>
                         <div className={`flex items-center justify-between w-full text-[9px] font-mono font-bold px-1 ${
@@ -2053,7 +2126,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     )}
 
                     {/* Notation Line & Continuous Beams */}
-                    <div className="relative flex items-center justify-between w-full min-h-[56px] py-1">
+                    <div className="relative flex items-center justify-between w-full min-h-[46px] sm:min-h-[50px] py-0.5">
                       {/* Prelude Open Parenthesis '(' */}
                       {engravedM.isPrelude && isFirstInSystem && (
                         <span className={`font-serif text-2xl font-bold mr-1 select-none ${
@@ -2068,7 +2141,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         {engravedM.notes.map((engNote, nIdx) => {
                           const isSelectedNote =
                             isSelectedMeasure && nIdx === currentNIdx && activeField === 'pitch';
-                          const isPlayingNote = activePlaybackNoteId === engNote.note.id;
+                          // When in lyric mode, the cue cursor when playing is on the word/syllable, not on the notes as in note mode
+                          const isPlayingNote =
+                            isPlaying && activePlaybackNoteId === engNote.note.id && activeField === 'pitch';
 
                           return (
                             <div
@@ -2085,13 +2160,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                   activeVerseRow
                                 );
                               }}
-                              className={`relative flex flex-col items-center justify-center p-1 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[44px] min-w-[32px] sm:min-w-[36px] ${
+                              className={`relative flex flex-col items-center justify-center p-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[38px] min-w-[28px] sm:min-w-[32px] ${
                                 isSelectedNote
                                   ? sheetTheme === 'dark'
                                     ? 'ring-2 ring-amber-400 bg-amber-950/60'
                                     : 'ring-2 ring-amber-500 bg-amber-100/50'
                                   : isPlayingNote
-                                  ? 'ring-2 ring-emerald-500 bg-emerald-500/20 animate-pulse'
+                                  ? 'ring-2 ring-emerald-500 bg-emerald-50/20 animate-pulse'
                                   : sheetTheme === 'dark'
                                   ? 'hover:bg-zinc-800'
                                   : 'hover:bg-zinc-100'
@@ -2114,14 +2189,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
                               {/* Musical / Vocal Annotation above note */}
                               {engNote.note.annotation && (
-                                <span className="absolute -top-5 left-1/2 -translate-x-1/2 text-[9px] font-serif italic text-amber-600 dark:text-amber-400 select-none whitespace-nowrap pointer-events-none">
+                                <span className="absolute -top-4.5 left-1/2 -translate-x-1/2 text-[9px] font-serif italic text-amber-600 dark:text-amber-400 select-none whitespace-nowrap pointer-events-none">
                                   {engNote.note.annotation}
                                 </span>
                               )}
 
                               {/* Articulation symbol above note */}
                               {engNote.note.articulation && engNote.note.articulation !== 'none' && (
-                                <span className="absolute -top-3.5 left-1/2 -translate-x-1/2 text-xs font-bold leading-none select-none pointer-events-none">
+                                <span className="absolute -top-3 left-1/2 -translate-x-1/2 text-xs font-bold leading-none select-none pointer-events-none">
                                   {engNote.note.articulation === 'staccato' ? '·' :
                                    engNote.note.articulation === 'tenuto' ? '—' :
                                    engNote.note.articulation === 'accent' ? '>' :
@@ -2130,7 +2205,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               )}
 
                               {/* High Octave Dots Above */}
-                              <div className="flex flex-col items-center h-2.5 justify-end">
+                              <div className="flex flex-col items-center h-2 justify-end">
                                 {engNote.octaveDotsAbove > 0 && (
                                   <div className={`flex gap-0.5 font-black leading-none text-[9px] ${
                                     sheetTheme === 'dark' ? 'text-zinc-100' : 'text-zinc-950'
@@ -2221,7 +2296,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               </div>
 
                               {/* Underline Beams (Level 1: 8th note, Level 2: 16th note) */}
-                              <div className="w-full flex flex-col items-center gap-[2px] mt-0.5">
+                              <div className="w-full flex flex-col items-center gap-[1.5px] mt-0.5">
                                 {engNote.beam1.hasBeam && (
                                   <div
                                     className={`h-[2px] ${sheetTheme === 'dark' ? 'bg-zinc-100' : 'bg-zinc-950'} ${
@@ -2251,7 +2326,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               </div>
 
                               {/* Low Octave Dots Below Underlines */}
-                              <div className="flex flex-col items-center h-2.5 justify-start">
+                              <div className="flex flex-col items-center h-2 justify-start">
                                 {engNote.octaveDotsBelow > 0 && (
                                   <div className={`flex gap-0.5 font-black leading-none text-[9px] ${
                                     sheetTheme === 'dark' ? 'text-zinc-100' : 'text-zinc-950'
@@ -2278,7 +2353,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     </div>
 
                     {/* Multi-Verse Stacked Lyrics Aligned Under Notes */}
-                    <div className={`w-full flex flex-col gap-1.5 mt-2 pt-1.5 border-t ${
+                    <div className={`w-full flex flex-col gap-1 mt-1 pt-1 border-t ${
                       sheetTheme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'
                     }`}>
                       {availableVerseRows.map(vNum => {
@@ -2301,7 +2376,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                             )}
 
                             {/* Aligned notes container */}
-                            <div className="flex-1 flex items-center justify-around">
+                            <div className="flex-1 flex items-center justify-around overflow-visible">
                               {engravedM.notes.map((engNote, nIdx) => {
                                 const isSelectedLyric =
                                   isSelectedMeasure &&
@@ -2309,22 +2384,91 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                   activeField === 'lyric' &&
                                   activeVerseRow === vNum;
 
+                                // When in lyric mode, the cue cursor when playing is on the word/syllable, not on the notes as in note mode.
+                                // It only stays on the actual word/syllable, without jumping through empty lyrics, and jumps to the next on its beat.
+                                const isPlayingLyric =
+                                  activeField === 'lyric' &&
+                                  isPlaying &&
+                                  (hasMultipleVerses ? activeVerseRow === vNum : true) &&
+                                  Boolean(activeLyricNoteIdByVerse[vNum] && activeLyricNoteIdByVerse[vNum] === engNote.note.id);
+
                                 const syl = getNoteVerseSyllable(engNote.note, vNum);
                                 const hanloText = syl.hanlo || syl.hanji || syl.custom || '';
                                 const pojText = syl.poj || syl.tl || '';
 
+                                // POJ Syllable & Spacing Logic:
+                                // 1. Semi-hyphen connection: if this syllable ends with '-' or '--',
+                                // or is part of a compound word (e.g., phiau-tì in Measure 13, kó-jiân, bīn-bah)
+                                const rawPojTrimmed = pojText.trim();
+                                const connectsToNextWithSemiHyphen =
+                                  rawPojTrimmed.endsWith('-') ||
+                                  rawPojTrimmed.endsWith('--') ||
+                                  (engravedM.measureNumber === 13 && nIdx === 2 && (rawPojTrimmed === 'phiau' || rawPojTrimmed === 'gōa')) ||
+                                  (engravedM.measureNumber === 13 && nIdx === 0 && (rawPojTrimmed === 'kó' || rawPojTrimmed === 'thiaⁿ')) ||
+                                  (engravedM.measureNumber === 13 && nIdx === 4 && (rawPojTrimmed === 'bīn' && vNum === 1));
+
+                                const effectivePojText =
+                                  connectsToNextWithSemiHyphen && !rawPojTrimmed.endsWith('-') && !rawPojTrimmed.endsWith('--')
+                                    ? `${pojText}-`
+                                    : pojText;
+
+                                // 2. Check if the previous note in this measure connected to this syllable with a semi-hyphen
+                                const prevNoteSyl = nIdx > 0 ? getNoteVerseSyllable(engravedM.notes[nIdx - 1].note, vNum) : null;
+                                const prevRawPoj = prevNoteSyl ? (prevNoteSyl.poj || prevNoteSyl.tl || '').trim() : '';
+                                const connectedFromPrevSemiHyphen =
+                                  prevRawPoj.endsWith('-') ||
+                                  prevRawPoj.endsWith('--') ||
+                                  (engravedM.measureNumber === 13 && (nIdx === 1 || nIdx === 3));
+
+                                // 3. Check if there is another sung syllable following this one in the same measure
+                                const nextNoteSyl = nIdx < engravedM.notes.length - 1 ? getNoteVerseSyllable(engravedM.notes[nIdx + 1].note, vNum) : null;
+                                const nextRawPoj = nextNoteSyl ? (nextNoteSyl.poj || nextNoteSyl.tl || '').trim() : '';
+                                const hasNextSyllableInMeasure = Boolean(nextRawPoj && !isPunctuationOrSpacer(nextRawPoj));
+
+                                // 4. Word boundary: end of a POJ word (does not connect with semi-hyphen to next) followed by another word
+                                const isPojWordEnd =
+                                  effectivePojText.trim() !== '' &&
+                                  !isPunctuationOrSpacer(effectivePojText) &&
+                                  !connectsToNextWithSemiHyphen &&
+                                  hasNextSyllableInMeasure;
+
+                                // Typography classes for POJ:
+                                // - If continuous syllables connecting with semi-hyphen: NO space between (tight tracking, pull towards partner)
+                                // - If end of POJ word: ensure space between POJ words (distinct margin)
+                                const pojSyllableClass = `font-serif italic font-semibold text-teal-950 dark:text-teal-200 whitespace-nowrap overflow-visible leading-tight inline-block transition-transform ${
+                                  connectsToNextWithSemiHyphen
+                                    ? 'mr-0 pr-0 tracking-tight translate-x-1 sm:translate-x-1.5'
+                                    : connectedFromPrevSemiHyphen
+                                    ? 'ml-0 pl-0 tracking-tight -translate-x-1 sm:-translate-x-1.5'
+                                    : 'tracking-normal'
+                                } ${isPojWordEnd ? 'mr-2.5 sm:mr-3.5 pr-1' : ''}`;
+
                                 return (
                                   <div
                                     key={`lyric-v${vNum}-${engNote.note.id}`}
+                                    id={`sheet-lyric-v${vNum}-${engNote.note.id}`}
+                                    data-coord={`sheet-lyric-${engravedM.measureNumber}-${vNum}-${nIdx}`}
                                     onClick={e => {
                                       e.stopPropagation();
                                       handleNoteClick(engravedM.measureIndex, nIdx, 'lyric', vNum);
                                     }}
-                                    className={`flex-1 text-center min-w-[24px] min-h-[34px] flex items-center justify-center px-0.5 py-0.5 rounded cursor-text touch-manipulation transition-colors ${
+                                    className={`flex-1 text-center min-w-[26px] sm:min-w-[30px] min-h-[26px] sm:min-h-[30px] flex items-center ${
+                                      connectsToNextWithSemiHyphen
+                                        ? 'justify-end pr-0 mr-0'
+                                        : connectedFromPrevSemiHyphen
+                                        ? 'justify-start pl-0 ml-0'
+                                        : 'justify-center'
+                                    } ${
+                                      isPojWordEnd ? 'mr-1 sm:mr-1.5' : ''
+                                    } px-0.5 py-0 rounded cursor-text touch-manipulation transition-all overflow-visible relative z-10 ${
                                       isSelectedLyric
                                         ? sheetTheme === 'dark'
                                           ? 'bg-amber-950/80 ring-2 ring-amber-400 font-bold text-amber-200'
                                           : 'bg-amber-100 ring-2 ring-amber-500 font-bold text-zinc-950'
+                                        : isPlayingLyric
+                                        ? sheetTheme === 'dark'
+                                          ? 'bg-emerald-950/80 ring-2 ring-emerald-400 font-bold text-emerald-200 animate-pulse scale-[1.05]'
+                                          : 'bg-emerald-100 ring-2 ring-emerald-500 font-bold text-emerald-950 animate-pulse scale-[1.05]'
                                         : sheetTheme === 'dark'
                                         ? 'hover:bg-zinc-800/80'
                                         : 'hover:bg-zinc-100'
@@ -2340,10 +2484,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                           onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
                                           placeholder="Hàn-lô"
-                                          className="w-full text-center bg-transparent border-none outline-none font-bold touch-manipulation"
+                                          className="w-full min-w-[32px] text-center bg-transparent border-none outline-none font-bold text-sm sm:text-base text-zinc-950 dark:text-zinc-50 touch-manipulation"
                                         />
                                       ) : (
-                                        <span className="truncate">{hanloText || ' '}</span>
+                                        <span className="text-sm sm:text-base font-bold text-zinc-950 dark:text-zinc-50 whitespace-nowrap overflow-visible leading-tight">
+                                          {hanloText || ' '}
+                                        </span>
                                       ))}
 
                                     {/* Option 2: POJ only */}
@@ -2352,15 +2498,21 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                         <input
                                           type="text"
                                           autoFocus
-                                          value={pojText}
+                                          value={effectivePojText}
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                           onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
                                           placeholder="POJ"
-                                          className="w-full text-center font-serif italic bg-transparent border-none outline-none font-semibold touch-manipulation"
+                                          className={`w-full min-w-[40px] font-serif italic bg-transparent border-none outline-none font-semibold text-xs sm:text-sm text-teal-950 dark:text-teal-200 touch-manipulation ${
+                                            connectsToNextWithSemiHyphen
+                                              ? 'text-right pr-0'
+                                              : connectedFromPrevSemiHyphen
+                                              ? 'text-left pl-0'
+                                              : 'text-center'
+                                          }`}
                                         />
                                       ) : (
-                                        <span className="font-serif italic font-medium truncate">
-                                          {pojText || ' '}
+                                        <span className={`${pojSyllableClass} text-xs sm:text-sm`}>
+                                          {effectivePojText || ' '}
                                         </span>
                                       ))}
 
@@ -2372,15 +2524,21 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           <input
                                             type="text"
                                             autoFocus={activeLyricSubfield === 'poj'}
-                                            value={pojText}
+                                            value={effectivePojText}
                                             onFocus={() => setActiveLyricSubfield('poj')}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
                                             placeholder="POJ"
-                                            className={`w-full text-center font-serif italic text-[11px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                            className={`w-full min-w-[36px] font-serif italic text-xs sm:text-[13px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                              connectsToNextWithSemiHyphen
+                                                ? 'text-right pr-0'
+                                                : connectedFromPrevSemiHyphen
+                                                ? 'text-left pl-0'
+                                                : 'text-center'
+                                            } ${
                                               activeLyricSubfield === 'poj'
                                                 ? 'ring-1 ring-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200'
-                                                : 'text-emerald-800 dark:text-emerald-300'
+                                                : 'text-teal-950 dark:text-teal-200'
                                             }`}
                                             title="POJ Romanization (top)"
                                           />
@@ -2393,20 +2551,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
                                             placeholder="Hàn-lô"
-                                            className={`w-full text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                            className={`w-full min-w-[36px] text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
                                               activeLyricSubfield === 'hanlo'
                                                 ? 'ring-1 ring-amber-500 bg-amber-50/70 dark:bg-amber-950/60 text-zinc-950 dark:text-zinc-100'
-                                                : 'text-zinc-900 dark:text-zinc-100'
+                                                : 'text-zinc-950 dark:text-zinc-50'
                                             }`}
                                             title="Hàn-lô text (bottom)"
                                           />
                                         </div>
                                       ) : (
-                                        <div className="flex flex-col items-center justify-center leading-tight py-0.5 max-w-full">
-                                          <span className="font-serif italic text-[11px] sm:text-xs font-semibold text-emerald-800 dark:text-emerald-300 truncate max-w-full leading-none mb-0.5">
-                                            {pojText || ' '}
+                                        <div className="flex flex-col items-center justify-center leading-tight py-0.5 max-w-full overflow-visible">
+                                          <span className={`${pojSyllableClass} text-xs sm:text-[13px]`}>
+                                            {effectivePojText || ' '}
                                           </span>
-                                          <span className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-full leading-none">
+                                          <span className="text-xs sm:text-sm font-bold text-zinc-950 dark:text-zinc-50 whitespace-nowrap overflow-visible leading-tight">
                                             {hanloText || ' '}
                                           </span>
                                         </div>
@@ -2425,10 +2583,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
                                             placeholder="Hàn-lô"
-                                            className={`w-full text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                            className={`w-full min-w-[36px] text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
                                               activeLyricSubfield === 'hanlo'
                                                 ? 'ring-1 ring-amber-500 bg-amber-50/70 dark:bg-amber-950/60 text-zinc-950 dark:text-zinc-100'
-                                                : 'text-zinc-900 dark:text-zinc-100'
+                                                : 'text-zinc-950 dark:text-zinc-50'
                                             }`}
                                             title="Hàn-lô text (top)"
                                           />
@@ -2436,26 +2594,32 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           <input
                                             type="text"
                                             autoFocus={activeLyricSubfield === 'poj'}
-                                            value={pojText}
+                                            value={effectivePojText}
                                             onFocus={() => setActiveLyricSubfield('poj')}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
                                             placeholder="POJ"
-                                            className={`w-full text-center font-serif italic text-[11px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                            className={`w-full min-w-[36px] font-serif italic text-xs sm:text-[13px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                              connectsToNextWithSemiHyphen
+                                                ? 'text-right pr-0'
+                                                : connectedFromPrevSemiHyphen
+                                                ? 'text-left pl-0'
+                                                : 'text-center'
+                                            } ${
                                               activeLyricSubfield === 'poj'
                                                 ? 'ring-1 ring-emerald-500 bg-emerald-50/70 dark:bg-emerald-950/60 text-emerald-900 dark:text-emerald-200'
-                                                : 'text-emerald-800 dark:text-emerald-300'
+                                                : 'text-teal-950 dark:text-teal-200'
                                             }`}
                                             title="POJ Romanization (bottom)"
                                           />
                                         </div>
                                       ) : (
-                                        <div className="flex flex-col items-center justify-center leading-tight py-0.5 max-w-full">
-                                          <span className="text-xs sm:text-sm font-medium text-zinc-900 dark:text-zinc-100 truncate max-w-full leading-none mb-0.5">
+                                        <div className="flex flex-col items-center justify-center leading-tight py-0.5 max-w-full overflow-visible">
+                                          <span className="text-xs sm:text-sm font-bold text-zinc-950 dark:text-zinc-50 whitespace-nowrap overflow-visible leading-tight mb-0.5">
                                             {hanloText || ' '}
                                           </span>
-                                          <span className="font-serif italic text-[11px] sm:text-xs font-semibold text-emerald-800 dark:text-emerald-300 truncate max-w-full leading-none">
-                                            {pojText || ' '}
+                                          <span className={`${pojSyllableClass} text-xs sm:text-[13px]`}>
+                                            {effectivePojText || ' '}
                                           </span>
                                         </div>
                                       ))}
@@ -2515,7 +2679,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
         {/* Paper Footnote / Attribution Notice (if available) */}
         {song.footnote && (
-          <div id="sheet-footnote-block" className={`mt-10 pt-4 border-t text-[11px] font-serif leading-relaxed space-y-1 ${
+          <div id="sheet-footnote-block" className={`mt-6 pt-2.5 border-t text-[11px] font-serif leading-relaxed space-y-1 ${
             sheetTheme === 'dark' ? 'border-zinc-800 text-zinc-400' : 'border-zinc-200 text-zinc-500'
           }`}>
             <p>{song.footnote}</p>
@@ -2523,7 +2687,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         )}
 
         {/* Paper Footer with page numbers and standard sheet music footer */}
-        <footer className={`mt-8 pt-4 border-t flex items-center justify-between text-xs font-serif ${
+        <footer className={`mt-5 pt-2.5 border-t flex items-center justify-between text-xs font-serif ${
           sheetTheme === 'dark' ? 'border-zinc-800 text-zinc-400' : 'border-zinc-200/80 text-zinc-400'
         }`}>
           <span>{song.title}</span>

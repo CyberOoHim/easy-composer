@@ -11,13 +11,13 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: 'Taigi Composer & Karaoke Studio',
-  description: 'Compose, edit, and play aligned Taigi (羅馬字 / 漢羅) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.',
-  applicationName: 'Taigi Composer',
+  title: 'easy-composer',
+  description: 'Purely manual score editor for Taigi lyrics and numbered musical notation (Numbered Notation).',
+  applicationName: 'easy-composer',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'Taigi Composer',
+    title: 'easy-composer',
   },
   formatDetection: {
     telephone: false,
@@ -35,15 +35,15 @@ export const metadata: Metadata = {
     ],
   },
   openGraph: {
-    title: 'Taigi Composer & Karaoke Studio',
-    description: 'Compose, edit, and play aligned Taigi (羅馬字 / 漢羅) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.',
+    title: 'easy-composer',
+    description: 'Purely manual score editor for Taigi lyrics and numbered musical notation (Numbered Notation).',
     type: 'website',
-    siteName: 'Taigi Composer',
+    siteName: 'easy-composer',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Taigi Composer & Karaoke Studio',
-    description: 'Compose, edit, and play aligned Taigi (羅馬字 / 漢羅) lyrics with numbered musical notation (Numbered Notation) and interactive Karaoke engine.',
+    title: 'easy-composer',
+    description: 'Purely manual score editor for Taigi lyrics and numbered musical notation (Numbered Notation).',
   },
 };
 

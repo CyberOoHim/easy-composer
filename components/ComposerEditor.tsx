@@ -310,7 +310,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         let targetNoteIdx = 0;
         if (m && m.notes.length > 0) {
           const firstPitchedIdx = m.notes.findIndex(
-            n => !isNonNotationItem(n) && (typeof n.pitch === 'number' && n.pitch > 0 || Boolean(n.lyric.hanji && !isPunctuationOrSpacer(n.lyric.hanji)))
+            n => !isNonNotationItem(n) && (typeof n.pitch === 'number' && n.pitch > 0 || Boolean((n.lyric?.hanlo || n.lyric?.hanji) && !isPunctuationOrSpacer(n.lyric?.hanlo || n.lyric?.hanji)))
           );
           targetNoteIdx = firstPitchedIdx !== -1 ? firstPitchedIdx : 0;
         }
@@ -1868,7 +1868,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     let targetNoteIdx = 0;
     if (m && m.notes.length > 0) {
       const firstPitchedIdx = m.notes.findIndex(
-        n => !isNonNotationItem(n) && (typeof n.pitch === 'number' && n.pitch > 0 || Boolean(n.lyric.hanji && !isPunctuationOrSpacer(n.lyric.hanji)))
+        n => !isNonNotationItem(n) && (typeof n.pitch === 'number' && n.pitch > 0 || Boolean((n.lyric?.hanlo || n.lyric?.hanji) && !isPunctuationOrSpacer(n.lyric?.hanlo || n.lyric?.hanji)))
       );
       targetNoteIdx = firstPitchedIdx !== -1 ? firstPitchedIdx : 0;
     }
@@ -1878,8 +1878,12 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     if (note) {
       audioEngine.previewNote(song.key, note);
       const el = document.getElementById(`sheet-note-${note.id}`);
-      if (el) {
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (el && typeof el.scrollIntoView === 'function') {
+        try {
+          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch {
+          // Ignore iframe scroll errors
+        }
       }
     }
   }, [song, audioEngine, setSelectedCoord]);
@@ -1897,7 +1901,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           n =>
             !isNonNotationItem(n) &&
             ((typeof n.pitch === 'number' && n.pitch > 0) ||
-              Boolean(n.lyric.hanji && !isPunctuationOrSpacer(n.lyric.hanji)))
+              Boolean((n.lyric?.hanlo || n.lyric?.hanji) && !isPunctuationOrSpacer(n.lyric?.hanlo || n.lyric?.hanji)))
         );
         targetNoteIdx = firstPitchedIdx !== -1 ? firstPitchedIdx : 0;
       }
