@@ -14,7 +14,9 @@ function makeMockMeasure(
     notes.push({
       id: `n-${id}-${i}`,
       pitch: 1,
+      octave: 0,
       duration: 1,
+      lyric: {},
     });
   }
   return {
@@ -30,13 +32,12 @@ function makeMockSong(measures: Measure[], notesPerLine = 4): Song {
   return {
     id: 'test-song-1',
     title: 'Wrap Test Song',
-    artist: 'Tester',
+    composer: 'Tester',
     key: 'C',
     timeSignature: '4/4',
-    tempo: 100,
+    bpm: 100,
     notesPerLine,
     measures,
-    createdAt: 1000,
     updatedAt: 1000,
   };
 }
