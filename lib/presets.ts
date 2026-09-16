@@ -37,7 +37,6 @@ export const PRESET_SONGS: Song[] = [
         id: 'bch_m2',
         measureNumber: 2,
         chord: 'C#m',
-        section: 'Prelude',
         isPrelude: true,
         notes: [
           { id: 'bch_n2_1', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: '', hanlo: '' } },
@@ -50,7 +49,6 @@ export const PRESET_SONGS: Song[] = [
         id: 'bch_m3',
         measureNumber: 3,
         chord: 'A',
-        section: 'Prelude',
         isPrelude: true,
         notes: [
           { id: 'bch_n3_1', pitch: 5, octave: 0, duration: 1.5, isDotted: true, lyric: { poj: '', hanlo: '' } },
@@ -65,7 +63,6 @@ export const PRESET_SONGS: Song[] = [
         id: 'bch_m4',
         measureNumber: 4,
         chord: 'E',
-        section: 'Prelude',
         isPrelude: true,
         isLineBreak: true,
         obbligatoText: '0 56 53 21 6̣ 5̣',

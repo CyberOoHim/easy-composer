@@ -2209,9 +2209,11 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         )}
 
                         {engravedM.sectionText && (
-                          <span className={`text-[9px] font-sans font-bold px-1.5 py-0.5 rounded shrink-0 ${
-                            sheetTheme === 'dark' ? 'bg-zinc-800 text-zinc-300' : 'bg-zinc-100 text-zinc-600'
-                          }`}>
+                          <span className={`sheet-section-badge text-[9px] font-sans font-bold px-1.5 py-0.5 rounded shrink-0 border transition-colors ${
+                            sheetTheme === 'dark'
+                              ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
+                              : 'bg-zinc-100 text-zinc-800 border-zinc-300'
+                          } print:bg-white print:text-zinc-950 print:border-zinc-800 print:shadow-none`}>
                             {engravedM.sectionText}
                           </span>
                         )}

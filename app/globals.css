@@ -265,7 +265,7 @@ html, body {
 
 @media print {
   /* 1. Strictly hide all web app chrome, headers, navigation bars, toolbars, and floating HUDs */
-  header,
+  header:not(#real-sheet-header),
   nav,
   aside,
   #header-bar,
@@ -401,7 +401,35 @@ html, body {
     overflow: visible !important;
   }
 
-  /* 7. Publication-grade high-contrast carbon ink tones (even if user is in dark mode) */
+  /* 7. Publication-grade physical sheet header & high-contrast carbon ink tones */
+  #real-sheet-header {
+    display: block !important;
+    visibility: visible !important;
+    width: 100% !important;
+    margin-bottom: 12px !important;
+    padding-bottom: 10px !important;
+    border-bottom: 1px solid #18181b !important;
+    break-inside: avoid !important;
+    page-break-inside: avoid !important;
+  }
+
+  #real-sheet-header button {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+    padding: 0 !important;
+    cursor: default !important;
+  }
+
+  #real-sheet-header #sheet-key-signature-btn span.underline {
+    text-decoration-color: #18181b !important;
+  }
+
+  #real-sheet-header #sheet-time-signature-btn span[class*="h-px"] {
+    background-color: #18181b !important;
+  }
+
   #real-sheet-paper-stage,
   #real-sheet-header,
   #real-sheet-header h1,
@@ -477,6 +505,17 @@ html, body {
     color: #18181b !important;
     background-color: #ffffff !important;
     border-color: #18181b !important;
+  }
+
+  /* Section marker badges in print: clean white pill, crisp 1px dark border, solid dark text */
+  #real-sheet-paper-stage .sheet-section-badge,
+  #real-sheet-paper-stage span[class*="sheet-section-badge"] {
+    background-color: #ffffff !important;
+    color: #09090b !important;
+    border: 1px solid #18181b !important;
+    box-shadow: none !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
   }
 
   /* Paper footnote and footer */

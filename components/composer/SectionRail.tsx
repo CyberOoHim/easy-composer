@@ -37,7 +37,11 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
 
     song.measures.forEach((m, idx) => {
       if (m.section && m.section.trim()) {
-        sectionStarts.push({ index: idx, name: m.section.trim() });
+        const trimmed = m.section.trim();
+        const lastSection = sectionStarts[sectionStarts.length - 1];
+        if (!lastSection || lastSection.name !== trimmed) {
+          sectionStarts.push({ index: idx, name: trimmed });
+        }
       }
     });
 

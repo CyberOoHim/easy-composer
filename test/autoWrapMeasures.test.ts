@@ -117,4 +117,37 @@ describe('autoWrapSongMeasures', () => {
     // Measure 2 (index 1) has repeat_end, should trigger system break
     assert.equal(wrapped.measures[1].isLineBreak, true);
   });
+
+  it('only presents sectionText on the first measure of a section, avoiding duplicates', async () => {
+    const { groupMeasuresIntoSystems } = await import('../lib/jianpuEngraver.ts');
+    const rawMeasures: Measure[] = [
+      makeMockMeasure('m1', 1, 4, { section: 'Prelude' }),
+      makeMockMeasure('m2', 2, 4, { section: 'Prelude' }),
+      makeMockMeasure('m3', 3, 4, { section: 'Prelude' }),
+      makeMockMeasure('m4', 4, 4, { section: 'Prelude' }),
+      makeMockMeasure('m5', 5, 4, { section: 'Verse' }),
+    ];
+    const systems = groupMeasuresIntoSystems(rawMeasures, '4/4', 4, 'no_wrap');
+    const allEngraved = systems.flatMap(s => s.measures);
+
+    // Measure 1 (index 0) should have sectionText = 'Prelude'
+    assert.equal(allEngraved[0].sectionText, 'Prelude');
+    // Measures 2, 3, 4 should have sectionText = ''
+    assert.equal(allEngraved[1].sectionText, '');
+    assert.equal(allEngraved[2].sectionText, '');
+    assert.equal(allEngraved[3].sectionText, '');
+    // Measure 5 (index 4) starts Verse, so it should have sectionText = 'Verse'
+    assert.equal(allEngraved[4].sectionText, 'Verse');
+  });
+
+  it('ensures preset 望春風 only starts section at measure 1 and measure 5', async () => {
+    const { PRESET_SONGS } = await import('../lib/presets.ts');
+    const bch = PRESET_SONGS[0];
+    assert.equal(bch.measures[0].section, 'Prelude');
+    assert.equal(bch.measures[1].section, undefined);
+    assert.equal(bch.measures[2].section, undefined);
+    assert.equal(bch.measures[3].section, undefined);
+    assert.equal(bch.measures[4].section, 'Verse');
+  });
 });
+

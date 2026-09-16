@@ -1,4 +1,4 @@
-import { Measure, NumberedNotationNote, TimeSignature, PitchNumber, NoteDuration, BarlineType, SheetWrapMode } from '@/types/song';
+import type { Measure, NumberedNotationNote, TimeSignature, PitchNumber, NoteDuration, BarlineType, SheetWrapMode } from '../types/song.ts';
 
 /**
  * Calculated engraving data for a single numbered notation note on a printed sheet.
@@ -123,7 +123,8 @@ export function formatAccidentalGlyph(accidental?: string): string {
 export function engraveMeasure(
   measure: Measure,
   measureIndex: number,
-  timeSignature: TimeSignature
+  timeSignature: TimeSignature,
+  allMeasures?: Measure[]
 ): EngravedMeasure {
   const { beatsPerMeasure, groupingBeatLength } = parseTimeSignature(timeSignature);
   const expectedBeats = beatsPerMeasure * (timeSignature === '6/8' ? 1.5 : 1.0);
@@ -297,7 +298,9 @@ export function engraveMeasure(
   const isOver = totalBeats > expectedBeats + 0.01;
 
   const chordText = measure.chord || (measure.chords && measure.chords.length > 0 ? measure.chords.join(' ') : '');
-  const sectionText = measure.section || '';
+  const prevMeasure = (allMeasures && measureIndex > 0) ? allMeasures[measureIndex - 1] : undefined;
+  const isSectionStart = Boolean(measure.section && (!prevMeasure || prevMeasure.section !== measure.section));
+  const sectionText = isSectionStart ? (measure.section || '') : '';
   const barlineType = measure.barlineType || 'single';
 
   // Compute collision-free required width for each note and the whole measure
@@ -473,7 +476,7 @@ export function groupMeasuresIntoSystems(
   const MAX_SYSTEM_LINE_WIDTH = 740; // Target printable sheet system content width in pixels
 
   measures.forEach((measure, idx) => {
-    const engraved = engraveMeasure(measure, idx, timeSignature);
+    const engraved = engraveMeasure(measure, idx, timeSignature, measures);
     const mWidth = engraved.requiredWidth || 140;
 
     let shouldBreakBefore = false;
