@@ -2000,28 +2000,28 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             onClick={handleRotateWrapMode}
             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs cursor-pointer ${
               sheetWrapMode === 'auto_wrap'
-                ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25'
+                ? 'bg-amber-100 dark:bg-amber-500/20 border-amber-400 dark:border-amber-500/50 text-amber-900 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-500/30'
                 : sheetWrapMode === 'auto_fit'
-                ? 'bg-sky-500/15 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/25'
+                ? 'bg-sky-100 dark:bg-sky-500/20 border-sky-400 dark:border-sky-500/50 text-sky-900 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-500/30'
                 : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
             }`}
             title={`Layout Mode: ${
               sheetWrapMode === 'no_wrap'
-                ? '1. No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to switch to 2. Auto Wrap.'
+                ? 'No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to switch to Auto Wrap.'
                 : sheetWrapMode === 'auto_wrap'
-                ? '2. Auto Wrap (Dynamic collision-free spacing). Click to switch to 3. Auto Fix.'
-                : '3. Auto Fix (Forced measures per line). Click to switch to 1. No Wrap.'
+                ? 'Auto Wrap (Dynamic collision-free spacing). Click to switch to Auto Fix.'
+                : 'Auto Fix (Forced measures per line). Click to switch to No Wrap.'
             }`}
           >
-            {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5 text-zinc-500" />}
-            {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5 text-amber-500" />}
-            {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5 text-sky-500" />}
+            {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />}
+            {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5 text-amber-800 dark:text-amber-400" />}
+            {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5 text-sky-800 dark:text-sky-400" />}
             <span>
               {sheetWrapMode === 'no_wrap'
-                ? '1. No Wrap'
+                ? 'No Wrap'
                 : sheetWrapMode === 'auto_wrap'
-                ? '2. Auto Wrap'
-                : '3. Auto Fix'}
+                ? 'Auto Wrap'
+                : 'Auto Fix'}
             </span>
           </button>
 
@@ -2555,7 +2555,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     )}
 
                     {/* Notation Line & Continuous Beams */}
-                    <div className="relative flex items-center justify-between w-full min-h-[46px] sm:min-h-[50px] py-0.5">
+                    <div className="relative flex items-center justify-between w-full min-h-[36px] sm:min-h-[40px] py-0">
                       {/* Prelude Open Parenthesis '(' */}
                       {engravedM.isPrelude && isFirstInSystem && (
                         <span className={`font-serif text-2xl font-bold mr-1 select-none ${
@@ -2591,10 +2591,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               }}
                               style={{
                                 zoom: 'var(--note-zoom, 1)',
-                                flex: `${Math.max(1, Math.round((engNote.requiredWidth || 32) / 10))} 0 auto`,
-                                minWidth: `${Math.round(engNote.requiredWidth || 28)}px`,
+                                flex: `${Math.max(1, Math.round((engNote.requiredWidth || 22) / 10))} 0 auto`,
+                                minWidth: `${Math.round(engNote.requiredWidth || 22)}px`,
                               }}
-                              className={`relative flex flex-col items-center justify-center p-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[38px] print:ring-0 print:bg-transparent ${
+                              className={`relative flex flex-col items-center justify-center p-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[30px] print:ring-0 print:bg-transparent ${
                                 isSelectedNote
                                   ? sheetTheme === 'dark'
                                     ? 'ring-2 ring-amber-400 bg-amber-950/60'
@@ -2639,7 +2639,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               )}
 
                               {/* High Octave Dots Above */}
-                              <div className="flex flex-col items-center h-2 justify-end">
+                              <div className={`flex flex-col items-center justify-end ${engNote.octaveDotsAbove > 0 ? 'h-2 mb-0.5' : 'h-0'}`}>
                                 {engNote.octaveDotsAbove > 0 && (
                                   <div className={`flex gap-0.5 font-black leading-none text-[9px] ${
                                     sheetTheme === 'dark' ? 'text-zinc-100' : 'text-zinc-950'
@@ -2760,7 +2760,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               </div>
 
                               {/* Low Octave Dots Below Underlines */}
-                              <div className="flex flex-col items-center h-2 justify-start">
+                              <div className={`flex flex-col items-center justify-start ${engNote.octaveDotsBelow > 0 ? 'h-2 mt-0.5' : 'h-0'}`}>
                                 {engNote.octaveDotsBelow > 0 && (
                                   <div className={`flex gap-0.5 font-black leading-none text-[9px] ${
                                     sheetTheme === 'dark' ? 'text-zinc-100' : 'text-zinc-950'
@@ -2787,8 +2787,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     </div>
 
                     {/* Multi-Verse Stacked Lyrics Aligned Under Notes */}
-                    <div className={`w-full flex flex-col gap-1 mt-1 pt-1 border-t ${
-                      sheetTheme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'
+                    <div className={`w-full flex flex-col gap-0.5 mt-0.5 pt-0.5 border-t ${
+                      sheetTheme === 'dark' ? 'border-zinc-800/70' : 'border-zinc-200/60'
                     }`}>
                       {availableVerseRows.map(vNum => {
                         const vDisplayOption = getVerseDisplayOption(song, vNum);
@@ -2873,16 +2873,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
                                 // Typography classes for POJ:
                                 // - If continuous syllables connecting with semi-hyphen: NO space between (tight tracking, pull towards partner)
-                                // - If end of POJ word: ensure space between POJ words (distinct margin)
+                                // - If end of POJ word: ensure space between POJ words (compact margin)
                                 const pojSyllableClass = `font-serif italic font-semibold ${
                                   sheetTheme === 'dark' ? 'text-teal-300' : 'text-teal-950 font-bold'
                                 } whitespace-nowrap overflow-visible leading-tight inline-block transition-transform ${
                                   connectsToNextWithSemiHyphen
-                                    ? 'mr-0 pr-0 tracking-tight translate-x-1 sm:translate-x-1.5'
+                                    ? 'mr-0 pr-0 tracking-tight translate-x-0.5 sm:translate-x-1'
                                     : connectedFromPrevSemiHyphen
-                                    ? 'ml-0 pl-0 tracking-tight -translate-x-1 sm:-translate-x-1.5'
+                                    ? 'ml-0 pl-0 tracking-tight -translate-x-0.5 sm:-translate-x-1'
                                     : 'tracking-normal'
-                                } ${isPojWordEnd ? 'mr-2.5 sm:mr-3.5 pr-1' : ''}`;
+                                } ${isPojWordEnd ? 'mr-1 sm:mr-1.5' : ''}`;
 
                                 return (
                                   <div
@@ -2895,18 +2895,18 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     }}
                                     style={{
                                       zoom: 'var(--lyric-zoom, 1)',
-                                      flex: `${Math.max(1, Math.round((engNote.requiredWidth || 32) / 10))} 0 auto`,
-                                      minWidth: `${Math.round(engNote.requiredWidth || 28)}px`,
-                                      maxWidth: isSelectedLyric ? `${Math.max(Math.round(engNote.requiredWidth || 28), 34)}px` : undefined,
+                                      flex: `${Math.max(1, Math.round((engNote.requiredWidth || 22) / 10))} 0 auto`,
+                                      minWidth: `${Math.round(engNote.requiredWidth || 22)}px`,
+                                      maxWidth: isSelectedLyric ? `${Math.max(Math.round(engNote.requiredWidth || 22), 30)}px` : undefined,
                                     }}
-                                    className={`flex-1 text-center min-h-[26px] sm:min-h-[30px] flex items-center ${
+                                    className={`flex-1 text-center min-h-[22px] sm:min-h-[26px] flex items-center ${
                                       connectsToNextWithSemiHyphen
                                         ? 'justify-end pr-0 mr-0'
                                         : connectedFromPrevSemiHyphen
                                         ? 'justify-start pl-0 ml-0'
                                         : 'justify-center'
                                     } ${
-                                      isPojWordEnd ? 'mr-1 sm:mr-1.5' : ''
+                                      isPojWordEnd ? 'mr-0.5 sm:mr-1' : ''
                                     } px-0.5 py-0 rounded cursor-text touch-manipulation transition-all overflow-visible relative z-10 print:ring-0 print:bg-transparent ${
                                       isSelectedLyric
                                         ? sheetTheme === 'dark'
@@ -2978,7 +2978,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     {/* Option 3: Both (POJ on the top, Hàn-lô below) */}
                                     {(vDisplayOption === 'both_poj_top' || vDisplayOption === 'both') &&
                                       (isSelectedLyric ? (
-                                        <div className="flex flex-col items-center justify-center w-full max-w-full min-w-0 gap-0.5">
+                                        <div className="flex flex-col items-center justify-center w-full max-w-full min-w-0 gap-0">
                                           {/* Top: POJ */}
                                           <input
                                             type="text"
@@ -3031,8 +3031,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           />
                                         </div>
                                       ) : (
-                                        <div className="flex flex-col items-center justify-center leading-tight py-0.5 max-w-full overflow-visible">
-                                          <span className={`${pojSyllableClass} text-xs sm:text-[13px]`}>
+                                        <div className="flex flex-col items-center justify-center leading-tight py-0 max-w-full overflow-visible gap-0">
+                                          <span className={`${pojSyllableClass} text-xs sm:text-[13px] leading-tight`}>
                                             {effectivePojText || ' '}
                                           </span>
                                           <span className={`text-xs sm:text-sm font-bold whitespace-nowrap overflow-visible leading-tight ${
@@ -3046,7 +3046,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     {/* Option 4: Both (Hàn-lô on the top, POJ below) */}
                                     {vDisplayOption === 'both_hanlo_top' &&
                                       (isSelectedLyric ? (
-                                        <div className="flex flex-col items-center justify-center w-full max-w-full min-w-0 gap-0.5">
+                                        <div className="flex flex-col items-center justify-center w-full max-w-full min-w-0 gap-0">
                                           {/* Top: Hàn-lô */}
                                           <input
                                             type="text"
@@ -3099,13 +3099,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           />
                                         </div>
                                       ) : (
-                                        <div className="flex flex-col items-center justify-center leading-tight py-0.5 max-w-full overflow-visible">
-                                          <span className={`text-xs sm:text-sm font-bold whitespace-nowrap overflow-visible leading-tight mb-0.5 ${
+                                        <div className="flex flex-col items-center justify-center leading-tight py-0 max-w-full overflow-visible gap-0">
+                                          <span className={`text-xs sm:text-sm font-bold whitespace-nowrap overflow-visible leading-tight ${
                                             sheetTheme === 'dark' ? 'text-zinc-100' : 'text-zinc-950'
                                           }`}>
                                             {hanloText || ' '}
                                           </span>
-                                          <span className={`${pojSyllableClass} text-xs sm:text-[13px]`}>
+                                          <span className={`${pojSyllableClass} text-xs sm:text-[13px] leading-tight`}>
                                             {effectivePojText || ' '}
                                           </span>
                                         </div>

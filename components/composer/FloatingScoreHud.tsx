@@ -1398,24 +1398,24 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 onClick={onRotateWrapMode}
                 className={`flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
                   sheetWrapMode === 'auto_wrap'
-                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25'
+                    ? 'bg-amber-100 dark:bg-amber-500/20 border-amber-400 dark:border-amber-500/50 text-amber-900 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-500/30'
                     : sheetWrapMode === 'auto_fit'
-                    ? 'bg-sky-500/15 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/25'
-                    : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    ? 'bg-sky-100 dark:bg-sky-500/20 border-sky-400 dark:border-sky-500/50 text-sky-900 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-500/30'
+                    : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                 }`}
                 title={`Layout mode: ${
                   sheetWrapMode === 'no_wrap'
-                    ? '1. No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to rotate to 2. Auto Wrap.'
+                    ? 'No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to rotate to Auto Wrap.'
                     : sheetWrapMode === 'auto_wrap'
-                    ? '2. Auto Wrap (Dynamic collision-free spacing). Click to rotate to 3. Auto Fix.'
-                    : '3. Auto Fix (Forced measures per line). Click to rotate to 1. No Wrap.'
+                    ? 'Auto Wrap (Dynamic collision-free spacing). Click to rotate to Auto Fix.'
+                    : 'Auto Fix (Forced measures per line). Click to rotate to No Wrap.'
                 }`}
               >
-                {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5" />}
-                {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5" />}
-                {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5" />}
+                {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />}
+                {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5 text-amber-800 dark:text-amber-400" />}
+                {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5 text-sky-800 dark:text-sky-400" />}
                 <span className="inline font-mono text-[11px]">
-                  {sheetWrapMode === 'no_wrap' ? '1. No Wrap' : sheetWrapMode === 'auto_wrap' ? '2. Auto Wrap' : '3. Auto Fix'}
+                  {sheetWrapMode === 'no_wrap' ? 'No Wrap' : sheetWrapMode === 'auto_wrap' ? 'Auto Wrap' : 'Auto Fix'}
                 </span>
               </button>
             ) : onAutoWrapMeasures ? (

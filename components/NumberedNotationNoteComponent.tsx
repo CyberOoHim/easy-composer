@@ -143,17 +143,17 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
         );
       case 'hanlo_major_roman':
         return (
-          <div className="flex flex-col items-center leading-tight gap-0.5">
+          <div className="flex flex-col items-center leading-tight gap-0">
             {/* 羅馬字 sub-line on top */}
             {poj && (
-              <span className="text-[13px] sm:text-sm font-serif italic text-emerald-600 dark:text-emerald-400 font-semibold">
+              <span className="text-[13px] sm:text-sm font-serif italic text-emerald-600 dark:text-emerald-400 font-semibold leading-tight">
                 {poj}
               </span>
             )}
             {/* 漢羅 major text below */}
             <span
               className={cn(
-                'font-bold text-base tracking-wide',
+                'font-bold text-base tracking-wide leading-tight',
                 isPunctuation
                   ? 'text-amber-700 dark:text-amber-400 font-black'
                   : 'text-zinc-900 dark:text-zinc-100'
@@ -166,17 +166,17 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
       case 'roman_major_hanlo':
       default:
         return (
-          <div className="flex flex-col items-center leading-tight gap-0.5">
+          <div className="flex flex-col items-center leading-tight gap-0">
             {/* 漢羅 sub-line on top */}
             {hanlo && (
-              <span className="text-[13px] sm:text-sm font-sans text-zinc-700 dark:text-zinc-300 font-semibold">
+              <span className="text-[13px] sm:text-sm font-sans text-zinc-700 dark:text-zinc-300 font-semibold leading-tight">
                 {hanlo}
               </span>
             )}
             {/* 羅馬字 major text below */}
             <span
               className={cn(
-                'font-serif italic text-base font-bold',
+                'font-serif italic text-base font-bold leading-tight',
                 isPunctuation
                   ? 'text-amber-700 dark:text-amber-400 font-bold'
                   : 'text-emerald-700 dark:text-emerald-300'
@@ -264,7 +264,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
         style={{
           zoom: 'var(--note-zoom, 1)',
         }}
-        className="flex items-center justify-center relative min-h-[36px] px-1"
+        className="flex items-center justify-center relative min-h-[28px] px-0.5"
       >
         {/* Top Articulation mark (Fermata, Accent, Staccato, Tenuto, Portamento) */}
         {note.articulation && note.articulation !== 'none' && !isNonNotation && (
@@ -486,7 +486,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
         style={{
           zoom: 'var(--lyric-zoom, 1)',
         }}
-        className="mt-1.5 w-full flex items-center justify-center text-center min-h-[40px]"
+        className="mt-0.5 w-full flex items-center justify-center text-center min-h-[22px]"
       >
         {renderLyricContent()}
       </div>

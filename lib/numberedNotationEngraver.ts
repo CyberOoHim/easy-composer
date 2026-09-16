@@ -361,11 +361,11 @@ export function calculateNoteRequiredWidth(
   const isDotted = Boolean(note.isDotted);
   const isTriplet = Boolean(note.isTriplet);
 
-  // Pitch element widths
-  let pitchWidth = 24 + dashCount * 14 + graceCount * 14;
-  if (hasAccidental) pitchWidth += 10;
-  if (isDotted) pitchWidth += 8;
-  if (isTriplet) pitchWidth += 8;
+  // Pitch element widths (compact baseline)
+  let pitchWidth = 20 + dashCount * 12 + graceCount * 12;
+  if (hasAccidental) pitchWidth += 8;
+  if (isDotted) pitchWidth += 6;
+  if (isTriplet) pitchWidth += 6;
 
   // Syllable text width across all verse layers
   let maxLyricWidth = 0;
@@ -379,19 +379,19 @@ export function calculateNoteRequiredWidth(
     if (h) {
       for (const ch of h) {
         if (/[，。、！？,.!?…]/.test(ch)) {
-          hWidth += 12;
+          hWidth += 10;
         } else {
-          hWidth += 16;
+          hWidth += 14;
         }
       }
     }
 
     let pWidth = 0;
     if (p) {
-      pWidth = p.length * 9.5;
-      // Word end spacing if not continuing with hyphen to next syllable
+      pWidth = p.length * 8.5;
+      // Snug word boundary margin if not continuing with hyphen to next syllable
       if (!p.endsWith('-') && !p.endsWith('--')) {
-        pWidth += 14;
+        pWidth += 4;
       }
     }
 
@@ -415,7 +415,7 @@ export function calculateNoteRequiredWidth(
     }
   }
 
-  return Math.max(30, Math.round(Math.max(pitchWidth, maxLyricWidth + 12)));
+  return Math.max(22, Math.round(Math.max(pitchWidth, maxLyricWidth + 4)));
 }
 
 /**

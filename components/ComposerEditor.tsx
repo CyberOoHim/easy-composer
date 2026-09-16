@@ -1186,11 +1186,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       setStoredSheetWrapMode(next);
       if (next === 'no_wrap') {
-        showNotice('Layout: 1. No Wrap (Manual breaks only)');
+        showNotice('Layout: No Wrap (Manual breaks only)');
       } else if (next === 'auto_wrap') {
-        showNotice('Layout: 2. Auto Wrap (Dynamic spacing, zero syllable collision)');
+        showNotice('Layout: Auto Wrap (Dynamic spacing, zero syllable collision)');
       } else {
-        showNotice(`Layout: 3. Auto Fix (Forced ${song.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4)} measures per line)`);
+        showNotice(`Layout: Auto Fix (Forced ${song.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4)} measures per line)`);
       }
       return next;
     });
