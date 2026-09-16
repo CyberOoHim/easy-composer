@@ -35,6 +35,9 @@ import { scrollToCardElement } from '@/lib/utils';
 import {
   getStoredAutoStepAdvance,
   setStoredAutoStepAdvance,
+  getStoredSheetWrapMode,
+  setStoredSheetWrapMode,
+  SETTINGS_RESET_EVENT,
 } from '@/lib/storage';
 import { SongMetadataHeader } from './composer/SongMetadataHeader';
 import { SectionRail } from './composer/SectionRail';
@@ -1147,11 +1150,20 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   // 3. auto wrap (dynamic collision-free spacing for syllables)
   const [sheetWrapMode, setSheetWrapMode] = useState<SheetWrapMode>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('real_sheet_wrap_mode');
-      if (saved === 'no_wrap' || saved === 'auto_fit' || saved === 'auto_wrap') return saved;
+      return getStoredSheetWrapMode('no_wrap');
     }
     return 'no_wrap'; // Button default is not auto wrapping
   });
+
+  // Keep settings synced on global settings reset
+  useEffect(() => {
+    const handleReset = () => {
+      setAutoStepAdvanceState(getStoredAutoStepAdvance(false));
+      setSheetWrapMode(getStoredSheetWrapMode('no_wrap'));
+    };
+    window.addEventListener(SETTINGS_RESET_EVENT, handleReset);
+    return () => window.removeEventListener(SETTINGS_RESET_EVENT, handleReset);
+  }, []);
 
   const handleRotateWrapMode = useCallback(() => {
     setSheetWrapMode(prev => {
@@ -1160,9 +1172,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       else if (prev === 'auto_fit') next = 'auto_wrap';
       else next = 'no_wrap';
 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('real_sheet_wrap_mode', next);
-      }
+      setStoredSheetWrapMode(next);
       if (next === 'no_wrap') {
         showNotice('Layout: 1. No Fit / No Wrap (Manual breaks only)');
       } else if (next === 'auto_fit') {

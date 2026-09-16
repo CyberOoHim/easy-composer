@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useCallback, useSyncExternalStore } from 'react';
+import { STORAGE_KEYS, ECO_MODE_EVENT } from '@/lib/storage';
 
-const STORAGE_KEY = 'taigi_composer_power_save_mode';
-const ECO_MODE_EVENT = 'taigi_composer_eco_mode_change';
+const STORAGE_KEY = STORAGE_KEYS.POWER_SAVE_MODE;
 
 function getEcoModeSnapshot(): boolean {
   if (typeof window === 'undefined') return false;

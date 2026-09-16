@@ -31,6 +31,9 @@ import {
   setStoredMidiKaraokeTrack,
   getStoredMidiMelodyLyrics,
   setStoredMidiMelodyLyrics,
+  getStoredMidiInstrument,
+  setStoredMidiInstrument,
+  getStoredInstrument,
   ExportFormat,
 } from '@/lib/storage';
 import {
@@ -114,7 +117,14 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     setStoredMidiLyricType(type);
   };
 
-  const [midiInstrument, setMidiInstrument] = useState<InstrumentType>('piano');
+  const [midiInstrument, setMidiInstrumentState] = useState<InstrumentType>(() => {
+    if (typeof window !== 'undefined') return getStoredMidiInstrument(getStoredInstrument());
+    return 'piano';
+  });
+  const setMidiInstrument = (inst: InstrumentType) => {
+    setMidiInstrumentState(inst);
+    setStoredMidiInstrument(inst);
+  };
 
   const [midiFormat, setMidiFormatState] = useState<'mid' | 'kar'>(() => {
     if (typeof window !== 'undefined') return getStoredMidiFormat('mid');

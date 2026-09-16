@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useSyncExternalStore } from 'react';
 import { X, WifiOff, Tablet } from 'lucide-react';
 import { isIPad, isStandalonePwa } from '@/lib/device';
+import { getStoredPwaDismissed, setStoredPwaDismissed } from '@/lib/storage';
 
 const emptySubscribe = () => () => {};
 
@@ -58,7 +59,11 @@ export const PwaManager: React.FC = () => {
 
   const handleDismiss = () => {
     setIsDismissed(true);
-    try { sessionStorage.setItem('pwa_prompt_dismissed', 'true'); } catch { /* storage blocked */ }
+    try {
+      setStoredPwaDismissed(true);
+    } catch {
+      /* storage blocked */
+    }
   };
 
   if (!hasMounted) {
@@ -68,10 +73,14 @@ export const PwaManager: React.FC = () => {
   const isStandalone = isStandalonePwa();
   const isIpadDevice = isIPad();
 
-  let sessionDismissed = false;
-  try { sessionDismissed = sessionStorage.getItem('pwa_prompt_dismissed') === 'true'; } catch { /* storage blocked */ }
+  let storedDismissed = false;
+  try {
+    storedDismissed = getStoredPwaDismissed();
+  } catch {
+    /* storage blocked */
+  }
 
-  const showIpadInstallBanner = Boolean(isIpadDevice && !isStandalone && !sessionDismissed && !isDismissed);
+  const showIpadInstallBanner = Boolean(isIpadDevice && !isStandalone && !storedDismissed && !isDismissed);
 
   return (
     <>

@@ -1,6 +1,6 @@
 'use client';
 
-import type { Song, LyricDisplayMode, InstrumentType, EditorEditMode, NoteEditSubMode, NoteInputMode, Measure, NumberedNotationNote } from '../types/song.ts';
+import type { Song, LyricDisplayMode, InstrumentType, EditorEditMode, NoteEditSubMode, NoteInputMode, Measure, NumberedNotationNote, SheetWrapMode } from '../types/song.ts';
 import { PRESET_SONGS } from './presets.ts';
 
 export const STORAGE_KEYS = {
@@ -32,10 +32,12 @@ export const STORAGE_KEYS = {
   AUTOSAVE_INTERVAL: 'taigi_composer_autosave_interval',
   KARAOKE_STAGE_THEME: 'taigi_karaoke_stage_theme',
   REAL_SHEET_THEME: 'taigi_real_sheet_theme',
+  REAL_SHEET_WRAP_MODE: 'real_sheet_wrap_mode',
   KARAOKE_SHOW_NOTATION: 'taigi_karaoke_show_notation',
   KARAOKE_LAYOUT_MODE: 'taigi_karaoke_layout_mode',
   KARAOKE_LYRIC_ALIGN: 'taigi_karaoke_lyric_align',
   ECO_PROMPT_DISMISSED: 'taigi_composer_eco_prompt_dismissed',
+  PWA_PROMPT_DISMISSED: 'taigi_pwa_prompt_dismissed',
   // Piano Deck Selections
   PIANO_OCTAVE_VIEW: 'taigi_composer_piano_octave_view',
   PIANO_LABEL_MODE: 'taigi_composer_piano_label_mode',
@@ -48,8 +50,11 @@ export const STORAGE_KEYS = {
   // Song Metadata Header Selections
   AUTO_TRANSPOSE_CHORDS: 'taigi_composer_auto_transpose_chords',
   SYNC_ALL_MEASURES: 'taigi_composer_sync_all_measures',
+  // Quick Lyric Aligner Selections
+  QUICK_ALIGN_TARGET: 'taigi_composer_quick_align_target',
   // MIDI & Score Export Selections
   EXPORT_FORMAT: 'taigi_composer_export_format',
+  MIDI_INSTRUMENT: 'taigi_composer_midi_instrument',
   MIDI_LYRIC_TYPE: 'taigi_composer_midi_lyric_type',
   MIDI_FORMAT: 'taigi_composer_midi_format',
   MIDI_ACCOMPANIMENT: 'taigi_composer_midi_accompaniment',
@@ -76,7 +81,8 @@ export type MidiLyricMode = 'hanlo' | 'poj' | 'both' | 'none';
 export type SearchScope = 'all' | 'current';
 export type SearchMatchFilter = 'all' | 'measure' | 'verse';
 export type InSongFilter = 'all' | 'measure' | 'verse';
-export type { NoteInputMode };
+export type QuickAlignTarget = 'roman' | 'hanlo' | 'dual';
+export type { NoteInputMode, SheetWrapMode };
 
 /**
  * Safe local storage getter with fallback
@@ -833,9 +839,71 @@ export function setStoredInSongFilter(filter: InSongFilter): void {
 }
 
 // ============================================================================
-// 16. RESTORE TO DEFAULT (Reset All User Settings to Factory Defaults)
+// 16. SHEET WRAP MODE PREFERENCE
+// ============================================================================
+export function getStoredSheetWrapMode(defaultVal: SheetWrapMode = 'no_wrap'): SheetWrapMode {
+  const val = safeGetItem(STORAGE_KEYS.REAL_SHEET_WRAP_MODE);
+  if (val === 'no_wrap' || val === 'auto_fit' || val === 'auto_wrap') return val;
+  return defaultVal;
+}
+
+export function setStoredSheetWrapMode(mode: SheetWrapMode): void {
+  safeSetItem(STORAGE_KEYS.REAL_SHEET_WRAP_MODE, mode);
+}
+
+// ============================================================================
+// 17. QUICK LYRIC ALIGNER PREFERENCE
+// ============================================================================
+export function getStoredQuickAlignTarget(defaultVal: QuickAlignTarget = 'roman'): QuickAlignTarget {
+  const val = safeGetItem(STORAGE_KEYS.QUICK_ALIGN_TARGET);
+  if (val === 'roman' || val === 'hanlo' || val === 'dual') return val;
+  return defaultVal;
+}
+
+export function setStoredQuickAlignTarget(target: QuickAlignTarget): void {
+  safeSetItem(STORAGE_KEYS.QUICK_ALIGN_TARGET, target);
+}
+
+// ============================================================================
+// 18. MIDI INSTRUMENT PREFERENCE
+// ============================================================================
+export function getStoredMidiInstrument(defaultVal?: InstrumentType): InstrumentType {
+  const val = safeGetItem(STORAGE_KEYS.MIDI_INSTRUMENT);
+  if (
+    val === 'piano' ||
+    val === 'flute' ||
+    val === 'whistle' ||
+    val === 'guitar' ||
+    val === 'synth' ||
+    val === 'bell' ||
+    val === 'cello'
+  ) {
+    return val;
+  }
+  return defaultVal ?? getStoredInstrument();
+}
+
+export function setStoredMidiInstrument(inst: InstrumentType): void {
+  safeSetItem(STORAGE_KEYS.MIDI_INSTRUMENT, inst);
+}
+
+// ============================================================================
+// 19. PWA INSTALL PROMPT DISMISSAL
+// ============================================================================
+export function getStoredPwaDismissed(): boolean {
+  const val = safeGetItem(STORAGE_KEYS.PWA_PROMPT_DISMISSED);
+  return val === 'true';
+}
+
+export function setStoredPwaDismissed(dismissed: boolean): void {
+  safeSetItem(STORAGE_KEYS.PWA_PROMPT_DISMISSED, String(dismissed));
+}
+
+// ============================================================================
+// 20. RESTORE TO DEFAULT (Reset All User Settings to Factory Defaults)
 // ============================================================================
 export const SETTINGS_RESET_EVENT = 'taigi_composer_settings_reset';
+export const ECO_MODE_EVENT = 'taigi_composer_eco_mode_change';
 
 export function resetAllSettingsToDefault(): void {
   setStoredInstrument('piano');
@@ -854,6 +922,7 @@ export function resetAllSettingsToDefault(): void {
   setStoredAutosaveInterval(0);
   setStoredDisplayMode('roman_major_hanlo');
   setStoredRealSheetTheme('dark');
+  setStoredSheetWrapMode('no_wrap');
   setStoredNoteInputMode('progressive_replace');
   setStoredShowRhythmWarnings(true);
   setStoredAutoStepAdvance(false);
@@ -871,7 +940,9 @@ export function resetAllSettingsToDefault(): void {
   setStoredHudDrawer('none');
   setStoredAutoTransposeChords(true);
   setStoredSyncAllMeasures(true);
+  setStoredQuickAlignTarget('roman');
   setStoredExportFormat('json');
+  setStoredMidiInstrument('piano');
   setStoredMidiLyricType('hanlo');
   setStoredMidiFormat('mid');
   setStoredMidiAccompaniment(true);
@@ -880,6 +951,9 @@ export function resetAllSettingsToDefault(): void {
   setStoredSearchScope('all');
   setStoredSearchMatchFilter('all');
   setStoredInSongFilter('all');
+
+  // Reset Eco Mode
+  safeSetItem(STORAGE_KEYS.POWER_SAVE_MODE, 'false');
 
   // Reset DOM font scaling immediately
   if (typeof document !== 'undefined') {
@@ -890,10 +964,12 @@ export function resetAllSettingsToDefault(): void {
     document.documentElement.setAttribute('data-note-zoom', '100');
     document.documentElement.style.setProperty('--lyric-zoom', '1');
     document.documentElement.setAttribute('data-lyric-zoom', '100');
+    document.documentElement.classList.remove('eco-mode');
   }
 
   // Notify listeners that global settings have been reset
   if (typeof window !== 'undefined') {
+    window.dispatchEvent(new Event(ECO_MODE_EVENT));
     window.dispatchEvent(new CustomEvent(SETTINGS_RESET_EVENT));
   }
 }

@@ -174,7 +174,7 @@ export default function Home() {
   });
   const [isImportExportOpen, setIsImportExportOpen] = useState(false);
   const [importExportTab, setImportExportTab] = useState<'presets' | 'custom' | 'export' | 'import'>('presets');
-  const [importExportFormat, setImportExportFormat] = useState<'json' | 'text' | 'midi'>('json');
+  const [importExportFormat, setImportExportFormat] = useState<'json' | 'text' | 'midi' | undefined>(undefined);
   const [isLyricSearchOpen, setIsLyricSearchOpen] = useState(false);
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isNewSongConfirmOpen, setIsNewSongConfirmOpen] = useState(false);
@@ -266,6 +266,7 @@ export default function Home() {
   const handleOpenLibrary = useCallback(() => {
     closeAllPrimaryModals();
     setImportExportTab('presets');
+    setImportExportFormat(undefined);
     setIsImportExportOpen(true);
   }, [closeAllPrimaryModals]);
 
@@ -692,7 +693,7 @@ export default function Home() {
 
       {/* Modals */}
       <ImportExportModal
-        key={`${isImportExportOpen ? 'open' : 'closed'}-${importExportTab}-${importExportFormat}`}
+        key={`${isImportExportOpen ? 'open' : 'closed'}-${importExportTab}-${importExportFormat ?? 'auto'}`}
         isOpen={isImportExportOpen}
         onClose={() => setIsImportExportOpen(false)}
         currentSong={song}

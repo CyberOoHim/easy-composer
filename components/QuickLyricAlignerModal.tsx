@@ -14,6 +14,7 @@ import {
   X,
   Check,
 } from 'lucide-react';
+import { getStoredQuickAlignTarget, setStoredQuickAlignTarget } from '@/lib/storage';
 
 interface QuickLyricAlignerModalProps {
   isOpen: boolean;
@@ -42,7 +43,17 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   const [inputText, setInputText] = useState('');
   const [romanText, setRomanText] = useState('');
   const [hanloText, setHanloText] = useState('');
-  const [targetField, setTargetField] = useState<TargetAlignMode>('roman');
+  const [targetField, setTargetFieldState] = useState<TargetAlignMode>(() => {
+    if (typeof window !== 'undefined') return getStoredQuickAlignTarget('roman');
+    return 'roman';
+  });
+
+  const setTargetField = (mode: TargetAlignMode) => {
+    setTargetFieldState(mode);
+    if (mode === 'roman' || mode === 'hanlo' || mode === 'dual') {
+      setStoredQuickAlignTarget(mode);
+    }
+  };
   const [versePreviews, setVersePreviews] = useState<VersePreviewItem[]>([]);
 
   if (!isOpen) return null;

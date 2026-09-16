@@ -63,6 +63,10 @@ import {
   getStoredHudDrawer,
   setStoredHudDrawer,
   HudDrawerType,
+  getStoredSheetWrapMode,
+  setStoredSheetWrapMode,
+  getStoredPianoDeckMode,
+  setStoredPianoDeckMode,
   SETTINGS_RESET_EVENT,
   SHEET_ZOOM_EVENT,
 } from '@/lib/storage';
@@ -289,8 +293,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   // Default is 'no_wrap' (1. no fit in nor wrap)
   const [internalWrapMode, setInternalWrapMode] = useState<SheetWrapMode>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('real_sheet_wrap_mode');
-      if (saved === 'no_wrap' || saved === 'auto_fit' || saved === 'auto_wrap') return saved;
+      return getStoredSheetWrapMode('no_wrap');
     }
     return 'no_wrap';
   });
@@ -307,9 +310,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       else if (prev === 'auto_fit') next = 'auto_wrap';
       else next = 'no_wrap';
 
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('real_sheet_wrap_mode', next);
-      }
+      setStoredSheetWrapMode(next);
       return next;
     });
   }, [propOnRotateWrapMode]);
@@ -422,6 +423,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     });
   }, []);
 
+  // Virtual Piano deck mode: 'step' (direct pitch) vs 'transcribe' (live on-the-fly transcribe)
+  const [pianoDeckMode, setPianoDeckMode] = useState<'step' | 'transcribe'>(() => {
+    if (typeof window !== 'undefined') return getStoredPianoDeckMode('step');
+    return 'step';
+  });
+
+  const handlePianoDeckModeChange = useCallback((newMode: 'step' | 'transcribe') => {
+    setPianoDeckMode(newMode);
+    setStoredPianoDeckMode(newMode);
+  }, [setPianoDeckMode]);
+
   // Listen for global settings reset and sheet zoom change events
   useEffect(() => {
     const handleReset = () => {
@@ -430,6 +442,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       setInternalSheetTheme(getStoredRealSheetTheme('dark'));
       setInternalNoteInputMode(getStoredNoteInputMode('progressive_replace'));
       setInternalShowRhythmWarnings(getStoredShowRhythmWarnings(true));
+      setInternalWrapMode(getStoredSheetWrapMode('no_wrap'));
+      setPianoDeckMode(getStoredPianoDeckMode('step'));
     };
     const handleZoomChange = (e: Event) => {
       const ce = e as CustomEvent<{ zoom: number }>;
@@ -1136,9 +1150,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       onUpdateSong({ ...song, measures: [...song.measures, newM] });
     }
   }, [onAddMeasure, song, onUpdateSong]);
-
-  // Virtual Piano deck mode: 'step' (direct pitch) vs 'transcribe' (live on-the-fly transcribe)
-  const [pianoDeckMode, setPianoDeckMode] = useState<'step' | 'transcribe'>('step');
 
   // Virtual Piano key pitch selection (updates selected note with optional progression)
   const handleSelectPitchFromPiano = useCallback(
@@ -2930,7 +2941,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 bpm={song.bpm || 80}
                 timeSignature={song.timeSignature || '4/4'}
                 mode={pianoDeckMode}
-                onModeChange={setPianoDeckMode}
+                onModeChange={handlePianoDeckModeChange}
                 onClose={() => setActiveHudDrawer('none')}
               />
             </div>
