@@ -1280,13 +1280,15 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   // Measure Section change
   const handleUpdateMeasureSection = useCallback(
     (mIdx: number, section: string) => {
+      const trimmed = section.trim();
       const newMeasures = song.measures.map((m, idx) => {
         if (idx !== mIdx) return m;
-        return { ...m, section };
+        return { ...m, section: trimmed ? trimmed : undefined };
       });
       handleUpdateSong({ ...song, measures: newMeasures });
+      showNotice(trimmed ? `Updated section badge to "${trimmed}"` : 'Removed section badge');
     },
-    [song, handleUpdateSong]
+    [song, handleUpdateSong, showNotice]
   );
 
   // Split Measure at specific note index
@@ -1973,7 +1975,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const el = document.getElementById(`sheet-note-${note.id}`);
       if (el && typeof el.scrollIntoView === 'function') {
         try {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
         } catch {
           // Ignore iframe scroll errors
         }
@@ -2401,6 +2403,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           previewNoteAudio={(k, n) => audioEngine.previewNote(k, n)}
           onAutoHarmonize={handleAutoHarmonizeSong}
           onUpdateMeasureChord={handleUpdateMeasureChord}
+          onUpdateMeasureSection={handleUpdateMeasureSection}
           displayMode={displayMode}
           onUndo={handleUndo}
           onRedo={handleRedo}

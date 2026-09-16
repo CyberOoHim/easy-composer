@@ -41,6 +41,7 @@ import {
   Plus,
   Trash2,
   Music,
+  Bookmark,
   Sun,
   Moon,
   Keyboard,
@@ -151,6 +152,7 @@ export interface RealSheetCanvasProps {
   // Advanced Tools
   onAutoHarmonize?: () => void;
   onUpdateMeasureChord?: (measureIndex: number, chord: string) => void;
+  onUpdateMeasureSection?: (measureIndex: number, section: string) => void;
 
   // Display mode
   displayMode?: LyricDisplayMode;
@@ -236,6 +238,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   previewNoteAudio,
   onAutoHarmonize,
   onUpdateMeasureChord,
+  onUpdateMeasureSection,
   displayMode = 'hanlo_major_roman',
   sheetTheme: propSheetTheme,
   onToggleSheetTheme: propOnToggleSheetTheme,
@@ -468,6 +471,46 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     setStoredPianoDeckMode(newMode);
   }, [setPianoDeckMode]);
 
+  // Section Badge Editing State
+  const [editingSectionMeasureIdx, setEditingSectionMeasureIdx] = useState<number | null>(null);
+  const [editingSectionValue, setEditingSectionValue] = useState<string>('');
+  const sectionInputRef = useRef<HTMLInputElement>(null);
+
+  const handleOpenSectionEditor = useCallback((measureIndex: number, currentText: string) => {
+    setEditingSectionMeasureIdx(measureIndex);
+    setEditingSectionValue(currentText || '');
+    setTimeout(() => {
+      sectionInputRef.current?.focus();
+      sectionInputRef.current?.select();
+    }, 50);
+  }, []);
+
+  const handleSaveSection = useCallback((measureIndex: number, text: string) => {
+    const trimmed = text.trim();
+    if (onUpdateMeasureSection) {
+      onUpdateMeasureSection(measureIndex, trimmed);
+    } else {
+      const newMeasures = song.measures.map((m, idx) => {
+        if (idx !== measureIndex) return m;
+        return { ...m, section: trimmed ? trimmed : undefined };
+      });
+      onUpdateSong({ ...song, measures: newMeasures });
+    }
+    setEditingSectionMeasureIdx(null);
+  }, [onUpdateMeasureSection, song, onUpdateSong]);
+
+  // Close section badge editor on Escape key
+  useEffect(() => {
+    if (editingSectionMeasureIdx === null) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setEditingSectionMeasureIdx(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [editingSectionMeasureIdx]);
+
   // Listen for global settings reset and sheet zoom change events
   useEffect(() => {
     const handleReset = () => {
@@ -497,6 +540,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   // References
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const activeNoteElementRef = useRef<HTMLDivElement>(null);
+  const isFirstMountRef = useRef(true);
 
   // Resolved safe coordinates
   const currentMIdx = Math.max(0, Math.min(song.measures.length - 1, selectedMeasureIndex ?? 0));
@@ -577,8 +621,19 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     [onSelectNote, onSelectMeasure, song]
   );
 
+  // Ensure the sheet scroll starts display from the left-most edge (scrollLeft = 0)
+  useEffect(() => {
+    if (canvasWrapperRef.current) {
+      canvasWrapperRef.current.scrollLeft = 0;
+    }
+  }, [sheetWrapMode, sheetOrientation]);
+
   // Scroll active note into view smoothly when navigating
   useEffect(() => {
+    if (isFirstMountRef.current) {
+      isFirstMountRef.current = false;
+      return;
+    }
     if (activeNoteElementRef.current) {
       activeNoteElementRef.current.scrollIntoView({
         behavior: 'smooth',
@@ -1820,7 +1875,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     <div
       id="real-sheet-viewport-container"
       ref={canvasWrapperRef}
-      className={`relative w-full min-h-screen flex flex-col items-center pt-1 sm:pt-1.5 pb-6 sm:pb-10 px-2 sm:px-6 select-none print:p-0 print:m-0 print:min-h-0 print:bg-white print:overflow-visible print:w-full print:block overflow-x-auto transition-colors duration-150 ${
+      className={`relative w-full min-h-screen flex flex-col items-start pt-1 sm:pt-1.5 pb-6 sm:pb-10 px-2 sm:px-4 md:px-6 select-none print:p-0 print:m-0 print:min-h-0 print:bg-white print:overflow-visible print:w-full print:block overflow-x-auto transition-colors duration-150 touch-momentum ${
         sheetTheme === 'dark'
           ? 'bg-[#0c0e15] dark:bg-[#0c0e15] text-zinc-100 dark:text-zinc-100'
           : 'bg-[#ede8de] dark:bg-[#ede8de] text-zinc-900 dark:text-zinc-900'
@@ -1837,12 +1892,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       <div
         id="sheet-top-action-bar"
         style={
-          sheetWrapMode === 'no_wrap' && isSheetExtended
+          sheetWrapMode === 'no_wrap'
             ? { width: `${extendedSheetWidth}px`, minWidth: `${extendedSheetWidth}px`, maxWidth: 'none' }
             : undefined
         }
         className={`w-full ${
-          sheetWrapMode === 'no_wrap' && isSheetExtended
+          sheetWrapMode === 'no_wrap'
             ? ''
             : sheetOrientation === 'landscape'
             ? 'max-w-[1240px]'
@@ -1960,8 +2015,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         data-sheet-orientation={sheetOrientation}
         style={{
           transform: `scale(${zoomScale})`,
-          transformOrigin: 'top center',
-          ...(sheetWrapMode === 'no_wrap' && isSheetExtended
+          transformOrigin: 'top left',
+          ...(sheetWrapMode === 'no_wrap'
             ? {
                 width: `${extendedSheetWidth}px`,
                 minWidth: `${extendedSheetWidth}px`,
@@ -1970,7 +2025,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             : {}),
         }}
         className={`relative w-full ${
-          sheetWrapMode === 'no_wrap' && isSheetExtended
+          sheetWrapMode === 'no_wrap'
             ? ''
             : sheetOrientation === 'landscape'
             ? 'max-w-[1240px]'
@@ -2373,13 +2428,173 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         )}
 
                         {engravedM.sectionText && (
-                          <span className={`sheet-section-badge text-[9px] font-sans font-bold px-1.5 py-0.5 rounded shrink-0 border transition-colors ${
-                            sheetTheme === 'dark'
-                              ? 'bg-zinc-800 text-zinc-200 border-zinc-700'
-                              : 'bg-zinc-100 text-zinc-800 border-zinc-300'
-                          } print:bg-white print:text-zinc-950 print:border-zinc-800 print:shadow-none`}>
-                            {engravedM.sectionText}
+                          <span
+                            role="button"
+                            tabIndex={0}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenSectionEditor(engravedM.measureIndex, engravedM.sectionText);
+                            }}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.stopPropagation();
+                                e.preventDefault();
+                                handleOpenSectionEditor(engravedM.measureIndex, engravedM.sectionText);
+                              }
+                            }}
+                            title="Click to edit section badge (e.g. Intro, Verse 1, Chorus, [A])"
+                            className={`sheet-section-badge relative inline-flex items-center gap-1 text-[9.5px] font-mono font-extrabold tracking-wider uppercase px-2 py-0.5 rounded-md shrink-0 border shadow-2xs transition-all cursor-pointer hover:scale-105 active:scale-95 group/badge select-none ${
+                              sheetTheme === 'dark'
+                                ? 'bg-amber-950/70 hover:bg-amber-900/90 text-amber-300 border-amber-600/70 hover:border-amber-400'
+                                : 'bg-amber-50 hover:bg-amber-100/90 text-amber-950 border-amber-300/80 hover:border-amber-500'
+                            } print:bg-transparent print:text-zinc-950 print:border-zinc-900 print:border print:shadow-none print:transform-none`}
+                          >
+                            <span>{engravedM.sectionText}</span>
+                            <Edit2 className="w-2.5 h-2.5 opacity-50 group-hover/badge:opacity-100 transition-opacity ml-0.5 print:hidden text-amber-600 dark:text-amber-400 shrink-0" />
                           </span>
+                        )}
+
+                        {!engravedM.sectionText && isSelectedMeasure && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenSectionEditor(engravedM.measureIndex, '');
+                            }}
+                            className="print:hidden text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border border-dashed border-zinc-300 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 text-zinc-400 transition-colors cursor-pointer"
+                            title="Add section badge to this measure"
+                          >
+                            + Section
+                          </button>
+                        )}
+
+                        {/* Interactive Section Badge Editor Popover */}
+                        {editingSectionMeasureIdx === engravedM.measureIndex && (
+                          <>
+                            <div
+                              className="fixed inset-0 z-40 bg-black/10 dark:bg-black/30 backdrop-blur-[0.5px] cursor-default"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingSectionMeasureIdx(null);
+                              }}
+                            />
+                            <div
+                              id="section-badge-editor-popover"
+                              onClick={(e) => e.stopPropagation()}
+                              className="absolute right-0 top-full mt-1.5 z-50 w-64 p-3 bg-white dark:bg-[#181b24] border border-amber-400/90 dark:border-amber-500/90 rounded-xl shadow-2xl text-left animate-in fade-in zoom-in-95 duration-150 print:hidden select-none"
+                            >
+                              <div className="flex items-center justify-between mb-2 pb-1.5 border-b border-zinc-200 dark:border-zinc-800">
+                                <span className="text-[11px] font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                                  <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+                                  Edit Section Badge (Bar #{engravedM.measureNumber})
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setEditingSectionMeasureIdx(null)}
+                                  className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md cursor-pointer transition-colors"
+                                  title="Close (Esc)"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+
+                              <div className="flex items-center gap-1.5 mb-2.5">
+                                <input
+                                  type="text"
+                                  ref={sectionInputRef}
+                                  value={editingSectionValue}
+                                  onChange={(e) => setEditingSectionValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleSaveSection(engravedM.measureIndex, editingSectionValue);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingSectionMeasureIdx(null);
+                                    }
+                                  }}
+                                  placeholder="e.g. Intro, Verse 1, Chorus, [A]"
+                                  className="flex-1 px-2.5 py-1.5 bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-lg text-xs font-mono font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveSection(engravedM.measureIndex, editingSectionValue)}
+                                  className="px-2.5 py-1.5 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs flex items-center gap-1 cursor-pointer transition-all active:scale-95 shadow-2xs"
+                                  title="Save badge (Enter)"
+                                >
+                                  <Check className="w-3.5 h-3.5" />
+                                  <span>Save</span>
+                                </button>
+                              </div>
+
+                              {/* Quick Presets (All English) */}
+                              <div className="mb-2.5 space-y-2">
+                                <div>
+                                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                                    Instrumental & Passages:
+                                  </div>
+                                  <div className="grid grid-cols-3 gap-1">
+                                    {[
+                                      { label: 'Intro', tip: 'Intro (前奏)' },
+                                      { label: 'Interlude', tip: 'Interlude (間奏)' },
+                                      { label: 'Outro', tip: 'Outro (尾奏)' },
+                                    ].map((item) => (
+                                      <button
+                                        key={item.label}
+                                        type="button"
+                                        title={item.tip}
+                                        onClick={() => handleSaveSection(engravedM.measureIndex, item.label)}
+                                        className="py-1 text-center text-[10.5px] font-mono font-extrabold rounded-md bg-amber-500/10 hover:bg-amber-500 hover:text-zinc-950 text-amber-700 dark:text-amber-300 border border-amber-300/80 dark:border-amber-600/60 cursor-pointer transition-all active:scale-95"
+                                      >
+                                        {item.label}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+
+                                <div>
+                                  <div className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mb-1">
+                                    Song Sections & Form:
+                                  </div>
+                                  <div className="grid grid-cols-4 gap-1 mb-1">
+                                    {['[A]', '[B]', '[C]', '[D]'].map((preset) => (
+                                      <button
+                                        key={preset}
+                                        type="button"
+                                        onClick={() => handleSaveSection(engravedM.measureIndex, preset)}
+                                        className="py-0.5 text-center text-[10px] font-mono font-bold rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700 cursor-pointer transition-all active:scale-95"
+                                      >
+                                        {preset}
+                                      </button>
+                                    ))}
+                                  </div>
+                                  <div className="flex flex-wrap gap-1">
+                                    {['Verse 1', 'Verse 2', 'Chorus', 'Bridge', 'Coda'].map((preset) => (
+                                      <button
+                                        key={preset}
+                                        type="button"
+                                        onClick={() => handleSaveSection(engravedM.measureIndex, preset)}
+                                        className="px-2 py-0.5 text-[10px] font-sans font-bold rounded-md bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-700 dark:text-zinc-300 border border-zinc-200 dark:border-zinc-700 cursor-pointer transition-all active:scale-95"
+                                      >
+                                        {preset}
+                                      </button>
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Footer: Remove badge & keyboard hint */}
+                              <div className="pt-2 border-t border-zinc-200 dark:border-zinc-800 flex justify-between items-center text-[10px]">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSaveSection(engravedM.measureIndex, '')}
+                                  className="text-rose-600 hover:text-rose-700 dark:text-rose-400 font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                                >
+                                  <Trash2 className="w-3 h-3" />
+                                  <span>Clear Badge</span>
+                                </button>
+                                <span className="text-zinc-400 font-mono text-[9px]">↵ Save · Esc Close</span>
+                              </div>
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
@@ -2769,6 +2984,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                       zoom: 'var(--lyric-zoom, 1)',
                                       flex: `${Math.max(1, Math.round((engNote.requiredWidth || 32) / 10))} 0 auto`,
                                       minWidth: `${Math.round(engNote.requiredWidth || 28)}px`,
+                                      maxWidth: isSelectedLyric ? `${Math.max(Math.round(engNote.requiredWidth || 28), 34)}px` : undefined,
                                     }}
                                     className={`flex-1 text-center min-h-[26px] sm:min-h-[30px] flex items-center ${
                                       connectsToNextWithSemiHyphen
@@ -2798,11 +3014,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                         <input
                                           type="text"
                                           autoFocus
+                                          size={1}
                                           value={hanloText}
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                           onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
-                                          placeholder="Hàn-lô"
-                                          className={`w-full min-w-[32px] text-center bg-transparent border-none outline-none font-bold text-sm sm:text-base touch-manipulation ${
+                                          placeholder=""
+                                          style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
+                                          className={`w-full max-w-full min-w-0 text-center bg-transparent border-none outline-none font-bold text-sm sm:text-base touch-manipulation px-0.5 ${
                                             sheetTheme === 'dark' ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-zinc-950 placeholder:text-zinc-400'
                                           }`}
                                         />
@@ -2820,11 +3038,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                         <input
                                           type="text"
                                           autoFocus
+                                          size={1}
                                           value={effectivePojText}
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                           onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
-                                          placeholder="POJ"
-                                          className={`w-full min-w-[40px] font-serif italic bg-transparent border-none outline-none font-semibold text-xs sm:text-sm touch-manipulation ${
+                                          placeholder=""
+                                          style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
+                                          className={`w-full max-w-full min-w-0 font-serif italic bg-transparent border-none outline-none font-semibold text-xs sm:text-sm touch-manipulation px-0.5 ${
                                             sheetTheme === 'dark'
                                               ? 'text-teal-300 placeholder:text-teal-500'
                                               : 'text-teal-950 font-bold placeholder:text-teal-800/60'
@@ -2845,17 +3065,19 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     {/* Option 3: Both (POJ on the top, Hàn-lô below) */}
                                     {(vDisplayOption === 'both_poj_top' || vDisplayOption === 'both') &&
                                       (isSelectedLyric ? (
-                                        <div className="flex flex-col items-center justify-center w-full gap-0.5">
+                                        <div className="flex flex-col items-center justify-center w-full max-w-full min-w-0 gap-0.5">
                                           {/* Top: POJ */}
                                           <input
                                             type="text"
                                             autoFocus={activeLyricSubfield === 'poj'}
+                                            size={1}
                                             value={effectivePojText}
                                             onFocus={() => setActiveLyricSubfield('poj')}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
-                                            placeholder="POJ"
-                                            className={`w-full min-w-[36px] font-serif italic text-xs sm:text-[13px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                            placeholder=""
+                                            style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
+                                            className={`w-full max-w-full min-w-0 font-serif italic text-xs sm:text-[13px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
                                               connectsToNextWithSemiHyphen
                                                 ? 'text-right pr-0'
                                                 : connectedFromPrevSemiHyphen
@@ -2876,12 +3098,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           <input
                                             type="text"
                                             autoFocus={activeLyricSubfield === 'hanlo'}
+                                            size={1}
                                             value={hanloText}
                                             onFocus={() => setActiveLyricSubfield('hanlo')}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
-                                            placeholder="Hàn-lô"
-                                            className={`w-full min-w-[36px] text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                            placeholder=""
+                                            style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
+                                            className={`w-full max-w-full min-w-0 text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
                                               activeLyricSubfield === 'hanlo'
                                                 ? sheetTheme === 'dark'
                                                   ? 'ring-1 ring-amber-500 bg-amber-950/60 text-zinc-100 font-bold'
@@ -2909,17 +3133,19 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     {/* Option 4: Both (Hàn-lô on the top, POJ below) */}
                                     {vDisplayOption === 'both_hanlo_top' &&
                                       (isSelectedLyric ? (
-                                        <div className="flex flex-col items-center justify-center w-full gap-0.5">
+                                        <div className="flex flex-col items-center justify-center w-full max-w-full min-w-0 gap-0.5">
                                           {/* Top: Hàn-lô */}
                                           <input
                                             type="text"
                                             autoFocus={activeLyricSubfield === 'hanlo'}
+                                            size={1}
                                             value={hanloText}
                                             onFocus={() => setActiveLyricSubfield('hanlo')}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
-                                            placeholder="Hàn-lô"
-                                            className={`w-full min-w-[36px] text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                            placeholder=""
+                                            style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
+                                            className={`w-full max-w-full min-w-0 text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
                                               activeLyricSubfield === 'hanlo'
                                                 ? sheetTheme === 'dark'
                                                   ? 'ring-1 ring-amber-500 bg-amber-950/60 text-zinc-100 font-bold'
@@ -2934,12 +3160,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           <input
                                             type="text"
                                             autoFocus={activeLyricSubfield === 'poj'}
+                                            size={1}
                                             value={effectivePojText}
                                             onFocus={() => setActiveLyricSubfield('poj')}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
-                                            placeholder="POJ"
-                                            className={`w-full min-w-[36px] font-serif italic text-xs sm:text-[13px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
+                                            placeholder=""
+                                            style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
+                                            className={`w-full max-w-full min-w-0 font-serif italic text-xs sm:text-[13px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
                                               connectsToNextWithSemiHyphen
                                                 ? 'text-right pr-0'
                                                 : connectedFromPrevSemiHyphen
@@ -3076,6 +3304,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         )}
         currentMeasureChord={currentMeasure?.chord}
         onUpdateMeasureChord={handleUpdateMeasureChord}
+        currentMeasureSection={currentMeasure?.section || ''}
+        onUpdateMeasureSection={(sec) => handleSaveSection(currentMIdx, sec)}
         chordSuggestions={chordSuggestions}
         onAutoHarmonize={handleAutoHarmonize}
         activeDrawer={activeHudDrawer}

@@ -40,6 +40,7 @@ import {
   AlignJustify,
   RectangleHorizontal,
   RectangleVertical,
+  Bookmark,
 } from 'lucide-react';
 import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode, VerseDisplayOption, SheetWrapMode, SheetOrientation } from '@/types/song';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
@@ -116,6 +117,8 @@ export interface FloatingScoreHudProps {
   // Chords & Harmony
   currentMeasureChord?: string;
   onUpdateMeasureChord?: (chord: string) => void;
+  currentMeasureSection?: string;
+  onUpdateMeasureSection?: (section: string) => void;
   chordSuggestions?: string[];
   onAutoHarmonize?: () => void;
 
@@ -226,6 +229,8 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   hasGraceNotes,
   currentMeasureChord = '',
   onUpdateMeasureChord,
+  currentMeasureSection = '',
+  onUpdateMeasureSection,
   chordSuggestions = ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'G7'],
   onAutoHarmonize,
   activeDrawer,
@@ -517,6 +522,44 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                       {ch}
                     </button>
                   ))}
+                </div>
+              </>
+            )}
+
+            {/* Section Badge Input */}
+            {onUpdateMeasureSection && (
+              <>
+                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5 hidden sm:block" />
+                <div className="flex items-center gap-1.5 shrink-0">
+                  <span className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-1 shrink-0">
+                    <Bookmark className="w-3.5 h-3.5 text-amber-500" />
+                    <span className="hidden md:inline">Section:</span>
+                  </span>
+                  <input
+                    type="text"
+                    value={currentMeasureSection}
+                    onChange={e => onUpdateMeasureSection(e.target.value)}
+                    placeholder="e.g. Intro, Interlude, Outro, [A]"
+                    className="w-24 sm:w-28 px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-750 rounded-lg text-xs sm:text-sm font-mono font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500 shrink-0"
+                    title="Section badge name for current measure (English)"
+                  />
+                  <div className="flex items-center gap-1 shrink-0 hidden lg:flex">
+                    {['Intro', 'Interlude', 'Outro', '[A]', 'Chorus'].map(preset => (
+                      <button
+                        key={preset}
+                        type="button"
+                        onClick={() => onUpdateMeasureSection(preset)}
+                        title={`Set section badge to ${preset}`}
+                        className={`px-2 py-0.5 rounded text-xs font-mono font-bold transition-all cursor-pointer ${
+                          currentMeasureSection === preset
+                            ? 'bg-amber-500 text-zinc-950 font-black'
+                            : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500/20 text-zinc-700 dark:text-zinc-300'
+                        }`}
+                      >
+                        {preset}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </>
             )}
