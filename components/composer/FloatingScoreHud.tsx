@@ -36,8 +36,10 @@ import {
   Command,
   Keyboard,
   RotateCw,
+  WrapText,
+  AlignJustify,
 } from 'lucide-react';
-import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode, VerseDisplayOption } from '@/types/song';
+import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode, VerseDisplayOption, SheetWrapMode } from '@/types/song';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 
 export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit';
@@ -53,10 +55,13 @@ export interface FloatingScoreHudProps {
   noteInputMode?: NoteInputMode;
   onChangeNoteInputMode?: (mode: NoteInputMode) => void;
 
-  // Rhythm Warnings & Auto Rearrange
+  // Rhythm Warnings & Auto Rearrange & Auto Wrap
   showRhythmWarnings?: boolean;
   onToggleShowRhythmWarnings?: () => void;
   onAutoRearrangeMeasures?: () => void;
+  onAutoWrapMeasures?: () => void;
+  sheetWrapMode?: SheetWrapMode;
+  onRotateWrapMode?: () => void;
 
   // Note editing operations
   onInsertNoteAfter?: () => void;
@@ -176,6 +181,9 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   showRhythmWarnings = true,
   onToggleShowRhythmWarnings,
   onAutoRearrangeMeasures,
+  onAutoWrapMeasures,
+  sheetWrapMode = 'no_wrap',
+  onRotateWrapMode,
   onInsertNoteAfter,
   onInsertNoteBefore,
   onDeleteCurrentNote,
@@ -1333,6 +1341,46 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 <span className="hidden lg:inline">Rearrange</span>
               </button>
             )}
+
+            {onRotateWrapMode ? (
+              <button
+                id="floating-hud-wrap-mode-btn"
+                type="button"
+                onClick={onRotateWrapMode}
+                className={`flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                  sheetWrapMode === 'auto_wrap'
+                    ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25'
+                    : sheetWrapMode === 'auto_fit'
+                    ? 'bg-sky-500/15 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/25'
+                    : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+                title={`Layout mode: ${
+                  sheetWrapMode === 'no_wrap'
+                    ? '1. No fit in nor wrap (Manual breaks only). Click to rotate to 2. Auto Fit.'
+                    : sheetWrapMode === 'auto_fit'
+                    ? '2. Auto fit in (Forced measures per line). Click to rotate to 3. Auto Wrap.'
+                    : '3. Auto wrap (Dynamic collision-free spacing). Click to rotate to 1. No Wrap.'
+                }`}
+              >
+                {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5" />}
+                {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5" />}
+                {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5" />}
+                <span className="inline font-mono text-[11px]">
+                  {sheetWrapMode === 'no_wrap' ? '1. No Wrap' : sheetWrapMode === 'auto_fit' ? '2. Auto Fit' : '3. Auto Wrap'}
+                </span>
+              </button>
+            ) : onAutoWrapMeasures ? (
+              <button
+                id="floating-hud-auto-wrap-measures-btn"
+                type="button"
+                onClick={onAutoWrapMeasures}
+                className="flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-all cursor-pointer"
+                title="Auto-wrap measures to ensure all measures fit within the realistic sheet"
+              >
+                <WrapText className="w-3.5 h-3.5" />
+                <span className="hidden lg:inline">Wrap Up</span>
+              </button>
+            ) : null}
 
             {canFillRest && onAutoFillRest && (
               <button

@@ -49,6 +49,8 @@ export interface NumberedNotationNote {
 
 export type BarlineType = 'single' | 'double' | 'end' | 'repeat_start' | 'repeat_end';
 
+export type SheetWrapMode = 'no_wrap' | 'auto_fit' | 'auto_wrap';
+
 export interface Measure {
   id: string;
   measureNumber: number;

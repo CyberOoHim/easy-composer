@@ -1,4 +1,4 @@
-import { Measure, NumberedNotationNote, TimeSignature, PitchNumber, NoteDuration, BarlineType } from '@/types/song';
+import { Measure, NumberedNotationNote, TimeSignature, PitchNumber, NoteDuration, BarlineType, SheetWrapMode } from '@/types/song';
 
 /**
  * Calculated engraving data for a single numbered notation note on a printed sheet.
@@ -19,6 +19,7 @@ export interface EngravedNote {
   isRest: boolean;
   isEmpty: boolean;
   pitchDisplay: string;
+  requiredWidth?: number; // Minimum content width in px to display without text collision
   // Continuous beam flags within its beat group
   beam1: {
     hasBeam: boolean;
@@ -57,6 +58,8 @@ export interface EngravedMeasure {
   voltaEnding?: number[];
   isPrelude: boolean;
   isLineBreak: boolean;
+  requiredWidth?: number; // Minimum width in px for this measure so notes & lyrics never collide
+  noteWidths?: number[];  // Minimum width for each individual note column
 }
 
 /**
@@ -297,6 +300,16 @@ export function engraveMeasure(
   const sectionText = measure.section || '';
   const barlineType = measure.barlineType || 'single';
 
+  // Compute collision-free required width for each note and the whole measure
+  const noteWidths: number[] = [];
+  engravedNotes.forEach((engNote) => {
+    const reqW = calculateNoteRequiredWidth(engNote.note, { dashCount: engNote.dashCount });
+    engNote.requiredWidth = reqW;
+    noteWidths.push(reqW);
+  });
+
+  const requiredWidth = calculateMeasureRequiredWidth(measure, engravedNotes, chordText, sectionText);
+
   return {
     measure,
     measureIndex,
@@ -315,17 +328,133 @@ export function engraveMeasure(
     voltaEnding: measure.voltaEnding,
     isPrelude: Boolean(measure.isPrelude || /intro|prelude|interlude/i.test(measure.section || '')),
     isLineBreak: Boolean(measure.isLineBreak),
+    requiredWidth,
+    noteWidths,
   };
 }
 
 /**
+ * Computes the minimum width (in px) needed for a note cell so that its pitch notation
+ * and all verse lyrics (POJ Romanization and Hanlo) have sufficient spacing with zero collision.
+ */
+export function calculateNoteRequiredWidth(
+  note: NumberedNotationNote,
+  raw?: { dashCount?: number }
+): number {
+  const dashCount = raw?.dashCount ?? getDashCountForDuration(Number(note.duration) || 0, note.isDotted);
+  const graceCount = (note.preGraceNotes?.length || 0) + (note.postGraceNotes?.length || 0);
+  const hasAccidental = Boolean(note.accidental);
+  const isDotted = Boolean(note.isDotted);
+  const isTriplet = Boolean(note.isTriplet);
+
+  // Pitch element widths
+  let pitchWidth = 24 + dashCount * 14 + graceCount * 14;
+  if (hasAccidental) pitchWidth += 10;
+  if (isDotted) pitchWidth += 8;
+  if (isTriplet) pitchWidth += 8;
+
+  // Syllable text width across all verse layers
+  let maxLyricWidth = 0;
+
+  const checkLyric = (hanlo?: string, poj?: string) => {
+    const h = (hanlo || '').trim();
+    const p = (poj || '').trim();
+    if (!h && !p) return;
+
+    let hWidth = 0;
+    if (h) {
+      for (const ch of h) {
+        if (/[，。、！？,.!?…]/.test(ch)) {
+          hWidth += 12;
+        } else {
+          hWidth += 16;
+        }
+      }
+    }
+
+    let pWidth = 0;
+    if (p) {
+      pWidth = p.length * 9.5;
+      // Word end spacing if not continuing with hyphen to next syllable
+      if (!p.endsWith('-') && !p.endsWith('--')) {
+        pWidth += 14;
+      }
+    }
+
+    const w = Math.max(hWidth, pWidth);
+    if (w > maxLyricWidth) maxLyricWidth = w;
+  };
+
+  // Check direct lyric
+  checkLyric(note.lyric?.hanlo || note.lyric?.hanji, note.lyric?.poj || note.lyric?.tl);
+  if (note.lyric?.custom) {
+    checkLyric(note.lyric.custom, undefined);
+  }
+
+  // Check all stacked verses
+  if (note.lyricsByVerse) {
+    for (const vKey of Object.keys(note.lyricsByVerse)) {
+      const v = note.lyricsByVerse[Number(vKey)];
+      if (v) {
+        checkLyric(v.hanlo || v.hanji || v.custom, v.poj || v.tl);
+      }
+    }
+  }
+
+  return Math.max(30, Math.round(Math.max(pitchWidth, maxLyricWidth + 12)));
+}
+
+/**
+ * Computes the minimum required width (in px) for a measure to display without text collisions.
+ */
+export function calculateMeasureRequiredWidth(
+  measure: Measure,
+  engravedNotes: EngravedNote[],
+  chordText: string,
+  sectionText: string
+): number {
+  let baseWidth = 36; // Barlines, measure number, default margins
+  if (chordText && chordText.length > 2) {
+    baseWidth += (chordText.length - 2) * 8;
+  }
+  if (sectionText) {
+    baseWidth += Math.max(30, sectionText.length * 8);
+  }
+  if (measure.voltaEnding && measure.voltaEnding.length > 0) {
+    baseWidth += 24;
+  }
+  if (measure.isPrelude) {
+    baseWidth += 18;
+  }
+
+  let notesWidth = 0;
+  if (engravedNotes && engravedNotes.length > 0) {
+    notesWidth = engravedNotes.reduce((sum, n) => sum + (n.requiredWidth || 30), 0);
+  } else {
+    notesWidth = 60;
+  }
+
+  if (measure.obbligato && measure.obbligato.length > 0) {
+    const obWidth = measure.obbligato.length * 26;
+    notesWidth = Math.max(notesWidth, obWidth);
+  }
+
+  return Math.max(110, Math.round(baseWidth + notesWidth));
+}
+
+/**
  * Groups measures into systems (staff lines on the sheet).
- * Measures per system defaults to 4, or wraps whenever measure.isLineBreak is true.
+ * Supports three layout modes:
+ * 1. 'no_wrap': No forced fit nor auto wrap; breaks ONLY at manual line breaks (measure.isLineBreak).
+ * 2. 'auto_fit': Forced fit in sheet with fixed measures per line (default 4) or on manual breaks.
+ * 3. 'auto_wrap': Real auto-wrap that dynamically breaks lines based on note and lyric content width,
+ *    guaranteeing generous spacing and zero collision between syllables and barlines.
  */
 export function groupMeasuresIntoSystems(
   measures: Measure[],
   timeSignature: TimeSignature,
-  defaultMeasuresPerSystem = 4
+  defaultMeasuresPerSystem = 4,
+  wrapMode: SheetWrapMode = 'no_wrap'
 ): Array<{
   systemIndex: number;
   measures: EngravedMeasure[];
@@ -340,15 +469,51 @@ export function groupMeasuresIntoSystems(
   }> = [];
 
   let currentSystem: EngravedMeasure[] = [];
+  let currentSystemWidth = 0;
+  const MAX_SYSTEM_LINE_WIDTH = 740; // Target printable sheet system content width in pixels
 
   measures.forEach((measure, idx) => {
     const engraved = engraveMeasure(measure, idx, timeSignature);
-    currentSystem.push(engraved);
+    const mWidth = engraved.requiredWidth || 140;
 
-    const reachesDefaultLimit = currentSystem.length >= (measure.isLineBreak ? 1 : defaultMeasuresPerSystem);
-    const forceBreak = measure.isLineBreak;
+    let shouldBreakBefore = false;
 
-    if (forceBreak || reachesDefaultLimit) {
+    if (wrapMode === 'auto_wrap') {
+      if (currentSystem.length > 0) {
+        // Break before a major section header if line already has >= 2 measures
+        const isMajorSection = Boolean(measure.section && measure.section.trim());
+        const sectionBreak = isMajorSection && currentSystem.length >= 2;
+
+        // Break if adding this measure would exceed the line budget (preventing collision)
+        const exceedsWidth = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH;
+
+        // Break if previous measure explicitly had isLineBreak
+        const prevHadBreak = currentSystem[currentSystem.length - 1].isLineBreak;
+
+        if (sectionBreak || exceedsWidth || prevHadBreak) {
+          shouldBreakBefore = true;
+        }
+      }
+    } else if (wrapMode === 'auto_fit') {
+      // 2. Auto Fit (Forced fit): break at defaultMeasuresPerSystem or explicit isLineBreak
+      if (currentSystem.length > 0) {
+        const reachesLimit = currentSystem.length >= defaultMeasuresPerSystem;
+        const prevHadBreak = currentSystem[currentSystem.length - 1].isLineBreak;
+        if (reachesLimit || prevHadBreak) {
+          shouldBreakBefore = true;
+        }
+      }
+    } else {
+      // 1. No Fit / No Wrap: ONLY break if previous measure explicitly had isLineBreak
+      if (currentSystem.length > 0) {
+        const prevHadBreak = currentSystem[currentSystem.length - 1].isLineBreak;
+        if (prevHadBreak) {
+          shouldBreakBefore = true;
+        }
+      }
+    }
+
+    if (shouldBreakBefore && currentSystem.length > 0) {
       systems.push({
         systemIndex: systems.length + 1,
         measures: currentSystem,
@@ -356,6 +521,25 @@ export function groupMeasuresIntoSystems(
         endMeasureNumber: currentSystem[currentSystem.length - 1].measureNumber,
       });
       currentSystem = [];
+      currentSystemWidth = 0;
+    }
+
+    currentSystem.push(engraved);
+    currentSystemWidth += mWidth;
+
+    // In auto_wrap mode: end barlines or repeat ends can naturally conclude a system if line has >= 2 measures
+    if (wrapMode === 'auto_wrap') {
+      const hasEndBarline = measure.barlineType === 'end' || measure.barlineType === 'repeat_end';
+      if (hasEndBarline && idx < measures.length - 1 && currentSystem.length >= 2) {
+        systems.push({
+          systemIndex: systems.length + 1,
+          measures: currentSystem,
+          startMeasureNumber: currentSystem[0].measureNumber,
+          endMeasureNumber: currentSystem[currentSystem.length - 1].measureNumber,
+        });
+        currentSystem = [];
+        currentSystemWidth = 0;
+      }
     }
   });
 

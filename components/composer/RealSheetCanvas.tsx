@@ -15,6 +15,7 @@ import {
   ArticulationType,
   LyricSyllable,
   VerseDisplayOption,
+  SheetWrapMode,
 } from '@/types/song';
 import {
   engraveMeasure,
@@ -45,6 +46,8 @@ import {
   Sliders,
   Shuffle,
   AlertCircle,
+  WrapText,
+  AlignJustify,
 } from 'lucide-react';
 import {
   getStoredRealSheetTheme,
@@ -66,6 +69,7 @@ import {
 import {
   getMeasureRhythmReport,
   autoRearrangeSongMeasures,
+  autoWrapSongMeasures,
   getSongVerseCount,
   getVerseDisplayOption,
   getNoteVerseSyllable,
@@ -115,6 +119,9 @@ export interface RealSheetCanvasProps {
   onAddMeasureBefore?: () => void;
   onDuplicateMeasure?: () => void;
   onAutoRearrangeMeasures?: () => void;
+  onAutoWrapMeasures?: () => void;
+  sheetWrapMode?: SheetWrapMode;
+  onRotateWrapMode?: () => void;
   onPushNotesToNextMeasure?: () => void;
   onShiftNotesToPrevMeasure?: () => void;
 
@@ -203,6 +210,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   onAddMeasureBefore: propOnAddMeasureBefore,
   onDuplicateMeasure: propOnDuplicateMeasure,
   onAutoRearrangeMeasures: propOnAutoRearrangeMeasures,
+  onAutoWrapMeasures: propOnAutoWrapMeasures,
+  sheetWrapMode: propSheetWrapMode,
+  onRotateWrapMode: propOnRotateWrapMode,
   onPushNotesToNextMeasure: propOnPushNotesToNextMeasure,
   onShiftNotesToPrevMeasure: propOnShiftNotesToPrevMeasure,
   noteInputMode: propNoteInputMode,
@@ -274,6 +284,35 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       });
     }
   }, [propOnToggleShowRhythmWarnings]);
+
+  // 3-Mode Sheet Layout: 'no_wrap' | 'auto_fit' | 'auto_wrap'
+  // Default is 'no_wrap' (1. no fit in nor wrap)
+  const [internalWrapMode, setInternalWrapMode] = useState<SheetWrapMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('real_sheet_wrap_mode');
+      if (saved === 'no_wrap' || saved === 'auto_fit' || saved === 'auto_wrap') return saved;
+    }
+    return 'no_wrap';
+  });
+  const sheetWrapMode = propSheetWrapMode ?? internalWrapMode;
+
+  const handleRotateWrapMode = useCallback(() => {
+    if (propOnRotateWrapMode) {
+      propOnRotateWrapMode();
+      return;
+    }
+    setInternalWrapMode(prev => {
+      let next: SheetWrapMode;
+      if (prev === 'no_wrap') next = 'auto_fit';
+      else if (prev === 'auto_fit') next = 'auto_wrap';
+      else next = 'no_wrap';
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('real_sheet_wrap_mode', next);
+      }
+      return next;
+    });
+  }, [propOnRotateWrapMode]);
 
   // Zoom scaling (Persisted in browser local storage)
   const [zoomScale, setZoomScaleState] = useState<number>(() => {
@@ -419,10 +458,15 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   );
   const currentNote = currentMeasure?.notes[currentNIdx];
 
-  // Engrave score into systems with horizontal continuous beams
+  // Engrave score into systems with horizontal continuous beams and 3 wrap modes
   const systems = useMemo(() => {
-    return groupMeasuresIntoSystems(song.measures, song.timeSignature || '4/4', song.notesPerLine || 4);
-  }, [song.measures, song.timeSignature, song.notesPerLine]);
+    return groupMeasuresIntoSystems(
+      song.measures,
+      song.timeSignature || '4/4',
+      song.notesPerLine || 4,
+      sheetWrapMode
+    );
+  }, [song.measures, song.timeSignature, song.notesPerLine, sheetWrapMode]);
 
   // Handle Note Selection
   const handleNoteClick = useCallback(
@@ -739,6 +783,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     const rearranged = autoRearrangeSongMeasures(song);
     onUpdateSong(rearranged);
   }, [propOnAutoRearrangeMeasures, song, onUpdateSong]);
+
+  // Auto wrap song measures to ensure all measures fit within the realistic sheet
+  const handleAutoWrapMeasures = useCallback(() => {
+    if (propOnAutoWrapMeasures) {
+      propOnAutoWrapMeasures();
+      return;
+    }
+    const wrapped = autoWrapSongMeasures(song);
+    onUpdateSong(wrapped);
+  }, [propOnAutoWrapMeasures, song, onUpdateSong]);
 
   // Push notes from current note to end into next measure
   const handlePushNotesToNextMeasure = useCallback(() => {
@@ -1713,6 +1767,37 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           </button>
 
           <button
+            id="sheet-top-wrap-mode-btn"
+            type="button"
+            onClick={handleRotateWrapMode}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs cursor-pointer ${
+              sheetWrapMode === 'auto_wrap'
+                ? 'bg-amber-500/15 border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25'
+                : sheetWrapMode === 'auto_fit'
+                ? 'bg-sky-500/15 border-sky-500/40 text-sky-600 dark:text-sky-400 hover:bg-sky-500/25'
+                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
+            }`}
+            title={`Layout Mode: ${
+              sheetWrapMode === 'no_wrap'
+                ? '1. No fit in nor wrap (Manual breaks only). Click to switch to 2. Auto Fit.'
+                : sheetWrapMode === 'auto_fit'
+                ? '2. Auto fit in (Forced measures per line). Click to switch to 3. Auto Wrap.'
+                : '3. Auto wrap (Dynamic collision-free spacing). Click to switch to 1. No Wrap.'
+            }`}
+          >
+            {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5 text-zinc-500" />}
+            {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5 text-sky-500" />}
+            {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5 text-amber-500" />}
+            <span>
+              {sheetWrapMode === 'no_wrap'
+                ? '1. No Wrap'
+                : sheetWrapMode === 'auto_fit'
+                ? '2. Auto Fit'
+                : '3. Auto Wrap'}
+            </span>
+          </button>
+
+          <button
             id="sheet-top-print-btn"
             type="button"
             onClick={handlePrint}
@@ -2007,12 +2092,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         </header>
 
         {/* Systems (Lines of Measures) */}
-        <main id="real-sheet-systems-container" className="flex flex-col space-y-3.5 sm:space-y-4">
+        <main id="real-sheet-systems-container" className="flex flex-col space-y-3.5 sm:space-y-4 w-full max-w-full overflow-visible">
           {systems.map((system, sysIdx) => (
             <div
               key={`system-${system.systemIndex}`}
               id={`sheet-system-${system.systemIndex}`}
               className={`relative w-full flex items-stretch border-l-2 ${
+                sheetWrapMode === 'no_wrap' ? 'overflow-x-auto min-w-full pb-1' : ''
+              } ${
                 sheetTheme === 'dark' ? 'border-zinc-400' : 'border-zinc-800'
               }`}
             >
@@ -2030,6 +2117,18 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                       if (engravedM.notes.length > 0) {
                         handleNoteClick(engravedM.measureIndex, 0, activeField, activeVerseRow);
                       }
+                    }}
+                    style={{
+                      flex: sheetWrapMode === 'auto_wrap'
+                        ? `${Math.max(1, Math.round(engravedM.requiredWidth || 100))}`
+                        : sheetWrapMode === 'no_wrap'
+                        ? '0 0 auto'
+                        : 1,
+                      minWidth: sheetWrapMode === 'no_wrap'
+                        ? `${Math.max(160, Math.round(engravedM.requiredWidth || 160))}px`
+                        : sheetWrapMode === 'auto_wrap'
+                        ? `${Math.min(220, Math.round((engravedM.requiredWidth || 110) * 0.75))}px`
+                        : 0,
                     }}
                     className={`relative flex-1 flex flex-col justify-between px-1.5 sm:px-2 pt-1.5 pb-1 transition-colors cursor-pointer group measure-containment touch-manipulation ${
                       isSelectedMeasure
@@ -2166,8 +2265,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               }}
                               style={{
                                 zoom: 'var(--note-zoom, 1)',
+                                flex: sheetWrapMode === 'auto_wrap'
+                                  ? `${Math.max(1, Math.round((engNote.requiredWidth || 32) / 10))} 0 auto`
+                                  : undefined,
+                                minWidth: sheetWrapMode === 'auto_wrap'
+                                  ? `${Math.round(engNote.requiredWidth || 28)}px`
+                                  : undefined,
                               }}
-                              className={`relative flex flex-col items-center justify-center p-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[38px] min-w-[28px] sm:min-w-[32px] ${
+                              className={`relative flex flex-col items-center justify-center p-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[38px] ${
+                                sheetWrapMode === 'auto_wrap' ? '' : 'min-w-[28px] sm:min-w-[32px]'
+                              } ${
                                 isSelectedNote
                                   ? sheetTheme === 'dark'
                                     ? 'ring-2 ring-amber-400 bg-amber-950/60'
@@ -2468,8 +2575,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     }}
                                     style={{
                                       zoom: 'var(--lyric-zoom, 1)',
+                                      flex: sheetWrapMode === 'auto_wrap'
+                                        ? `${Math.max(1, Math.round((engNote.requiredWidth || 32) / 10))} 0 auto`
+                                        : undefined,
+                                      minWidth: sheetWrapMode === 'auto_wrap'
+                                        ? `${Math.round(engNote.requiredWidth || 28)}px`
+                                        : undefined,
                                     }}
-                                    className={`flex-1 text-center min-w-[26px] sm:min-w-[30px] min-h-[26px] sm:min-h-[30px] flex items-center ${
+                                    className={`flex-1 text-center ${
+                                      sheetWrapMode === 'auto_wrap' ? '' : 'min-w-[26px] sm:min-w-[30px]'
+                                    } min-h-[26px] sm:min-h-[30px] flex items-center ${
                                       connectsToNextWithSemiHyphen
                                         ? 'justify-end pr-0 mr-0'
                                         : connectedFromPrevSemiHyphen
@@ -2848,6 +2963,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         onAddMeasureBefore={handleAddMeasureBefore}
         onDuplicateMeasure={handleDuplicateMeasure}
         onAutoRearrangeMeasures={handleAutoRearrangeMeasures}
+        onAutoWrapMeasures={handleAutoWrapMeasures}
+        sheetWrapMode={sheetWrapMode}
+        onRotateWrapMode={handleRotateWrapMode}
         onPushNotesToNextMeasure={handlePushNotesToNextMeasure}
         onShiftNotesToPrevMeasure={handleShiftNotesToPrevMeasure}
       />

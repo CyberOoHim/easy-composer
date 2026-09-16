@@ -11,6 +11,7 @@ import {
   Song,
   ArticulationType,
   InstrumentType,
+  SheetWrapMode,
 } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
 import {
@@ -26,7 +27,9 @@ import {
   isPunctuationOrSpacer,
   isNonNotationItem,
   autoRearrangeSongMeasures,
+  autoWrapSongMeasures,
 } from '@/lib/taigiUtils';
+import { groupMeasuresIntoSystems } from '@/lib/jianpuEngraver';
 import { autoArrangeSongChords } from '@/lib/chordArranger';
 import { scrollToCardElement } from '@/lib/utils';
 import {
@@ -1136,6 +1139,52 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     const rearranged = autoRearrangeSongMeasures(song);
     handleUpdateSong(rearranged);
     showNotice(`🎼 Auto-rearranged ${rearranged.measures.length} measures to perfectly match ${song.timeSignature || '4/4'} meter!`);
+  }, [song, handleUpdateSong, showNotice]);
+
+  // 3-Mode Sheet Layout: 'no_wrap' | 'auto_fit' | 'auto_wrap'
+  // 1. no fit in nor wrap (manual breaks only)
+  // 2. auto fit in (forced fit in fixed measures per line)
+  // 3. auto wrap (dynamic collision-free spacing for syllables)
+  const [sheetWrapMode, setSheetWrapMode] = useState<SheetWrapMode>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('real_sheet_wrap_mode');
+      if (saved === 'no_wrap' || saved === 'auto_fit' || saved === 'auto_wrap') return saved;
+    }
+    return 'no_wrap'; // Button default is not auto wrapping
+  });
+
+  const handleRotateWrapMode = useCallback(() => {
+    setSheetWrapMode(prev => {
+      let next: SheetWrapMode;
+      if (prev === 'no_wrap') next = 'auto_fit';
+      else if (prev === 'auto_fit') next = 'auto_wrap';
+      else next = 'no_wrap';
+
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('real_sheet_wrap_mode', next);
+      }
+      if (next === 'no_wrap') {
+        showNotice('Layout: 1. No Fit / No Wrap (Manual breaks only)');
+      } else if (next === 'auto_fit') {
+        showNotice(`Layout: 2. Auto Fit (Forced ${song.notesPerLine || 4} measures per line)`);
+      } else {
+        showNotice('Layout: 3. Auto Wrap (Dynamic spacing, zero syllable collision)');
+      }
+      return next;
+    });
+  }, [showNotice, song.notesPerLine]);
+
+  // Auto wrap song measures to fit within the realistic sheet
+  const handleAutoWrapMeasures = useCallback(() => {
+    const wrapped = autoWrapSongMeasures(song);
+    handleUpdateSong(wrapped);
+    const systems = groupMeasuresIntoSystems(
+      wrapped.measures,
+      wrapped.timeSignature || '4/4',
+      wrapped.notesPerLine || 4,
+      'auto_wrap'
+    );
+    showNotice(`Auto-wrapped ${wrapped.measures.length} measures across ${systems.length} sheet systems`);
   }, [song, handleUpdateSong, showNotice]);
 
   // Measure Management: Delete Measure
@@ -2293,6 +2342,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           onAddMeasure={handleAddMeasureAfterCurrent}
           onAddMeasureAfter={handleAddMeasureAfterCurrent}
           onAutoRearrangeMeasures={handleAutoRearrangeMeasures}
+          onAutoWrapMeasures={handleAutoWrapMeasures}
+          sheetWrapMode={sheetWrapMode}
+          onRotateWrapMode={handleRotateWrapMode}
           onPushNotesToNextMeasure={handlePushNotesToNextMeasure}
           onShiftNotesToPrevMeasure={handleShiftNotesToPrevMeasure}
           onDeleteMeasure={handleDeleteMeasure}

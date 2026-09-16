@@ -1842,6 +1842,128 @@ export function autoRearrangeSongMeasures(song: Song): Song {
 }
 
 /**
+ * Automatically wraps measures into balanced, publication-grade systems
+ * to guarantee that all measures comfortably fit within the realistic sheet paper.
+ * 
+ * Takes into account:
+ * - Base measures per line target (defaults to song.notesPerLine or 4)
+ * - Measure complexity (note counts, 16th/32nd note density, multi-verse lyrics, obbligato)
+ * - Section transitions (e.g. Intro, Verse, Chorus)
+ * - Ending barlines and volta repeat endings
+ */
+export function autoWrapSongMeasures(song: Song, targetMeasuresPerLine?: number): Song {
+  if (!song.measures || song.measures.length <= 1) {
+    return song;
+  }
+
+  const baseCapacity = Math.max(2, Math.min(6, targetMeasuresPerLine || song.notesPerLine || 4));
+  const newMeasures = song.measures.map(m => ({ ...m }));
+
+  // Helper to compute visual density weight of a measure
+  const getMeasureDensity = (m: Measure): number => {
+    let weight = 1.0;
+    const noteCount = m.notes ? m.notes.length : 0;
+
+    // Dense note passages (e.g. 16th or 32nd runs, 8+ notes)
+    if (noteCount >= 12) weight += 1.2;
+    else if (noteCount >= 8) weight += 0.8;
+    else if (noteCount >= 6) weight += 0.4;
+    else if (noteCount <= 2) weight -= 0.2;
+
+    // Syllable text length & multi-verse lyrics
+    if (m.notes) {
+      let maxVerseCount = 0;
+      let hasLongWords = false;
+      for (const n of m.notes) {
+        if (n.lyricsByVerse) {
+          const vKeys = Object.keys(n.lyricsByVerse);
+          if (vKeys.length > maxVerseCount) maxVerseCount = vKeys.length;
+          for (const vk of vKeys) {
+            const v = n.lyricsByVerse[Number(vk)];
+            const len = (v?.hanlo?.length || v?.hanji?.length || v?.custom?.length || 0) + (v?.poj?.length || v?.tl?.length || 0);
+            if (len > 6) hasLongWords = true;
+            if (len > 12) weight += 0.5; // Very long romanized words (e.g. chháichhengchltug)
+          }
+        }
+        const textLen = (n.lyric?.hanlo?.length || 0) + (n.lyric?.poj?.length || 0);
+        if (textLen > 6) hasLongWords = true;
+        if (textLen > 12) weight += 0.5;
+      }
+      if (maxVerseCount >= 3) weight += 0.5;
+      else if (maxVerseCount >= 2) weight += 0.25;
+      if (hasLongWords) weight += 0.3;
+    }
+
+    // Obbligato counterpoint layer
+    if ((m.obbligato && m.obbligato.length > 0) || (m.obbligatoText && m.obbligatoText.trim().length > 0)) {
+      weight += 0.4;
+    }
+
+    // Prelude / Interlude parentheses
+    if (m.isPrelude) {
+      weight += 0.2;
+    }
+
+    return weight;
+  };
+
+  // Build systems dynamically
+  let currentSystemMeasures: number[] = [];
+  let currentSystemWeight = 0;
+  const maxLineWeight = baseCapacity * 1.15;
+
+  for (let i = 0; i < newMeasures.length; i++) {
+    const m = newMeasures[i];
+    const mWeight = getMeasureDensity(m);
+    const isFirstInLine = currentSystemMeasures.length === 0;
+
+    // Check if measure starts a major section (and we already have at least 2 measures in the line)
+    const hasSection = Boolean(m.section && m.section.trim());
+    const shouldBreakBeforeSection = !isFirstInLine && hasSection && currentSystemMeasures.length >= 2;
+
+    const wouldExceedCapacity = currentSystemMeasures.length >= baseCapacity;
+    const wouldExceedWeight =
+      !isFirstInLine && currentSystemWeight + mWeight > maxLineWeight && currentSystemMeasures.length >= 2;
+
+    if (shouldBreakBeforeSection || wouldExceedCapacity || wouldExceedWeight) {
+      // Mark line break on previous measure
+      const prevIdx = currentSystemMeasures[currentSystemMeasures.length - 1];
+      newMeasures[prevIdx].isLineBreak = true;
+
+      // Start new system with current measure
+      currentSystemMeasures = [i];
+      currentSystemWeight = mWeight;
+    } else {
+      currentSystemMeasures.push(i);
+      currentSystemWeight += mWeight;
+    }
+
+    // Check if current measure is the end of a repeat/section barline
+    const hasEndBarline = m.barlineType === 'end' || m.barlineType === 'repeat_end';
+    if (hasEndBarline && i < newMeasures.length - 1 && currentSystemMeasures.length >= 2) {
+      newMeasures[i].isLineBreak = true;
+      currentSystemMeasures = [];
+      currentSystemWeight = 0;
+      continue;
+    }
+
+    // Reset line break on current measure if not chosen as system end
+    newMeasures[i].isLineBreak = false;
+  }
+
+  // Ensure last measure does not have an unnecessary trailing line break
+  if (newMeasures.length > 0) {
+    newMeasures[newMeasures.length - 1].isLineBreak = false;
+  }
+
+  return {
+    ...song,
+    measures: newMeasures,
+    updatedAt: Date.now(),
+  };
+}
+
+/**
  * Calculates how many parallel verses (1 to 5) are active/present in the song.
  */
 export function getSongVerseCount(song: Song): number {
