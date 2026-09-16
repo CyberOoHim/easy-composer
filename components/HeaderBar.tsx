@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Song, InstrumentType, VerseDisplayOption } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
 import { INSTRUMENT_OPTIONS, getVerseDisplayOption } from '@/lib/taigiUtils';
@@ -74,6 +74,38 @@ interface HeaderBarProps {
   onUpdateSong?: (updatedSong: Song) => void;
 }
 
+const FORMAT_CYCLE: {
+  id: VerseDisplayOption;
+  label: string;
+  badge?: string;
+  isSerif?: boolean;
+  desc: string;
+}[] = [
+  {
+    id: 'hanlo',
+    label: 'Hàn-lô',
+    desc: 'Displays only Hàn-lô / Hanji characters',
+  },
+  {
+    id: 'poj',
+    label: 'POJ',
+    isSerif: true,
+    desc: 'Displays only Pe̍h-ōe-jī romanization in italicized serif styling',
+  },
+  {
+    id: 'both_poj_top',
+    label: 'POJ / Hàn',
+    badge: 'POJ on top',
+    desc: 'Stacked layout with POJ on top and Hàn-lô below',
+  },
+  {
+    id: 'both_hanlo_top',
+    label: 'Hàn / POJ',
+    badge: 'Hàn on top',
+    desc: 'Stacked layout with Hàn-lô on top and POJ below',
+  },
+];
+
 export const HeaderBar: React.FC<HeaderBarProps> = ({
   song,
   onSelectSong,
@@ -113,39 +145,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [isStudioMenuOpen, setIsStudioMenuOpen] = useState<boolean>(false);
   const [defaultRestoreNotice, setDefaultRestoreNotice] = useState<string | null>(null);
+  const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isStudioOpen = isStudioMenuOpen && !isAnyModalOpen;
 
-  const FORMAT_CYCLE: {
-    id: VerseDisplayOption;
-    label: string;
-    badge?: string;
-    isSerif?: boolean;
-    desc: string;
-  }[] = [
-    {
-      id: 'hanlo',
-      label: 'Hàn-lô',
-      desc: 'Displays only Hàn-lô / Hanji characters',
-    },
-    {
-      id: 'poj',
-      label: 'POJ',
-      isSerif: true,
-      desc: 'Displays only Pe̍h-ōe-jī romanization in italicized serif styling',
-    },
-    {
-      id: 'both_poj_top',
-      label: 'POJ / Hàn',
-      badge: 'POJ on top',
-      desc: 'Stacked layout with POJ on top and Hàn-lô below',
-    },
-    {
-      id: 'both_hanlo_top',
-      label: 'Hàn / POJ',
-      badge: 'Hàn on top',
-      desc: 'Stacked layout with Hàn-lô on top and POJ below',
-    },
-  ];
+  const showNotice = useCallback((msg: string) => {
+    if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    setDefaultRestoreNotice(msg);
+    noticeTimerRef.current = setTimeout(() => setDefaultRestoreNotice(null), 3500);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
+    };
+  }, []);
 
   const currentLyricOption = getVerseDisplayOption(song);
   const activeLyricOpt =
@@ -186,7 +199,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#10121a]/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800/80 shadow-xs transition-colors select-none pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] print:hidden">
-      <div className="w-full max-w-[1680px] mx-auto px-2 sm:px-3 h-11 sm:h-12 flex items-center justify-between gap-1 sm:gap-2 overflow-x-auto no-scrollbar touch-pan-x">
+      <div className="w-full max-w-[1680px] mx-auto px-2 sm:px-3 h-11 sm:h-12 flex items-center justify-between gap-1 sm:gap-2 overflow-x-auto no-scrollbar touch-pan-x touch-momentum">
         {/* Left: Studio Brand & Active Song Selector */}
         <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 shrink">
           <div className="relative flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-lg sm:rounded-xl bg-gradient-to-br from-amber-400 to-amber-500 text-zinc-950 font-black shadow-sm shadow-amber-500/20 ring-1 ring-amber-400/50 shrink-0">
@@ -266,7 +279,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             id="header-toggle-play-btn"
             type="button"
             onClick={onTogglePlay}
-            className={`flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-lg font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation h-7.5 sm:h-8 whitespace-nowrap shrink-0 ${
+            className={`flex items-center gap-1 px-2.5 sm:px-3 py-1 rounded-lg font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation touch-target-expand h-7.5 sm:h-8 whitespace-nowrap shrink-0 ${
               isPlaying
                 ? 'bg-amber-500 text-zinc-950 ring-1.5 ring-amber-400 shadow-sm shadow-amber-500/30 font-black'
                 : 'bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-white'
@@ -321,7 +334,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               type="button"
               onClick={onSave}
               disabled={isSaving}
-              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation h-7.5 sm:h-8 shrink-0 border ${
+              className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation touch-target-expand h-7.5 sm:h-8 shrink-0 border ${
                 isSaving
                   ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-400/40'
                   : saveSuccess
@@ -363,7 +376,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 disabled={!canUndo}
                 title={canUndo ? `Undo [Ctrl+Z / ⌘Z] · ${pastCount} step(s)` : 'Nothing to undo'}
                 aria-label="Undo"
-                className="flex items-center justify-center p-1 rounded text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation h-6.5 w-6.5 shrink-0"
+                className="flex items-center justify-center p-1 rounded text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation touch-target-expand h-6.5 w-6.5 shrink-0"
               >
                 <Undo2 className="w-3.5 h-3.5 shrink-0" />
               </button>
@@ -377,7 +390,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 disabled={!canRedo}
                 title={canRedo ? `Redo [Ctrl+Y / ⌘Shift+Z] · ${futureCount} step(s)` : 'Nothing to redo'}
                 aria-label="Redo"
-                className="flex items-center justify-center p-1 rounded text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation h-6.5 w-6.5 shrink-0"
+                className="flex items-center justify-center p-1 rounded text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation touch-target-expand h-6.5 w-6.5 shrink-0"
               >
                 <Redo2 className="w-3.5 h-3.5 shrink-0" />
               </button>
@@ -390,7 +403,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               id="header-top-search-btn"
               type="button"
               onClick={onOpenLyricSearch}
-              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg border text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 sm:h-8 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shrink-0 touch-manipulation"
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg border text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 sm:h-8 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shrink-0 touch-manipulation touch-target-expand"
               title="Search Lyrics & Notes [Ctrl+K / ⌘K]"
             >
               <Search className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -404,7 +417,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             id="header-studio-menu-btn"
             type="button"
             onClick={() => setIsStudioMenuOpen(prev => !prev)}
-            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg border text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 sm:h-8 shrink-0 touch-manipulation ${
+            className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg border text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 sm:h-8 shrink-0 touch-manipulation touch-target-expand ${
               isStudioOpen
                 ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs font-black'
                 : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750'
@@ -438,7 +451,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           role="dialog"
           aria-modal="true"
           aria-label="Studio Settings & Tools"
-          className="fixed top-12 sm:top-13 right-2 sm:right-4 z-50 w-[min(384px,calc(100vw-16px))] max-h-[calc(100dvh-56px)] overflow-y-auto no-scrollbar p-3.5 bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-3"
+          className="fixed top-12 sm:top-13 right-2 sm:right-4 z-50 w-[min(384px,calc(100vw-16px))] max-h-[calc(100dvh-56px)] overflow-y-auto no-scrollbar touch-momentum p-3.5 bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-3"
         >
           {/* Header in Popover */}
           <div className="flex items-center justify-between pb-2 border-b border-zinc-200 dark:border-zinc-800">
@@ -803,8 +816,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     } else {
                       resetAllSettingsToDefault();
                     }
-                    setDefaultRestoreNotice('Settings restored to defaults!');
-                    setTimeout(() => setDefaultRestoreNotice(null), 3500);
+                    showNotice('Settings restored to defaults!');
                   }
                 }}
                 className="flex items-center justify-between p-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[44px]"
@@ -832,8 +844,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       if (onResetPreset) {
                         onResetPreset(matchingPreset.id);
                       }
-                      setDefaultRestoreNotice(`Restored《${matchingPreset.title}》to default!`);
-                      setTimeout(() => setDefaultRestoreNotice(null), 3500);
+                      showNotice(`Restored《${matchingPreset.title}》to default!`);
                     }
                   } else {
                     if (window.confirm(`確定要載入出廠預設歌曲《望春風》嗎？(Load default preset song《Bāng Chhun-hong》?)`)) {
@@ -842,8 +853,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       } else if (onResetPreset) {
                         onResetPreset(PRESET_SONGS[0].id);
                       }
-                      setDefaultRestoreNotice('Restored default song《望春風》!');
-                      setTimeout(() => setDefaultRestoreNotice(null), 3500);
+                      showNotice('Restored default song《望春風》!');
                     }
                   }
                 }}
@@ -873,8 +883,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   onClick={() => {
                     if (window.confirm(`確定要將全部 ${modifiedPresetIds.size} 首已修改的預設曲目皆恢復為原廠設定嗎？(Restore all ${modifiedPresetIds.size} modified preset songs to factory defaults?)`)) {
                       onResetAllPresets();
-                      setDefaultRestoreNotice(`Restored all ${modifiedPresetIds.size} preset songs!`);
-                      setTimeout(() => setDefaultRestoreNotice(null), 3500);
+                      showNotice(`Restored all ${modifiedPresetIds.size} preset songs!`);
                     }
                   }}
                   className="flex items-center gap-2 p-2 rounded-xl text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[40px]"

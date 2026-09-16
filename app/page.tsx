@@ -140,6 +140,7 @@ export default function Home() {
   const [customSongs, setCustomSongs] = useState<Song[]>([]);
   const [modifiedPresetIds, setModifiedPresetIds] = useState<Set<string>>(new Set());
   const hasInitializedRef = React.useRef(false);
+  const selectSongSeqRef = React.useRef(0);
 
   // Bootstrap IndexedDB on mount: migrate legacy localStorage, load active song, custom songs, and modified presets
   useEffect(() => {
@@ -161,21 +162,23 @@ export default function Home() {
         setDisplayModeState(storedMode);
         const storedAutosave = getStoredAutosaveInterval(0);
         if (storedAutosave !== 0) setAutosaveIntervalState(storedAutosave);
+
         setCustomSongs(customList);
         setModifiedPresetIds(modifiedIds);
 
         if (activeDbSong && Array.isArray(activeDbSong.measures) && activeDbSong.measures.length > 0) {
           loadNewSong(activeDbSong);
         } else {
-          const savedSong = getStoredCurrentSong();
-          if (savedSong && Array.isArray(savedSong.measures) && savedSong.measures.length > 0) {
-            loadNewSong(savedSong);
-          }
+          // Fallback to localStorage if IndexedDB had no active song
+          const localSong = getStoredCurrentSong();
+          loadNewSong(localSong);
         }
       } catch (err) {
-        console.warn('[page] IndexedDB bootstrap fallback to localStorage:', err);
-        const savedSong = getStoredCurrentSong();
-        if (savedSong) loadNewSong(savedSong);
+        console.warn('[IndexedDB] Bootstrap failed, falling back to localStorage:', err);
+        if (isMounted) {
+          const localSong = getStoredCurrentSong();
+          loadNewSong(localSong);
+        }
       } finally {
         if (isMounted) {
           hasInitializedRef.current = true;
@@ -190,11 +193,29 @@ export default function Home() {
     };
   }, [loadNewSong]);
 
-  // Persist the active song to localStorage after bootstrap. LOAD_SONG is not an edit.
+  // Persist the active song to localStorage after bootstrap with 300ms debounce
+  // to avoid blocking the main thread during rapid typing or note editing.
   useEffect(() => {
     if (!hasInitializedRef.current) return;
-    setStoredCurrentSong(song);
+    const timer = setTimeout(() => {
+      setStoredCurrentSong(song);
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [song]);
+
+  // Synchronize .is-playing class on documentElement for iPad GPU optimization during playback
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+    if (isPlaying) {
+      document.documentElement.classList.add('is-playing');
+    } else {
+      document.documentElement.classList.remove('is-playing');
+    }
+    return () => {
+      document.documentElement.classList.remove('is-playing');
+    };
+  }, [isPlaying]);
 
   const setDisplayMode = useCallback((mode: LyricDisplayMode) => {
     setDisplayModeState(mode);
@@ -394,8 +415,11 @@ export default function Home() {
     window.addEventListener('pagehide', flushSongToStorage);
     window.addEventListener('beforeunload', flushSongToStorage);
     const handleVisibility = () => {
-      if (document.hidden && isDirty && song) {
-        void saveActiveSongToDB(song);
+      if (document.hidden && song) {
+        setStoredCurrentSong(song);
+        if (isDirty) {
+          void saveActiveSongToDB(song);
+        }
       }
     };
     document.addEventListener('visibilitychange', handleVisibility);
@@ -444,6 +468,7 @@ export default function Home() {
 
   const handleSelectSong = useCallback(
     async (targetSong: Song) => {
+      const currentSeq = ++selectSongSeqRef.current;
       if (audioEngine) {
         audioEngine.stop();
       }
@@ -469,6 +494,9 @@ export default function Home() {
           console.warn('[page] Failed to check preset override:', err);
         }
       }
+
+      // Guard against stale async resolution if user quickly switched songs
+      if (currentSeq !== selectSongSeqRef.current) return;
 
       loadNewSong(songToLoad);
       setSavedRevision(0);

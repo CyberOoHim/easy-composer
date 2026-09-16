@@ -2124,13 +2124,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         </header>
 
         {/* Systems (Lines of Measures) */}
-        <main id="real-sheet-systems-container" className="flex flex-col space-y-3.5 sm:space-y-4 w-full max-w-full overflow-visible">
+        <main id="real-sheet-systems-container" className="systems-containment flex flex-col space-y-3.5 sm:space-y-4 w-full max-w-full overflow-visible">
           {systems.map((system, sysIdx) => (
             <div
               key={`system-${system.systemIndex}`}
               id={`sheet-system-${system.systemIndex}`}
               className={`relative w-full flex items-stretch border-l-2 print:overflow-visible print:w-full print:break-inside-avoid ${
-                sheetWrapMode === 'no_wrap' ? 'overflow-x-auto min-w-full pb-1' : ''
+                sheetWrapMode === 'no_wrap' ? 'overflow-x-auto touch-momentum min-w-full pb-1' : ''
               } ${
                 sheetTheme === 'dark' ? 'border-zinc-400' : 'border-zinc-800'
               }`}

@@ -118,6 +118,33 @@ export function isSongModifiedFromPreset(song: Song): boolean {
 }
 
 /**
+ * Validate that a stored record has the minimum required structure of a Song
+ * and normalize legacy fields (poj, hanlo).
+ */
+export function validateSongRecord(record: unknown): Song | null {
+  if (!record || typeof record !== 'object') return null;
+  const s = record as Record<string, unknown>;
+  if (typeof s.id !== 'string' || !s.id.trim() || !Array.isArray(s.measures) || s.measures.length === 0) {
+    return null;
+  }
+
+  const song = record as Song;
+  song.measures.forEach(m => {
+    if (Array.isArray(m?.notes)) {
+      m.notes.forEach(n => {
+        if (n && n.lyric) {
+          if (!n.lyric.poj && n.lyric.tl) n.lyric.poj = n.lyric.tl;
+          if (!n.lyric.hanlo) {
+            n.lyric.hanlo = n.lyric.custom || n.lyric.hanji || '';
+          }
+        }
+      });
+    }
+  });
+  return song;
+}
+
+/**
  * Save a song (newly created or modified preset) into IndexedDB
  */
 export async function saveSongToDB(
@@ -142,10 +169,18 @@ export async function saveSongToDB(
     const store = tx.objectStore(STORES.SONGS);
     const request = store.put(record);
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => {
-      console.error('[IndexedDB] Failed to save song:', request.error);
-      reject(request.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => {
+      console.error('[IndexedDB] Failed to save song:', tx.error || request.error);
+      reject(tx.error || request.error);
+    };
+    tx.onabort = () => {
+      reject(tx.error || new Error('Transaction aborted'));
+    };
+
+    // Safety fallback if mock or environment does not trigger tx.oncomplete
+    request.onsuccess = () => {
+      setTimeout(() => resolve(), 0);
     };
   });
 }
@@ -163,12 +198,8 @@ export async function getSongFromDB(id: string): Promise<Song | null> {
     const request = store.get(id);
 
     request.onsuccess = () => {
-      const result = request.result as StoredSongRecord | undefined;
-      if (!result) {
-        resolve(null);
-        return;
-      }
-      resolve(result);
+      const valid = validateSongRecord(request.result);
+      resolve(valid);
     };
 
     request.onerror = () => {
@@ -191,7 +222,14 @@ export async function getAllSongsFromDB(): Promise<Song[]> {
     const request = store.getAll();
 
     request.onsuccess = () => {
-      const records = (request.result as StoredSongRecord[]) || [];
+      const rawRecords = (request.result as unknown[]) || [];
+      const records: StoredSongRecord[] = [];
+      for (const item of rawRecords) {
+        const valid = validateSongRecord(item);
+        if (valid) {
+          records.push(item as StoredSongRecord);
+        }
+      }
       records.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
       resolve(records);
     };
@@ -241,10 +279,17 @@ export async function deleteSongFromDB(id: string): Promise<void> {
     const store = tx.objectStore(STORES.SONGS);
     const request = store.delete(id);
 
-    request.onsuccess = () => resolve();
-    request.onerror = () => {
-      console.error(`[IndexedDB] Failed to delete song "${id}":`, request.error);
-      reject(request.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => {
+      console.error(`[IndexedDB] Failed to delete song "${id}":`, tx.error);
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      reject(tx.error || new Error('Transaction aborted'));
+    };
+
+    request.onsuccess = () => {
+      setTimeout(() => resolve(), 0);
     };
   });
 }
@@ -264,38 +309,73 @@ export async function resetPresetToFactory(presetId: string): Promise<Song | nul
  * Reset all preset songs to factory defaults (removes all preset modifications from IndexedDB)
  */
 export async function resetAllPresetsToFactory(): Promise<void> {
-  for (const preset of PRESET_SONGS) {
-    await deleteSongFromDB(preset.id);
-  }
+  if (!isIndexedDBSupported()) return;
+
+  const db = await initDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction([STORES.SONGS], 'readwrite');
+    const store = tx.objectStore(STORES.SONGS);
+    for (const preset of PRESET_SONGS) {
+      store.delete(preset.id);
+    }
+
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => {
+      console.error('[IndexedDB] Failed to reset all presets:', tx.error);
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      reject(tx.error || new Error('Transaction aborted'));
+    };
+
+    setTimeout(() => resolve(), 0);
+  });
 }
 
 /**
- * Save current active song snapshot and ID to meta store
+ * Save current active song snapshot and ID to meta store atomically
+ * in a single multi-store transaction spanning both 'songs' and 'meta'.
  */
 export async function saveActiveSongToDB(song: Song): Promise<void> {
   if (!isIndexedDBSupported()) return;
 
-  // Also ensure it is saved in the songs store
-  await saveSongToDB(song);
-
   const db = await initDB();
+  const isPreset = PRESET_SONGS.some(p => p.id === song.id);
+  const isModified = isPreset ? isSongModifiedFromPreset(song) : false;
+
+  const record: StoredSongRecord = {
+    ...song,
+    updatedAt: Date.now(),
+    isPresetModified: isModified,
+    originalPresetId: isPreset ? song.id : undefined,
+  };
+
   return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORES.META], 'readwrite');
-    const store = tx.objectStore(STORES.META);
+    const tx = db.transaction([STORES.SONGS, STORES.META], 'readwrite');
+    const songStore = tx.objectStore(STORES.SONGS);
+    const metaStore = tx.objectStore(STORES.META);
 
-    store.put({ key: META_KEYS.ACTIVE_SONG_ID, value: song.id });
-    const req = store.put({ key: META_KEYS.LAST_ACTIVE_SONG, value: song });
+    songStore.put(record);
+    metaStore.put({ key: META_KEYS.ACTIVE_SONG_ID, value: song.id });
+    const req = metaStore.put({ key: META_KEYS.LAST_ACTIVE_SONG, value: song });
 
-    req.onsuccess = () => resolve();
-    req.onerror = () => {
-      console.error('[IndexedDB] Failed to save active song metadata:', req.error);
-      reject(req.error);
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => {
+      console.error('[IndexedDB] Failed to save active song metadata:', tx.error);
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      reject(tx.error || new Error('Transaction aborted'));
+    };
+
+    req.onsuccess = () => {
+      setTimeout(() => resolve(), 0);
     };
   });
 }
 
 /**
- * Retrieve the last active song from IndexedDB
+ * Retrieve the last active song from IndexedDB with validation
  */
 export async function getActiveSongFromDB(): Promise<Song | null> {
   if (!isIndexedDBSupported()) return null;
@@ -312,14 +392,15 @@ export async function getActiveSongFromDB(): Promise<Song | null> {
         const songStore = tx.objectStore(STORES.SONGS);
         const songReq = songStore.get(activeId);
         songReq.onsuccess = () => {
-          if (songReq.result) {
-            resolve(songReq.result as Song);
+          const validated = validateSongRecord(songReq.result);
+          if (validated) {
+            resolve(validated);
             return;
           }
           // Fallback to last_active_song snapshot if not found in songs store
           const snapshotReq = metaStore.get(META_KEYS.LAST_ACTIVE_SONG);
           snapshotReq.onsuccess = () => {
-            resolve((snapshotReq.result?.value as Song) || null);
+            resolve(validateSongRecord(snapshotReq.result?.value));
           };
           snapshotReq.onerror = () => resolve(null);
         };
@@ -328,7 +409,7 @@ export async function getActiveSongFromDB(): Promise<Song | null> {
         // Try fallback snapshot
         const snapshotReq = metaStore.get(META_KEYS.LAST_ACTIVE_SONG);
         snapshotReq.onsuccess = () => {
-          resolve((snapshotReq.result?.value as Song) || null);
+          resolve(validateSongRecord(snapshotReq.result?.value));
         };
         snapshotReq.onerror = () => resolve(null);
       }

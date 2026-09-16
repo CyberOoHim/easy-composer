@@ -405,6 +405,8 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
     }
 
     const msPerBeat = (60 / Math.max(30, Math.min(240, bpm))) * 1000;
+    const isEco = typeof document !== 'undefined' && document.documentElement.classList.contains('eco-mode');
+    const intervalMs = isEco ? 66 : 40;
 
     activeHoldTickerRef.current = setInterval(() => {
       const elapsed = performance.now() - startTime;
@@ -420,7 +422,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
         estimatedBeats: Math.round(rawBeats * 100) / 100,
         quantized,
       });
-    }, 40);
+    }, intervalMs);
   }, [bpm, quantizeGrid, allowTriplets]);
 
   const stopLiveHoldTicker = useCallback(() => {
@@ -701,7 +703,7 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
       )}
 
       {/* ─── TOP PRIMARY CONTROL RIBBON (STRICT SINGLE LINE, COMPACT UI) ─── */}
-      <div className="flex items-center justify-between flex-nowrap gap-1 sm:gap-1.5 text-xs border-b border-zinc-800/90 pb-1.5 sm:pb-2 pr-8 sm:pr-9 overflow-x-auto no-scrollbar whitespace-nowrap">
+      <div className="flex items-center justify-between flex-nowrap gap-1 sm:gap-1.5 text-xs border-b border-zinc-800/90 pb-1.5 sm:pb-2 pr-8 sm:pr-9 overflow-x-auto no-scrollbar whitespace-nowrap touch-momentum">
         <div className="flex items-center gap-1 sm:gap-1.5 flex-nowrap shrink-0">
           {/* Deck Title / Key Signature */}
           <div

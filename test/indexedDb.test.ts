@@ -10,6 +10,9 @@ import {
   getModifiedPresetsFromDB,
   getModifiedPresetIds,
   resetPresetToFactory,
+  resetAllPresetsToFactory,
+  deleteSongFromDB,
+  validateSongRecord,
   saveActiveSongToDB,
   getActiveSongFromDB,
   migrateLocalStorageToDB,
@@ -37,33 +40,99 @@ class MockIDBRequest {
   }
 }
 
+class MockIDBTransaction {
+  stores: Map<string, MockIDBObjectStore>;
+  oncomplete: any = null;
+  onerror: any = null;
+  onabort: any = null;
+  error: any = null;
+  private pendingOps = 0;
+
+  constructor(stores: Map<string, MockIDBObjectStore>) {
+    this.stores = stores;
+    // If no operations are performed, complete on next tick
+    setTimeout(() => {
+      if (this.pendingOps === 0 && this.oncomplete) {
+        this.oncomplete({ target: this });
+      }
+    }, 0);
+  }
+
+  objectStore(name: string) {
+    if (!this.stores.has(name)) {
+      this.stores.set(name, new MockIDBObjectStore(this));
+    }
+    const store = this.stores.get(name)!;
+    store.activeTx = this;
+    return store;
+  }
+
+  startOp() {
+    this.pendingOps++;
+  }
+
+  endOp() {
+    this.pendingOps--;
+    if (this.pendingOps <= 0) {
+      setTimeout(() => {
+        if (this.oncomplete) this.oncomplete({ target: this });
+      }, 0);
+    }
+  }
+}
+
 class MockIDBObjectStore {
   data = new Map<string, any>();
+  activeTx: MockIDBTransaction | null = null;
+
+  constructor(tx?: MockIDBTransaction) {
+    if (tx) this.activeTx = tx;
+  }
 
   get(key: string) {
+    const tx = this.activeTx;
+    if (tx) tx.startOp();
     const req = new MockIDBRequest();
-    setTimeout(() => req.triggerSuccess(this.data.get(key)), 0);
+    setTimeout(() => {
+      req.triggerSuccess(this.data.get(key));
+      if (tx) tx.endOp();
+    }, 0);
     return req;
   }
 
   put(val: any) {
     const key = val.id || val.key;
     this.data.set(key, JSON.parse(JSON.stringify(val)));
+    const tx = this.activeTx;
+    if (tx) tx.startOp();
     const req = new MockIDBRequest();
-    setTimeout(() => req.triggerSuccess(key), 0);
+    setTimeout(() => {
+      req.triggerSuccess(key);
+      if (tx) tx.endOp();
+    }, 0);
     return req;
   }
 
   getAll() {
+    const tx = this.activeTx;
+    if (tx) tx.startOp();
     const req = new MockIDBRequest();
-    setTimeout(() => req.triggerSuccess(Array.from(this.data.values())), 0);
+    setTimeout(() => {
+      req.triggerSuccess(Array.from(this.data.values()));
+      if (tx) tx.endOp();
+    }, 0);
     return req;
   }
 
   delete(key: string) {
     this.data.delete(key);
+    const tx = this.activeTx;
+    if (tx) tx.startOp();
     const req = new MockIDBRequest();
-    setTimeout(() => req.triggerSuccess(undefined), 0);
+    setTimeout(() => {
+      req.triggerSuccess(undefined);
+      if (tx) tx.endOp();
+    }, 0);
     return req;
   }
 
@@ -83,15 +152,13 @@ class MockIDBDatabase {
   }
 
   transaction(names: string | string[], _mode: string) {
-    const name = Array.isArray(names) ? names[0] : names;
-    const store = this.stores.get(name) || new MockIDBObjectStore();
-    this.stores.set(name, store);
-    return {
-      objectStore: (n: string) => {
-        if (!this.stores.has(n)) this.stores.set(n, new MockIDBObjectStore());
-        return this.stores.get(n)!;
-      },
-    } as any;
+    const storeNames = Array.isArray(names) ? names : [names];
+    for (const name of storeNames) {
+      if (!this.stores.has(name)) {
+        this.stores.set(name, new MockIDBObjectStore());
+      }
+    }
+    return new MockIDBTransaction(this.stores);
   }
 }
 
@@ -220,6 +287,45 @@ describe('IndexedDB Persistence Operations', () => {
     const retrieved = await getSongFromDB(legacySong.id);
     assert.ok(retrieved);
     assert.strictEqual(retrieved?.title, 'Legacy Local Song');
+  });
+
+  it('validates song records and rejects corrupt data', () => {
+    assert.strictEqual(validateSongRecord(null), null);
+    assert.strictEqual(validateSongRecord({}), null);
+    assert.strictEqual(validateSongRecord({ id: '' }), null);
+    assert.strictEqual(validateSongRecord({ id: 'test', measures: [] }), null);
+
+    const valid = createFreshSong('Valid Song');
+    const checked = validateSongRecord(valid);
+    assert.ok(checked);
+    assert.strictEqual(checked?.id, valid.id);
+  });
+
+  it('handles corrupt record in getSongFromDB gracefully by returning null', async () => {
+    // Put a corrupt object in DB directly
+    const tx = mockDb.transaction('songs', 'readwrite');
+    tx.objectStore('songs').put({ id: 'corrupt-1', title: 'Broken' });
+
+    const retrieved = await getSongFromDB('corrupt-1');
+    assert.strictEqual(retrieved, null);
+  });
+
+  it('resets all modified presets atomically with resetAllPresetsToFactory', async () => {
+    const mod1 = JSON.parse(JSON.stringify(PRESET_SONGS[0]));
+    mod1.title = 'Mod 1';
+    await saveSongToDB(mod1);
+
+    const mod2 = JSON.parse(JSON.stringify(PRESET_SONGS[1]));
+    mod2.title = 'Mod 2';
+    await saveSongToDB(mod2);
+
+    let modified = await getModifiedPresetIds();
+    assert.strictEqual(modified.size, 2);
+
+    await resetAllPresetsToFactory();
+
+    modified = await getModifiedPresetIds();
+    assert.strictEqual(modified.size, 0);
   });
 });
 

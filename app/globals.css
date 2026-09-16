@@ -59,6 +59,11 @@ html, body {
   contain: layout;
 }
 
+/* Score Systems Container Layout Containment for smooth sheet panning on iPad */
+.systems-containment {
+  contain: layout;
+}
+
 /* Eco Mode / Low Power Mode Rules for iPad */
 .eco-mode {
   /* Disable expensive GPU backdrop filters and switch to solid backgrounds */
@@ -74,6 +79,20 @@ html, body {
 }
 
 .eco-mode header {
+  box-shadow: none !important;
+}
+
+/* Playback Mode Rules for iPad: automatically eliminate GPU backdrop blurs and heavy shadows during live playback */
+.is-playing header,
+.is-playing aside,
+.is-playing div[class*="backdrop-blur"] {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.is-playing .eco-flat-shadow,
+.is-playing [class*="shadow-"] {
+  filter: none !important;
   box-shadow: none !important;
 }
 
@@ -194,6 +213,23 @@ html, body {
 .touch-target-44 {
   min-height: 44px;
   min-width: 44px;
+}
+
+/* Touch Hit Area Expansion for compact musical controls (Apple HIG compliant without visual inflation) */
+.touch-target-expand {
+  position: relative;
+}
+.touch-target-expand::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 44px;
+  min-height: 44px;
+  width: 100%;
+  height: 100%;
+  z-index: 1;
 }
 
 /* Tactile Hardware Button Feedback */

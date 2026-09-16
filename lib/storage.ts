@@ -251,11 +251,26 @@ export function saveSongToCustomLibrary(song: Song): Song[] {
   return res.library;
 }
 
-export function deleteSongFromCustomLibrary(songId: string): Song[] {
+export interface DeleteSongResult {
+  success: boolean;
+  library: Song[];
+  error?: string;
+}
+
+export function deleteSongFromCustomLibraryWithResult(songId: string): DeleteSongResult {
   const library = getStoredCustomLibrary();
   const updated = library.filter(s => s.id !== songId);
-  setStoredCustomLibrary(updated);
-  return updated;
+  const success = setStoredCustomLibrary(updated);
+  return {
+    success,
+    library: success ? updated : library,
+    error: success ? undefined : 'Delete failed: Local storage write failed.',
+  };
+}
+
+export function deleteSongFromCustomLibrary(songId: string): Song[] {
+  const res = deleteSongFromCustomLibraryWithResult(songId);
+  return res.library;
 }
 
 // ============================================================================

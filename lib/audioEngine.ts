@@ -80,7 +80,7 @@ export class AudioEngine {
   private animationFrameId: number | null = null;
   private scheduledTimeoutIds: number[] = [];
   private scheduledCancels: Array<() => void> = [];
-  private activeOscillators: OscillatorNode[] = [];
+  private activeOscillators: Set<OscillatorNode> = new Set();
   private activeSustainedVoices: Map<
     string,
     {
@@ -1312,9 +1312,9 @@ export class AudioEngine {
   }
 
   private registerOscillator(osc: OscillatorNode) {
-    this.activeOscillators.push(osc);
+    this.activeOscillators.add(osc);
     osc.onended = () => {
-      this.activeOscillators = this.activeOscillators.filter(o => o !== osc);
+      this.activeOscillators.delete(osc);
     };
   }
 
@@ -3138,8 +3138,8 @@ export class AudioEngine {
   private stopAudioNodes() {
     this.stopAllSustainedNotes();
     // 1. Immediately stop and disconnect all scheduled/playing oscillators
-    const currentOscs = [...this.activeOscillators];
-    this.activeOscillators = [];
+    const currentOscs = Array.from(this.activeOscillators);
+    this.activeOscillators.clear();
     for (const osc of currentOscs) {
       try {
         osc.stop();

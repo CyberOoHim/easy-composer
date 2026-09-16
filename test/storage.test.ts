@@ -14,6 +14,9 @@ import {
   setStoredPianoDeckMode,
   getStoredExportFormat,
   setStoredExportFormat,
+  saveSongToCustomLibraryWithResult,
+  deleteSongFromCustomLibraryWithResult,
+  getStoredCustomLibrary,
   resetAllSettingsToDefault,
 } from '../lib/storage.ts';
 
@@ -117,5 +120,22 @@ describe('Local Storage UI Selections Management', () => {
     assert.strictEqual(getStoredPianoDeckMode(), 'step');
     assert.strictEqual(getStoredExportFormat(), 'json');
     assert.strictEqual(store[STORAGE_KEYS.POWER_SAVE_MODE], 'false');
+  });
+
+  it('handles save and delete from custom library with result', () => {
+    const dummySong = {
+      id: 'custom-song-abc',
+      title: 'Custom Song',
+      measures: [{ id: 'm1', notes: [] }],
+    } as any;
+
+    const saveRes = saveSongToCustomLibraryWithResult(dummySong);
+    assert.strictEqual(saveRes.success, true);
+    assert.ok(saveRes.library.some(s => s.id === 'custom-song-abc'));
+
+    const delRes = deleteSongFromCustomLibraryWithResult('custom-song-abc');
+    assert.strictEqual(delRes.success, true);
+    assert.strictEqual(delRes.library.some(s => s.id === 'custom-song-abc'), false);
+    assert.strictEqual(getStoredCustomLibrary().some(s => s.id === 'custom-song-abc'), false);
   });
 });
