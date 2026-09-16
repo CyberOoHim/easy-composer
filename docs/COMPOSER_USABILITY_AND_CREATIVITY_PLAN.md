@@ -14,7 +14,7 @@
 
 ## 1. Executive Summary & Philosophy
 
-Easy Composer is designed as a physical-feeling, direct-on-sheet music score creation tool for numbered musical notation (簡譜 / Jianpu). Following the successful foundation of the Real-Sheet Canvas and continuous engraving engine, this plan addresses the two most critical drivers of user satisfaction and artistic productivity:
+Easy Composer is designed as a physical-feeling, direct-on-sheet music score creation tool for numbered musical notation. Following the successful foundation of the Real-Sheet Canvas and continuous engraving engine, this plan addresses the two most critical drivers of user satisfaction and artistic productivity:
 
 1. **Frictionless Usability & Rhythm Intuition**:
    - Eliminating the metric calculation burden by providing visual, real-time **Measure Beat Budget** feedback (`[●●●○] 3/4 beats`).

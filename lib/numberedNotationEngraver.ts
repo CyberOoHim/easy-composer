@@ -94,8 +94,8 @@ export function getBeamCountForDuration(duration: NoteDuration): number {
 }
 
 /**
- * Determine how many sustain dashes '-' follow the note digit in standard Jianpu notation.
- * In standard Jianpu:
+ * Determine how many sustain dashes '-' follow the note digit in standard numbered notation.
+ * In standard numbered notation:
  * - Quarter note (1 beat): "1" (0 dashes)
  * - Half note (2 beats): "1 -" (1 dash)
  * - Dotted half note (3 beats): "1 - -" (2 dashes)

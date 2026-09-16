@@ -29,7 +29,7 @@ import {
   autoRearrangeSongMeasures,
   autoWrapSongMeasures,
 } from '@/lib/taigiUtils';
-import { groupMeasuresIntoSystems } from '@/lib/jianpuEngraver';
+import { groupMeasuresIntoSystems } from '@/lib/numberedNotationEngraver';
 import { autoArrangeSongChords } from '@/lib/chordArranger';
 import { scrollToCardElement } from '@/lib/utils';
 import {

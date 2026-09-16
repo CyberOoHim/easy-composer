@@ -4,7 +4,7 @@
  * convert-sheet.mjs
  * 
  * Universal CLI and library for converting sheet music in diverse input formats:
- * - Text-based Numbered Musical Notation (簡譜) with lyrics (.txt, .md, .tab, .jianpu, .lrc)
+ * - Text-based Numbered Musical Notation with lyrics (.txt, .md, .tab, .numbered, .lrc)
  * - Standard MIDI Files (.mid, .midi)
  * - Song JSON files and streams (.json) for sanitization & rhythm balancing
  * - Direct text string (--text "...") or standard input pipe (-)
@@ -21,7 +21,7 @@ import { parseMidiBuffer, midiToSongJson } from './midi-parser.mjs';
 import { isStructuredAppText, parseStructuredTextScore } from './text-parser.mjs';
 
 const SUPPORTED_IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.webp', '.bmp', '.gif']);
-const SUPPORTED_TEXT_EXTS = new Set(['.txt', '.md', '.tab', '.jianpu', '.lrc']);
+const SUPPORTED_TEXT_EXTS = new Set(['.txt', '.md', '.tab', '.numbered', '.lrc']);
 const SUPPORTED_MIDI_EXTS = new Set(['.mid', '.midi']);
 const SUPPORTED_JSON_EXTS = new Set(['.json']);
 const VALID_KEYS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];

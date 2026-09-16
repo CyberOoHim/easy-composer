@@ -119,7 +119,7 @@ describe('autoWrapSongMeasures', () => {
   });
 
   it('only presents sectionText on the first measure of a section, avoiding duplicates', async () => {
-    const { groupMeasuresIntoSystems } = await import('../lib/jianpuEngraver.ts');
+    const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
     const rawMeasures: Measure[] = [
       makeMockMeasure('m1', 1, 4, { section: 'Prelude' }),
       makeMockMeasure('m2', 2, 4, { section: 'Prelude' }),

@@ -22,7 +22,7 @@ import {
   groupMeasuresIntoSystems,
   EngravedMeasure,
   EngravedNote,
-} from '@/lib/jianpuEngraver';
+} from '@/lib/numberedNotationEngraver';
 import { FloatingScoreHud } from './FloatingScoreHud';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { AudioEngine, audioEngine as defaultAudioEngine } from '@/lib/audioEngine';
@@ -1768,7 +1768,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             Sheet Music Canvas
           </span>
           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 dark:bg-amber-950/70 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-            Jianpu Standard
+            Numbered Notation Standard
           </span>
         </div>
 

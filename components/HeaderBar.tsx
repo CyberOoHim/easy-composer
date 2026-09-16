@@ -682,7 +682,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     Notes Zoom
                   </span>
                   <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                    Scale Jianpu note digits & beams
+                    Scale numbered notation digits & beams
                   </span>
                 </div>
               </div>

@@ -53,7 +53,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
 
   const isTriplet = !isNonNotation && (note.isTriplet || note.duration === 0.333 || note.duration === 0.667);
   const showDoubleDot = !isNonNotation && (note.isDoubleDotted || note.duration === 1.75 || note.duration === 3.5);
-  // In standard Jianpu (簡譜):
+  // In standard numbered notation:
   // 1 beat: 1
   // 1.5 beats: 1· (dotted quarter)
   // 2 beats: 1 - (half note: note + 1 dash)
