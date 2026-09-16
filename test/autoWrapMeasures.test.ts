@@ -270,6 +270,50 @@ describe('autoWrapSongMeasures', () => {
 
       // Portrait should have more line breaks than Landscape because Landscape has ~40% wider lines
       assert.ok(portraitBreaks >= landscapeBreaks, 'Portrait should have more or equal line breaks than Landscape');
+      assert.equal(wrappedLandscape.orientation, 'landscape');
+      assert.equal(wrappedLandscape.notesPerLine, 5);
+    });
+
+    it('toggles a standard 28-measure song (like 望春風) from 4 bars/line to 5 bars/line in Landscape', () => {
+      // Simulating a preset song with breaks at 4, 8, 12, 16, 20, 24
+      const measures = Array.from({ length: 28 }, (_, i) =>
+        makeMockMeasure(`m${i + 1}`, i + 1, 4, { isLineBreak: (i + 1) % 4 === 0 })
+      );
+      const song = makeMockSong(measures, 4);
+
+      const rewrapped = autoWrapSongMeasures(song, undefined, 'landscape');
+      assert.equal(rewrapped.orientation, 'landscape');
+      assert.equal(rewrapped.notesPerLine, 5);
+
+      // Measure 5 should have isLineBreak = true, Measure 4 should be false
+      assert.equal(rewrapped.measures[3].isLineBreak, false, 'Measure 4 break should be cleared for landscape');
+      assert.equal(rewrapped.measures[4].isLineBreak, true, 'Measure 5 should be the new line break in landscape');
+      assert.equal(rewrapped.measures[9].isLineBreak, true, 'Measure 10 should be the line break in landscape');
+    });
+
+    it('groupMeasuresIntoSystems packs 5 measures per system in Landscape for auto_fit even with 4-measure legacy breaks', async () => {
+      const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
+      const measuresWith4BarBreaks = Array.from({ length: 20 }, (_, i) =>
+        makeMockMeasure(`m${i + 1}`, i + 1, 4, { isLineBreak: (i + 1) % 4 === 0 })
+      );
+
+      const systems = groupMeasuresIntoSystems(measuresWith4BarBreaks, '4/4', 4, 'auto_fit', 'landscape');
+      // In landscape auto_fit, systems should pack 5 measures, not 4
+      assert.equal(systems[0].measures.length, 5, 'First system should have 5 measures in landscape auto_fit');
+      assert.equal(systems[1].measures.length, 5, 'Second system should have 5 measures in landscape auto_fit');
+      assert.equal(systems.length, 4, '20 measures at 5 per line should produce exactly 4 systems');
+    });
+
+    it('groupMeasuresIntoSystems wraps when line exceeds sheet budget in no_wrap mode to prevent sheet overflow', async () => {
+      const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
+      // 10 measures without manual breaks
+      const measures = Array.from({ length: 10 }, (_, i) =>
+        makeMockMeasure(`m${i + 1}`, i + 1, 4, { isLineBreak: false })
+      );
+
+      // In no_wrap, boundary guard breaks before overflow
+      const systemsPortrait = groupMeasuresIntoSystems(measures, '4/4', 4, 'no_wrap', 'portrait');
+      assert.ok(systemsPortrait.length > 1, 'no_wrap must break into multiple systems if width exceeds sheet canvas');
     });
   });
 });

@@ -1863,11 +1863,16 @@ export function autoWrapSongMeasures(
 
   const effectiveOrientation = orientation || song.orientation || 'portrait';
   const defaultTarget = effectiveOrientation === 'landscape' ? 5 : 4;
+  const effectiveTarget =
+    targetMeasuresPerLine ??
+    (effectiveOrientation === 'landscape' && (song.notesPerLine === 4 || !song.notesPerLine)
+      ? 5
+      : (song.notesPerLine ?? defaultTarget));
   const baseCapacity = Math.max(
     2,
     Math.min(
       effectiveOrientation === 'landscape' ? 8 : 6,
-      targetMeasuresPerLine || song.notesPerLine || defaultTarget
+      effectiveTarget
     )
   );
   const newMeasures = song.measures.map(m => ({ ...m }));
@@ -1971,6 +1976,8 @@ export function autoWrapSongMeasures(
 
   return {
     ...song,
+    orientation: effectiveOrientation,
+    notesPerLine: effectiveTarget,
     measures: newMeasures,
     updatedAt: Date.now(),
   };

@@ -1196,14 +1196,26 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     });
   }, [showNotice, song.notesPerLine, sheetOrientation]);
 
+  // Sync sheetOrientation if song.orientation updates from another component or preset load
+  const [prevSongOrientation, setPrevSongOrientation] = useState(song.orientation);
+  if (song.orientation && song.orientation !== prevSongOrientation) {
+    setPrevSongOrientation(song.orientation);
+    setSheetOrientation(song.orientation);
+    setStoredSheetOrientation(song.orientation);
+  }
+
   const handleToggleOrientation = useCallback(() => {
-    setSheetOrientation(prev => {
-      const next: SheetOrientation = prev === 'portrait' ? 'landscape' : 'portrait';
-      setStoredSheetOrientation(next);
-      showNotice(`Orientation: ${next === 'portrait' ? 'Portrait (210×297mm)' : 'Landscape (297×210mm)'}`);
-      return next;
-    });
-  }, [showNotice]);
+    const next: SheetOrientation = sheetOrientation === 'portrait' ? 'landscape' : 'portrait';
+    setSheetOrientation(next);
+    setStoredSheetOrientation(next);
+
+    // Re-wrap song measures and update line breaks for the new orientation
+    const rewrapped = autoWrapSongMeasures(song, undefined, next);
+    handleUpdateSong(rewrapped);
+
+    const targetBars = next === 'landscape' ? (rewrapped.notesPerLine || 5) : (rewrapped.notesPerLine || 4);
+    showNotice(`Orientation: ${next === 'portrait' ? 'Portrait (210×297mm · 4 bars/line)' : `Landscape (297×210mm · ${targetBars} bars/line)`}`);
+  }, [sheetOrientation, song, handleUpdateSong, showNotice]);
 
   // Auto wrap song measures to fit within the realistic sheet
   const handleAutoWrapMeasures = useCallback(() => {

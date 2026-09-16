@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { KeySignature, LyricDisplayMode, Song, TimeSignature, InstrumentType, VerseDisplayOption } from '@/types/song';
+import { KeySignature, LyricDisplayMode, Song, TimeSignature, InstrumentType, VerseDisplayOption, SheetOrientation } from '@/types/song';
 import {
   AlignLeft,
   ChevronDown,
@@ -38,6 +38,7 @@ import {
   autoFillSongMeasureRests,
   smartRebarSong,
   getVerseDisplayOption,
+  autoWrapSongMeasures,
 } from '@/lib/taigiUtils';
 
 interface SongMetadataHeaderProps {
@@ -911,8 +912,8 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               </div>
             </div>
 
-            {/* Section 2: Layout & Measures Per Line */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+            {/* Section 2: Layout, Measures Per Line & Orientation */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
               <div>
                 <label
                   htmlFor="composer-notes-per-line-select"
@@ -922,17 +923,41 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                 </label>
                 <select
                   id="composer-notes-per-line-select"
-                  value={song.notesPerLine || 4}
-                  onChange={e =>
-                    onUpdateSong({ ...song, notesPerLine: parseInt(e.target.value, 10) || 4 })
-                  }
+                  value={song.notesPerLine || (song.orientation === 'landscape' ? 5 : 4)}
+                  onChange={e => {
+                    const newNotes = parseInt(e.target.value, 10) || 4;
+                    const rewrapped = autoWrapSongMeasures(song, newNotes, song.orientation);
+                    onUpdateSong({ ...rewrapped, notesPerLine: newNotes });
+                  }}
                   className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors cursor-pointer"
                 >
                   <option value="2">2 Measures / Line</option>
                   <option value="3">3 Measures / Line</option>
-                  <option value="4">4 Measures / Line (Standard 4/4)</option>
-                  <option value="5">5 Measures / Line</option>
+                  <option value="4">4 Measures / Line (Standard Portrait)</option>
+                  <option value="5">5 Measures / Line (Standard Landscape)</option>
                   <option value="6">6 Measures / Line (Compact)</option>
+                </select>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="composer-orientation-select"
+                  className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider mb-1"
+                >
+                  Sheet Paper Orientation
+                </label>
+                <select
+                  id="composer-orientation-select"
+                  value={song.orientation || 'portrait'}
+                  onChange={e => {
+                    const next = e.target.value as SheetOrientation;
+                    const rewrapped = autoWrapSongMeasures(song, undefined, next);
+                    onUpdateSong(rewrapped);
+                  }}
+                  className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors cursor-pointer"
+                >
+                  <option value="portrait">A4 Portrait (210×297mm · 4 bars)</option>
+                  <option value="landscape">A4 Landscape (297×210mm · 5 bars)</option>
                 </select>
               </div>
 

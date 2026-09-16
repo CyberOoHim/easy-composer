@@ -477,9 +477,9 @@ export function groupMeasuresIntoSystems(
   // Content line width budgets: ~750px for Portrait (A4 210mm), ~1050px for Landscape (A4 297mm)
   const MAX_SYSTEM_LINE_WIDTH = orientation === 'landscape' ? 1050 : 750;
   const effectiveDefaultMeasures =
-    orientation === 'landscape' && defaultMeasuresPerSystem === 4
+    orientation === 'landscape' && (defaultMeasuresPerSystem === 4 || !defaultMeasuresPerSystem)
       ? 5
-      : defaultMeasuresPerSystem;
+      : (defaultMeasuresPerSystem || 4);
 
   measures.forEach((measure, idx) => {
     const engraved = engraveMeasure(measure, idx, timeSignature, measures);
@@ -496,18 +496,26 @@ export function groupMeasuresIntoSystems(
         // Break if adding this measure would exceed the line budget (preventing collision & overflow)
         const exceedsWidth = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH;
 
-        // Break if previous measure explicitly had isLineBreak
-        const prevHadBreak = currentSystem[currentSystem.length - 1].isLineBreak;
+        // In auto_wrap, respect previous measure's line break if line has reached target capacity
+        // or line width has reached at least 65% of sheet width budget
+        const prevHadBreak = Boolean(
+          currentSystem[currentSystem.length - 1].isLineBreak &&
+          (currentSystem.length >= effectiveDefaultMeasures || currentSystemWidth >= MAX_SYSTEM_LINE_WIDTH * 0.65)
+        );
 
         if (sectionBreak || exceedsWidth || prevHadBreak) {
           shouldBreakBefore = true;
         }
       }
     } else if (wrapMode === 'auto_fit') {
-      // 2. Auto Fit (Forced fit / Auto fix): break at target measures per line or explicit isLineBreak
+      // 2. Auto Fit (Forced fit / Auto fix): break at target measures per line or density guard
       if (currentSystem.length > 0) {
         const reachesLimit = currentSystem.length >= effectiveDefaultMeasures;
-        const prevHadBreak = currentSystem[currentSystem.length - 1].isLineBreak;
+        // In landscape, don't let a sub-capacity break (e.g. 4 bars from portrait) prevent reaching target
+        const prevHadBreak = Boolean(
+          currentSystem[currentSystem.length - 1].isLineBreak &&
+          currentSystem.length >= effectiveDefaultMeasures
+        );
 
         // Density guard: if adding this measure would push the line beyond sheet boundaries,
         // break early so syllables never collide and measures never overflow the sheet
@@ -522,7 +530,7 @@ export function groupMeasuresIntoSystems(
       // OR sheet boundary guard: break before this measure if cumulative width exceeds sheet boundary
       if (currentSystem.length > 0) {
         const prevHadBreak = currentSystem[currentSystem.length - 1].isLineBreak;
-        const exceedsSheet = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH;
+        const exceedsSheet = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH && currentSystem.length >= 2;
 
         if (prevHadBreak || exceedsSheet) {
           shouldBreakBefore = true;
@@ -544,8 +552,8 @@ export function groupMeasuresIntoSystems(
     currentSystem.push(engraved);
     currentSystemWidth += mWidth;
 
-    // In auto_wrap mode: end barlines or repeat ends can naturally conclude a system if line has >= 2 measures
-    if (wrapMode === 'auto_wrap') {
+    // In auto_wrap and auto_fit mode: end barlines or repeat ends can naturally conclude a system if line has >= 2 measures
+    if (wrapMode === 'auto_wrap' || wrapMode === 'auto_fit') {
       const hasEndBarline = measure.barlineType === 'end' || measure.barlineType === 'repeat_end';
       if (hasEndBarline && idx < measures.length - 1 && currentSystem.length >= 2) {
         systems.push({

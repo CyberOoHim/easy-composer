@@ -1,4 +1,4 @@
-import { NumberedNotationNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature } from '@/types/song';
+import { NumberedNotationNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature, SheetOrientation } from '@/types/song';
 import { isPunctuationOrSpacer, normalizeSongDurations } from './taigiUtils';
 
 /**
@@ -34,7 +34,8 @@ export function importSongFromJson(jsonString: string): Song {
       isLineBreak: Boolean(m?.isLineBreak),
       barlineType: (m?.barlineType || m?.barline) as Measure['barlineType'],
     })),
-    notesPerLine: parsed.notesPerLine || 4,
+    notesPerLine: parsed.notesPerLine || (parsed.orientation === 'landscape' ? 5 : 4),
+    orientation: (parsed.orientation === 'landscape' ? 'landscape' : 'portrait') as SheetOrientation,
     description: parsed.description || '',
   };
   return normalizeSongDurations(song);

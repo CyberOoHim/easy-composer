@@ -331,7 +331,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
     return song.orientation || 'portrait';
   });
-  const sheetOrientation = propSheetOrientation ?? internalOrientation;
+  const sheetOrientation = propSheetOrientation ?? song.orientation ?? internalOrientation;
 
   const handleToggleOrientation = useCallback(() => {
     if (propOnToggleOrientation) {
@@ -341,9 +341,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     setInternalOrientation(prev => {
       const next: SheetOrientation = prev === 'portrait' ? 'landscape' : 'portrait';
       setStoredSheetOrientation(next);
+      if (onUpdateSong) {
+        const rewrapped = autoWrapSongMeasures(song, undefined, next);
+        onUpdateSong(rewrapped);
+      }
       return next;
     });
-  }, [propOnToggleOrientation]);
+  }, [propOnToggleOrientation, onUpdateSong, song]);
 
   // Zoom scaling (Persisted in browser local storage)
   const [zoomScale, setZoomScaleState] = useState<number>(() => {
@@ -1804,7 +1808,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       <div
         id="sheet-top-action-bar"
         className={`w-full ${
-          sheetOrientation === 'landscape' ? 'max-w-[1140px]' : 'max-w-4xl'
+          sheetOrientation === 'landscape' ? 'max-w-[1240px]' : 'max-w-4xl'
         } flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden`}
       >
         <div className="flex items-center gap-2">
@@ -1921,7 +1925,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           transformOrigin: 'top center',
         }}
         className={`relative w-full ${
-          sheetOrientation === 'landscape' ? 'max-w-[1140px]' : 'max-w-4xl'
+          sheetOrientation === 'landscape'
+            ? 'max-w-[1240px] min-h-[640px]'
+            : 'max-w-4xl min-h-[960px]'
         } rounded-xs p-3.5 sm:p-6 md:p-8 transition-all duration-150 print:shadow-none print:border-none print:p-0 print:max-w-none print:w-full print:rounded-none select-none ${
           sheetTheme === 'dark'
             ? 'bg-[#14161f] text-zinc-100 border border-zinc-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.06)]'
@@ -1967,10 +1973,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             >
               {song.catalogNumber || 'LPDC—JCR1341'}
             </div>
-            <div className={`text-[11px] font-sans tracking-widest uppercase ${
+            <div className={`text-[11px] font-sans tracking-widest uppercase flex items-center gap-2 ${
               sheetTheme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'
             }`}>
-              Numbered Musical Notation
+              <span className="hidden sm:inline">Numbered Musical Notation</span>
+              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-normal ${
+                sheetOrientation === 'landscape'
+                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
+                  : 'bg-zinc-200/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-300/50 dark:border-zinc-700'
+              }`}>
+                {sheetOrientation === 'landscape' ? 'A4 Landscape · 297×210mm' : 'A4 Portrait · 210×297mm'}
+              </span>
             </div>
           </div>
 
@@ -2229,7 +2242,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         : 1,
                       minWidth: sheetWrapMode === 'auto_wrap' || sheetWrapMode === 'no_wrap'
                         ? `${Math.min(240, Math.round((engravedM.requiredWidth || 110) * 0.75))}px`
-                        : 0,
+                        : `${Math.round((engravedM.requiredWidth || 110) * 0.65)}px`,
                     }}
                     className={`relative flex-1 flex flex-col justify-between px-1.5 sm:px-2 pt-1.5 pb-1 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
                       isSelectedMeasure
