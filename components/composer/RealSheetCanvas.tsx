@@ -1258,11 +1258,54 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     [updateCurrentNote]
   );
 
-  // Quick Punctuation & Delimiter insertion (supports 0-beat conversion and bilateral POJ/Han-lo synchronization)
+  // Quick Punctuation & Delimiter insertion (supports 0-beat conversion, in-place or after-cursor insertion, and bilateral POJ/Han-lo synchronization)
   const handleInsertPunctuation = useCallback(
-    (punct: string) => {
+    (punct: string, insertAfter = false) => {
       const zeroBeat = checkZeroBeatTrigger(punct);
       const effectivePunct = zeroBeat.isMatch ? zeroBeat.normalized : punct;
+
+      if (insertAfter) {
+        const targetM = song.measures[currentMIdx];
+        if (!targetM) return;
+
+        const delimiterSyllable: LyricSyllable = {
+          poj: effectivePunct,
+          hanlo: effectivePunct,
+          hanji: effectivePunct,
+          custom: effectivePunct,
+        };
+
+        const delimiterLyricsByVerse: { [verseIndex: number]: LyricSyllable } = {
+          [activeVerseRow]: delimiterSyllable,
+        };
+        if (activeVerseRow !== 1) {
+          delimiterLyricsByVerse[1] = delimiterSyllable;
+        }
+
+        const newDelimiterNote: NumberedNotationNote = {
+          id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+          pitch: 'empty',
+          octave: 0,
+          duration: 0 as NoteDuration,
+          isDotted: false,
+          isDoubleDotted: false,
+          isTied: false,
+          tieToNext: false,
+          slurToNext: false,
+          accidental: '',
+          lyric: delimiterSyllable,
+          lyricsByVerse: delimiterLyricsByVerse,
+        };
+
+        const newNotes = [...targetM.notes];
+        newNotes.splice(currentNIdx + 1, 0, newDelimiterNote);
+        const newMeasures = song.measures.map((m, idx) =>
+          idx === currentMIdx ? { ...m, notes: newNotes } : m
+        );
+        onUpdateSong({ ...song, measures: newMeasures });
+        handleNoteClick(currentMIdx, currentNIdx + 1, activeField, activeVerseRow);
+        return;
+      }
 
       updateCurrentNote(note => {
         const prevVerses = note.lyricsByVerse || {};
@@ -1307,7 +1350,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         return updatedNote;
       });
     },
-    [updateCurrentNote, activeVerseRow]
+    [currentMIdx, currentNIdx, song, onUpdateSong, handleNoteClick, activeField, activeVerseRow, updateCurrentNote]
   );
 
   // Annotation

@@ -109,7 +109,8 @@ export interface FloatingScoreHudProps {
   // Ornaments & Articulations
   currentArticulation?: ArticulationType;
   onSetArticulation?: (art: ArticulationType) => void;
-  onInsertPunctuation?: (punct: string) => void;
+  onInsertPunctuation?: (punct: string, insertAfter?: boolean) => void;
+  onInsertPunctuationAfter?: (punct: string) => void;
   onInsertAnnotation?: (annot: string) => void;
   onAddGraceNote?: (type: 'pre' | 'post', pitch: 1 | 2 | 3 | 4 | 5 | 6 | 7, octave: number) => void;
   onClearGraceNotes?: () => void;
@@ -223,6 +224,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   currentArticulation = 'none',
   onSetArticulation,
   onInsertPunctuation,
+  onInsertPunctuationAfter,
   onInsertAnnotation,
   onAddGraceNote,
   onClearGraceNotes,
@@ -276,6 +278,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 }) => {
   const [internalDrawer, setInternalDrawer] = React.useState<HudDrawerType>('none');
   const [showShortcutsModal, setShowShortcutsModal] = React.useState<boolean>(false);
+  const [addDelimiterActiveKey, setAddDelimiterActiveKey] = React.useState<string | null>(null);
 
   // Determine current active drawer (controlled or internal)
   const currentDrawer: HudDrawerType =
@@ -284,6 +287,9 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
       : showPianoBed
       ? 'piano'
       : internalDrawer;
+
+  const currentSelectionKey = `ornaments-${selectedMeasureNumber}-${selectedNoteNumber}`;
+  const isAddDelimiterActive = currentDrawer === 'ornaments' && addDelimiterActiveKey === currentSelectionKey;
 
   const handleToggleDrawer = (target: 'piano' | 'ornaments' | 'chords' | 'edit') => {
     if (onToggleDrawer) {
@@ -360,13 +366,57 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             {onInsertPunctuation && (
               <div className="flex items-center gap-1 shrink-0">
                 <span className="text-xs font-bold text-zinc-400 uppercase hidden xl:inline mr-0.5">Delim:</span>
+                {/* Combinational "Add" Button: click first, then click delimiter to insert after cursor. Click twice to cancel. */}
+                <button
+                  id="floating-hud-add-delimiter-btn"
+                  type="button"
+                  onClick={() =>
+                    setAddDelimiterActiveKey(prev =>
+                      prev === currentSelectionKey ? null : currentSelectionKey
+                    )
+                  }
+                  className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
+                    isAddDelimiterActive
+                      ? 'bg-amber-500 text-zinc-950 font-black shadow-sm ring-2 ring-amber-400 dark:ring-amber-500'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                  }`}
+                  title={
+                    isAddDelimiterActive
+                      ? 'Add Delimiter active: Click any delimiter to insert after cursor (Click again to cancel)'
+                      : 'Insert Delimiter After Cursor (Click then select delimiter; click twice to cancel)'
+                  }
+                  aria-pressed={isAddDelimiterActive}
+                >
+                  <Plus className={`w-3.5 h-3.5 ${isAddDelimiterActive ? 'stroke-[3]' : 'stroke-2'}`} />
+                  <span>Add</span>
+                </button>
+
+                <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
+
                 {COMMON_PUNCTUATIONS.map(p => (
                   <button
                     key={p.label}
                     type="button"
-                    onClick={() => onInsertPunctuation(p.value)}
-                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 text-sm sm:text-base font-bold flex items-center justify-center cursor-pointer transition-all shrink-0"
-                    title={p.title}
+                    onClick={() => {
+                      if (isAddDelimiterActive) {
+                        if (onInsertPunctuationAfter) {
+                          onInsertPunctuationAfter(p.value);
+                        } else {
+                          onInsertPunctuation(p.value, true);
+                        }
+                        setAddDelimiterActiveKey(null);
+                      } else {
+                        onInsertPunctuation(p.value, false);
+                      }
+                    }}
+                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 text-sm sm:text-base font-bold flex items-center justify-center cursor-pointer transition-all shrink-0 ${
+                      isAddDelimiterActive ? 'ring-1 ring-amber-400/60' : ''
+                    }`}
+                    title={
+                      isAddDelimiterActive
+                        ? `Insert "${p.label}" after current note`
+                        : p.title
+                    }
                   >
                     {p.label}
                   </button>

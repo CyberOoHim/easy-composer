@@ -364,5 +364,125 @@ describe('Enhanced Delimiter List & Zero-Beat Empty Note Conversion', () => {
       }
     });
   });
+
+  describe('Combinational Add Delimiter After Cursor Insertion', () => {
+    it('creates a valid zero-beat delimiter note after current note without mutating the current note', () => {
+      const initialNotes: NumberedNotationNote[] = [
+        { id: 'n1', pitch: 1, octave: 0, duration: 1, lyric: { poj: 'Chit', hanlo: '這' } },
+        { id: 'n2', pitch: 2, octave: 0, duration: 1, lyric: { poj: 'tiâu', hanlo: '條' } },
+      ];
+
+      // Simulate inserting delimiter comma "，" after note 0 (n1)
+      const currentNIdx = 0;
+      const zeroBeat = checkZeroBeatTrigger('，');
+      const effectivePunct = zeroBeat.isMatch ? zeroBeat.normalized : '，';
+
+      const delimiterSyllable = {
+        poj: effectivePunct,
+        hanlo: effectivePunct,
+        hanji: effectivePunct,
+        custom: effectivePunct,
+      };
+
+      const newDelimiterNote: NumberedNotationNote = {
+        id: 'n-delim-test-1',
+        pitch: 'empty',
+        octave: 0,
+        duration: 0,
+        isDotted: false,
+        isDoubleDotted: false,
+        isTied: false,
+        tieToNext: false,
+        slurToNext: false,
+        accidental: '',
+        lyric: delimiterSyllable,
+        lyricsByVerse: { 1: delimiterSyllable },
+      };
+
+      const updatedNotes = [...initialNotes];
+      updatedNotes.splice(currentNIdx + 1, 0, newDelimiterNote);
+
+      // Assertions
+      assert.equal(updatedNotes.length, 3, 'Notes length should increase from 2 to 3');
+      // Original note untouched
+      assert.equal(updatedNotes[0].id, 'n1');
+      assert.equal(updatedNotes[0].pitch, 1);
+      assert.equal(updatedNotes[0].lyric.hanlo, '這');
+      // Inserted delimiter note at index 1
+      assert.equal(updatedNotes[1].id, 'n-delim-test-1');
+      assert.equal(updatedNotes[1].pitch, 'empty');
+      assert.equal(updatedNotes[1].duration, 0);
+      assert.equal(updatedNotes[1].lyric.hanlo, '，');
+      assert.equal(updatedNotes[1].lyric.poj, '，');
+      // Subsequent note pushed to index 2
+      assert.equal(updatedNotes[2].id, 'n2');
+      assert.equal(updatedNotes[2].pitch, 2);
+    });
+
+    it('inserted delimiter note passes isPunctuationZeroNote, isVerseBreakNote, and normalizeNoteDuration', () => {
+      const delimsToTest = ['\n', ' ', '，', '。', '！', '？', '、', '；', '：', '—', '…'];
+
+      for (const punct of delimsToTest) {
+        const zeroBeat = checkZeroBeatTrigger(punct);
+        const effectivePunct = zeroBeat.isMatch ? zeroBeat.normalized : punct;
+
+        const syl = {
+          poj: effectivePunct,
+          hanlo: effectivePunct,
+          hanji: effectivePunct,
+          custom: effectivePunct,
+        };
+
+        const note: NumberedNotationNote = {
+          id: `n-test-${punct}`,
+          pitch: 'empty',
+          octave: 0,
+          duration: 0,
+          lyric: syl,
+          lyricsByVerse: { 1: syl },
+        };
+
+        assert.ok(isVerseBreakNote(note), `Delimiter note "${punct}" must be identified as a verse break`);
+        const normalized = normalizeNoteDuration(note);
+        assert.equal(normalized.pitch, 'empty');
+        assert.equal(normalized.duration, 0);
+      }
+    });
+
+    it('supports inserting delimiter note after the last note of a measure', () => {
+      const initialNotes: NumberedNotationNote[] = [
+        { id: 'n1', pitch: 5, octave: 0, duration: 1, lyric: { poj: 'koa', hanlo: '歌' } },
+      ];
+
+      const currentNIdx = 0; // Last note
+      const zeroBeat = checkZeroBeatTrigger('\n');
+      const effectivePunct = zeroBeat.isMatch ? zeroBeat.normalized : '\n';
+
+      const syl = {
+        poj: effectivePunct,
+        hanlo: effectivePunct,
+        hanji: effectivePunct,
+        custom: effectivePunct,
+      };
+
+      const newlineNote: NumberedNotationNote = {
+        id: 'n-newline',
+        pitch: 'empty',
+        octave: 0,
+        duration: 0,
+        lyric: syl,
+        lyricsByVerse: { 1: syl },
+      };
+
+      const updated = [...initialNotes];
+      updated.splice(currentNIdx + 1, 0, newlineNote);
+
+      assert.equal(updated.length, 2);
+      assert.equal(updated[0].pitch, 5);
+      assert.equal(updated[1].pitch, 'empty');
+      assert.equal(updated[1].duration, 0);
+      assert.equal(updated[1].lyric.hanlo, '\n');
+    });
+  });
 });
 
