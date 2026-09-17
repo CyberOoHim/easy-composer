@@ -669,9 +669,10 @@ export function getPunctuationDisplayChar(note: NumberedNotationNote | null | un
   const hanlo = note.lyric?.hanlo ?? '';
   const hanji = note.lyric?.hanji ?? '';
   const custom = note.lyric?.custom ?? '';
-  const raw = hanlo || hanji || custom || '';
+  const poj = note.lyric?.poj ?? '';
+  const raw = hanlo || hanji || custom || poj || '';
   if (raw === '\n' || raw === '\r' || raw === '↵') return '↵';
-  if (raw === ' ') return '␣';
+  if (raw === ' ' || raw === '␣') return '␣';
   if (raw.trim()) return raw.trim().slice(-1);
   return '␣';
 }
@@ -680,20 +681,27 @@ export function getPunctuationDisplayChar(note: NumberedNotationNote | null | un
  * Check if a character or string is a punctuation mark, newline, or spacer
  */
 export function isPunctuationOrSpacer(str?: string): boolean {
-  if (!str) return false;
+  if (str === undefined || str === null) return false;
+  if (str === '' || str === ' ' || str === '␣' || str === '\n' || str === '\r' || str === '↵') {
+    return true;
+  }
   const trimmed = str.trim();
   if (
     trimmed === '' ||
     trimmed === '—' ||
     trimmed === '…' ||
+    trimmed === '...' ||
+    trimmed === '--' ||
+    trimmed === '-' ||
     trimmed === 'V' ||
     trimmed === '↵' ||
+    trimmed === '␣' ||
     trimmed === '\n' ||
     trimmed === '\r'
   ) {
     return true;
   }
-  return /^[，。！？、；：""''（）()「」,.!?;:\s—…\n\r↵]+$/.test(trimmed);
+  return /^[，。！？、；：""''（）()「」,.!?;:\s—…\n\r↵\-]+$/.test(trimmed);
 }
 
 /**

@@ -153,7 +153,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
 
   // 2. Single-character zero-time punctuation / spacer note
   if (isPunctuationZeroNote(note)) {
-    const rawChar = note.lyric?.hanlo || note.lyric?.hanji || note.lyric?.custom || '';
+    const rawChar = note.lyric?.hanlo || note.lyric?.hanji || note.lyric?.custom || note.lyric?.poj || '';
     const displayChar = getPunctuationDisplayChar(note);
 
     return (

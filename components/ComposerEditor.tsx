@@ -861,13 +861,25 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const updatedLyric = {
         ...n.lyric,
       };
-      if (type === 'roman' || type === 'poj') {
+
+      const isDelimInput = isPunctuationOrSpacer(val);
+
+      if (isDelimInput && val.length > 0) {
+        // When a delimiter / break / spacer is entered, fill both POJ and Han-lô together
         updatedLyric.poj = val;
-      } else if (type === 'hanlo' || type === 'hanji' || type === 'custom') {
         updatedLyric.hanlo = val;
         updatedLyric.hanji = val;
         updatedLyric.custom = val;
+      } else {
+        if (type === 'roman' || type === 'poj') {
+          updatedLyric.poj = val;
+        } else if (type === 'hanlo' || type === 'hanji' || type === 'custom') {
+          updatedLyric.hanlo = val;
+          updatedLyric.hanji = val;
+          updatedLyric.custom = val;
+        }
       }
+
       const rawHanlo = updatedLyric.hanlo ?? updatedLyric.custom ?? updatedLyric.hanji ?? '';
       const rawPoj = updatedLyric.poj ?? '';
 
@@ -881,13 +893,17 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       return {
         ...n,
         lyric: updatedLyric,
-        pitch: isPurePunct ? 'empty' : n.pitch,
-        duration: isPurePunct ? (0 as NoteDuration) : n.duration,
+        pitch: isPurePunct ? 'empty' : (n.pitch === 'empty' ? 1 : n.pitch),
+        duration: isPurePunct ? (0 as NoteDuration) : (n.duration === 0 ? 1 : n.duration),
+        isDotted: isPurePunct ? false : n.isDotted,
+        isTied: isPurePunct ? false : n.isTied,
+        octave: isPurePunct ? 0 : n.octave,
+        accidental: isPurePunct ? '' : n.accidental,
       };
     });
   };
 
-  // Quick insert punctuation to note (setting pitch to empty spacer and duration to 0)
+  // Quick insert punctuation / delimiter to note (setting pitch to empty spacer and duration to 0, filling BOTH POJ and Han-lo)
   const handleInsertPunctuationToNote = useCallback(
     (punct: string) => {
       if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
@@ -897,19 +913,23 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         duration: 0 as NoteDuration,
         isDotted: false,
         isTied: false,
+        octave: 0,
+        accidental: '',
         lyric: {
           ...n.lyric,
+          poj: punct,
+          hanlo: punct,
           hanji: punct,
           custom: punct,
         },
       }));
       const isNewline = punct === '\n' || punct === '\r' || punct === '↵';
       if (isNewline) {
-        showNotice('Inserted newline verse break "↵" (0 beats)');
-      } else if (punct === ' ') {
-        showNotice('Inserted space spacer "␣" (0 beats, no verse split)');
+        showNotice('Inserted newline verse break "↵" (0 beats, both POJ & Han-lô)');
+      } else if (punct === ' ' || punct === '␣') {
+        showNotice('Inserted space spacer "␣" (0 beats, both POJ & Han-lô)');
       } else {
-        showNotice(`Inserted delimiter "${punct}" (0 beats, no verse split)`);
+        showNotice(`Inserted delimiter "${punct}" (0 beats, both POJ & Han-lô)`);
       }
     },
     [selectedMeasureIndex, selectedNoteIndex, updateSelectedNote, showNotice]
@@ -1062,6 +1082,8 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       octave: 0,
       duration: 0,
       lyric: {
+        poj: '\n',
+        hanlo: '\n',
         hanji: '\n',
         custom: '\n',
       },

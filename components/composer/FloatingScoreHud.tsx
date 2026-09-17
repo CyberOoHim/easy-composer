@@ -175,7 +175,19 @@ export interface FloatingScoreHudProps {
   futureCount?: number;
 }
 
-const COMMON_PUNCTUATIONS = ['，', '。', '！', '？', '、', '；', '：', '—', '…'];
+export const COMMON_PUNCTUATIONS = [
+  { label: '↵', value: '\n', title: 'Insert newline / verse break "↵" (0 beats)' },
+  { label: '␣', value: ' ', title: 'Insert space / spacer "␣" (0 beats)' },
+  { label: '，', value: '，', title: 'Insert comma "，" (0 beats)' },
+  { label: '。', value: '。', title: 'Insert period "。" (0 beats)' },
+  { label: '！', value: '！', title: 'Insert exclamation mark "！" (0 beats)' },
+  { label: '？', value: '？', title: 'Insert question mark "？" (0 beats)' },
+  { label: '、', value: '、', title: 'Insert enumeration comma "、" (0 beats)' },
+  { label: '；', value: '；', title: 'Insert semicolon "；" (0 beats)' },
+  { label: '：', value: '：', title: 'Insert colon "：" (0 beats)' },
+  { label: '—', value: '—', title: 'Insert dash "—" (0 beats)' },
+  { label: '…', value: '…', title: 'Insert ellipsis "…" (0 beats)' },
+];
 const COMMON_ANNOTATIONS = ['rit.', 'accel.', 'a tempo', 'fine', 'V', 'fermata'];
 
 export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
@@ -356,7 +368,26 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
             <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 hidden sm:block" />
 
+            {/* Delimiters & Punctuation (at the beginning of Ornaments bar) */}
+            {onInsertPunctuation && (
+              <div className="flex items-center gap-1 shrink-0">
+                <span className="text-xs font-bold text-zinc-400 uppercase hidden xl:inline mr-0.5">Delim:</span>
+                {COMMON_PUNCTUATIONS.map(p => (
+                  <button
+                    key={p.label}
+                    type="button"
+                    onClick={() => onInsertPunctuation(p.value)}
+                    className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 text-sm sm:text-base font-bold flex items-center justify-center cursor-pointer transition-all shrink-0"
+                    title={p.title}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Articulations */}
+            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
             <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               {(['none', 'staccato', 'tenuto', 'accent', 'fermata'] as ArticulationType[]).map(art => (
                 <button
@@ -421,27 +452,6 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                       Clear
                     </button>
                   )}
-                </div>
-              </>
-            )}
-
-            {/* Punctuation */}
-            {onInsertPunctuation && (
-              <>
-                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
-                <div className="flex items-center gap-1 shrink-0">
-                  <span className="text-xs font-bold text-zinc-400 uppercase hidden xl:inline mr-0.5">Punct:</span>
-                  {COMMON_PUNCTUATIONS.map(p => (
-                    <button
-                      key={p}
-                      type="button"
-                      onClick={() => onInsertPunctuation(p)}
-                      className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 text-sm sm:text-base font-bold flex items-center justify-center cursor-pointer transition-all shrink-0"
-                      title={`Insert punctuation ${p}`}
-                    >
-                      {p}
-                    </button>
-                  ))}
                 </div>
               </>
             )}
