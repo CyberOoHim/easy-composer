@@ -84,6 +84,8 @@ import {
   getVerseDisplayOption,
   getNoteVerseSyllable,
   isPunctuationOrSpacer,
+  checkZeroBeatTrigger,
+  isPunctuationDelimiterOrBreak,
 } from '@/lib/taigiUtils';
 
 export interface RealSheetCanvasProps {
@@ -1211,20 +1213,56 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     [updateCurrentNote]
   );
 
-  // Quick Punctuation
+  // Quick Punctuation & Delimiter insertion (supports 0-beat conversion and bilateral POJ/Han-lo synchronization)
   const handleInsertPunctuation = useCallback(
     (punct: string) => {
-      updateCurrentNote(note => ({
-        ...note,
-        lyric: {
-          ...note.lyric,
-          hanlo: (note.lyric.hanlo || '') + punct,
-          hanji: (note.lyric.hanji || '') + punct,
-          custom: (note.lyric.custom || '') + punct,
-        },
-      }));
+      const zeroBeat = checkZeroBeatTrigger(punct);
+      const effectivePunct = zeroBeat.isMatch ? zeroBeat.normalized : punct;
+
+      updateCurrentNote(note => {
+        const prevVerses = note.lyricsByVerse || {};
+        const currentSyl = prevVerses[activeVerseRow] || (activeVerseRow === 1 ? note.lyric : {}) || {};
+
+        const updatedSyl: LyricSyllable = {
+          ...currentSyl,
+          poj: effectivePunct,
+          hanlo: effectivePunct,
+          hanji: effectivePunct,
+          custom: effectivePunct,
+        };
+
+        const updatedVerses = {
+          ...prevVerses,
+          [activeVerseRow]: updatedSyl,
+        };
+
+        let updatedNote: NumberedNotationNote = {
+          ...note,
+          lyric: activeVerseRow === 1 ? { ...note.lyric, ...updatedSyl } : { ...note.lyric },
+          lyricsByVerse: updatedVerses,
+        };
+
+        if (zeroBeat.isMatch) {
+          updatedNote = {
+            ...updatedNote,
+            pitch: 'empty',
+            duration: 0 as NoteDuration,
+            isDotted: false,
+            isDoubleDotted: false,
+            isTied: false,
+            tieToNext: false,
+            slurToNext: false,
+            accidental: '',
+            octave: 0,
+            preGraceNotes: undefined,
+            postGraceNotes: undefined,
+          };
+        }
+
+        return updatedNote;
+      });
     },
-    [updateCurrentNote]
+    [updateCurrentNote, activeVerseRow]
   );
 
   // Annotation
@@ -1682,12 +1720,28 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     (text: string, verseRow: number, subField: 'hanlo' | 'poj' = 'hanlo') => {
       updateCurrentNote(
         note => {
+          const zeroBeat = checkZeroBeatTrigger(text);
+          const isPunctOrBreak = isPunctuationDelimiterOrBreak(text);
+          const isSync = zeroBeat.isMatch || (isPunctOrBreak && text.length > 0);
+          const effectiveText = zeroBeat.isMatch ? zeroBeat.normalized : text;
+
           const isHan = /[\u4e00-\u9fa5]/.test(text);
           const prevVerses = note.lyricsByVerse || {};
           const currentSyl = prevVerses[verseRow] || (verseRow === 1 ? note.lyric : {}) || {};
 
           let updatedSyl: LyricSyllable;
-          if (subField === 'poj') {
+          if (isSync) {
+            // Simultaneous POJ & Hàn-lô Synchronization:
+            // Typing or inserting punctuation, delimiters, or breaks into either field
+            // synchronizes and updates both fields together to ensure aligned vertical layout.
+            updatedSyl = {
+              ...currentSyl,
+              poj: effectiveText,
+              hanlo: effectiveText,
+              hanji: effectiveText,
+              custom: effectiveText,
+            };
+          } else if (subField === 'poj') {
             updatedSyl = {
               ...currentSyl,
               poj: text,
@@ -1706,21 +1760,40 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             [verseRow]: updatedSyl,
           };
 
+          let updatedNote: NumberedNotationNote = {
+            ...note,
+            lyricsByVerse: updatedVerses,
+          };
+
           if (verseRow === 1) {
-            return {
-              ...note,
-              lyric: {
-                ...note.lyric,
-                ...updatedSyl,
-              },
-              lyricsByVerse: updatedVerses,
-            };
-          } else {
-            return {
-              ...note,
-              lyricsByVerse: updatedVerses,
+            updatedNote.lyric = {
+              ...note.lyric,
+              ...updatedSyl,
             };
           }
+
+          // Automatic Empty Note & Zero-Beat Conversion:
+          // Inserting delimiter(，and 。, no other delimiters), newline (↵ / \n), or whitespace spacer (␣ / ' ')
+          // into a note automatically sets its pitch to empty with a duration of 0 beats,
+          // cleanly resetting pitch dots, ties, accidentals, and octave marks.
+          if (zeroBeat.isMatch) {
+            updatedNote = {
+              ...updatedNote,
+              pitch: 'empty',
+              duration: 0 as NoteDuration,
+              isDotted: false,
+              isDoubleDotted: false,
+              isTied: false,
+              tieToNext: false,
+              slurToNext: false,
+              accidental: '',
+              octave: 0,
+              preGraceNotes: undefined,
+              postGraceNotes: undefined,
+            };
+          }
+
+          return updatedNote;
         },
         false,
         { coalesce: true, coalesceKey: `note-lyric-${currentMIdx}-${currentNIdx}-v${verseRow}-${subField}` }

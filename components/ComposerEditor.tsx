@@ -26,6 +26,8 @@ import {
   setUniformNoteDuration,
   determineTargetQuarterEighthDuration,
   isPunctuationOrSpacer,
+  checkZeroBeatTrigger,
+  isPunctuationDelimiterOrBreak,
   isNonNotationItem,
   autoRearrangeSongMeasures,
   autoWrapSongMeasures,
@@ -858,18 +860,21 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     val: string
   ) => {
     updateNoteAt(mIdx, nIdx, n => {
+      const zeroBeat = checkZeroBeatTrigger(val);
+      const isPunctOrBreak = isPunctuationDelimiterOrBreak(val);
+      const isSync = zeroBeat.isMatch || (isPunctOrBreak && val.length > 0);
+      const effectiveText = zeroBeat.isMatch ? zeroBeat.normalized : val;
+
       const updatedLyric = {
         ...n.lyric,
       };
 
-      const isDelimInput = isPunctuationOrSpacer(val);
-
-      if (isDelimInput && val.length > 0) {
-        // When a delimiter / break / spacer is entered, fill both POJ and Han-lô together
-        updatedLyric.poj = val;
-        updatedLyric.hanlo = val;
-        updatedLyric.hanji = val;
-        updatedLyric.custom = val;
+      if (isSync) {
+        // Simultaneous POJ & Hàn-lô synchronization
+        updatedLyric.poj = effectiveText;
+        updatedLyric.hanlo = effectiveText;
+        updatedLyric.hanji = effectiveText;
+        updatedLyric.custom = effectiveText;
       } else {
         if (type === 'roman' || type === 'poj') {
           updatedLyric.poj = val;
@@ -880,26 +885,29 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         }
       }
 
-      const rawHanlo = updatedLyric.hanlo ?? updatedLyric.custom ?? updatedLyric.hanji ?? '';
-      const rawPoj = updatedLyric.poj ?? '';
-
-      const hasAnyLyric = rawHanlo.length > 0 || rawPoj.length > 0;
-
-      const isPurePunct =
-        hasAnyLyric &&
-        (!rawHanlo || isPunctuationOrSpacer(rawHanlo)) &&
-        (!rawPoj || isPunctuationOrSpacer(rawPoj));
-
-      return {
+      let updatedNote: NumberedNotationNote = {
         ...n,
         lyric: updatedLyric,
-        pitch: isPurePunct ? 'empty' : (n.pitch === 'empty' ? 1 : n.pitch),
-        duration: isPurePunct ? (0 as NoteDuration) : (n.duration === 0 ? 1 : n.duration),
-        isDotted: isPurePunct ? false : n.isDotted,
-        isTied: isPurePunct ? false : n.isTied,
-        octave: isPurePunct ? 0 : n.octave,
-        accidental: isPurePunct ? '' : n.accidental,
       };
+
+      if (zeroBeat.isMatch) {
+        updatedNote = {
+          ...updatedNote,
+          pitch: 'empty',
+          duration: 0 as NoteDuration,
+          isDotted: false,
+          isDoubleDotted: false,
+          isTied: false,
+          tieToNext: false,
+          slurToNext: false,
+          octave: 0,
+          accidental: '',
+          preGraceNotes: undefined,
+          postGraceNotes: undefined,
+        };
+      }
+
+      return updatedNote;
     });
   };
 
@@ -907,22 +915,43 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const handleInsertPunctuationToNote = useCallback(
     (punct: string) => {
       if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
-      updateSelectedNote(n => ({
-        ...n,
-        pitch: 'empty',
-        duration: 0 as NoteDuration,
-        isDotted: false,
-        isTied: false,
-        octave: 0,
-        accidental: '',
-        lyric: {
+      const zeroBeat = checkZeroBeatTrigger(punct);
+      const effectivePunct = zeroBeat.isMatch ? zeroBeat.normalized : punct;
+
+      updateSelectedNote(n => {
+        const updatedLyric = {
           ...n.lyric,
-          poj: punct,
-          hanlo: punct,
-          hanji: punct,
-          custom: punct,
-        },
-      }));
+          poj: effectivePunct,
+          hanlo: effectivePunct,
+          hanji: effectivePunct,
+          custom: effectivePunct,
+        };
+
+        let updatedNote: NumberedNotationNote = {
+          ...n,
+          lyric: updatedLyric,
+        };
+
+        if (zeroBeat.isMatch) {
+          updatedNote = {
+            ...updatedNote,
+            pitch: 'empty',
+            duration: 0 as NoteDuration,
+            isDotted: false,
+            isDoubleDotted: false,
+            isTied: false,
+            tieToNext: false,
+            slurToNext: false,
+            octave: 0,
+            accidental: '',
+            preGraceNotes: undefined,
+            postGraceNotes: undefined,
+          };
+        }
+
+        return updatedNote;
+      });
+
       const isNewline = punct === '\n' || punct === '\r' || punct === '↵';
       if (isNewline) {
         showNotice('Inserted newline verse break "↵" (0 beats, both POJ & Han-lô)');
@@ -2142,7 +2171,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         // Toggle flat accidental
         e.preventDefault();
         handleSetAccidental('b');
-      } else if (['，', '。', '！', '？', '、', '—', '…', '「', '」', ','].includes(e.key)) {
+      } else if (['，', '。', ','].includes(e.key)) {
         e.preventDefault();
         const mark = e.key === ',' ? '，' : e.key;
         handleInsertPunctuationToNote(mark);

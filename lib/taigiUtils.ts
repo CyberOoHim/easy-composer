@@ -661,18 +661,61 @@ export function isStandaloneAnnotationNote(note: NumberedNotationNote | null | u
   return isZeroTime && Boolean(note.annotation);
 }
 
+export const ZERO_BEAT_DELIMITERS = new Set(['，', '。', ',', '.']);
+export const ZERO_BEAT_BREAKS = new Set(['\n', '\r', '↵']);
+export const ZERO_BEAT_SPACERS = new Set([' ', '␣']);
+
+export interface ZeroBeatConversionResult {
+  isMatch: boolean;
+  normalized: string;
+}
+
+/**
+ * Checks if a string is one of the allowed zero-beat triggers:
+ * - Delimiters: '，' and '。' (and ascii ',' and '.') - NO OTHER DELIMITERS
+ * - Newline: '↵', '\n', '\r'
+ * - Whitespace spacer: '␣', ' '
+ */
+export function checkZeroBeatTrigger(text?: string | null): ZeroBeatConversionResult {
+  if (text === undefined || text === null || text === '') {
+    return { isMatch: false, normalized: '' };
+  }
+  if (text === '\n' || text === '\r' || text === '↵') {
+    return { isMatch: true, normalized: '\n' };
+  }
+  if (text === ' ' || text === '␣') {
+    return { isMatch: true, normalized: ' ' };
+  }
+  const trimmed = text.trim();
+  if (trimmed === '，' || trimmed === ',') {
+    return { isMatch: true, normalized: '，' };
+  }
+  if (trimmed === '。' || trimmed === '.') {
+    return { isMatch: true, normalized: '。' };
+  }
+  return { isMatch: false, normalized: text };
+}
+
+/**
+ * Check if a character or string is any punctuation, delimiter, or break for general POJ/Han-lo synchronization
+ */
+export function isPunctuationDelimiterOrBreak(text?: string | null): boolean {
+  if (!text) return false;
+  return isPunctuationOrSpacer(text);
+}
+
 export const COMMON_PUNCTUATIONS = [
   { label: '↵', value: '\n', title: 'Insert newline / verse break "↵" (0 beats)' },
   { label: '␣', value: ' ', title: 'Insert space / spacer "␣" (0 beats)' },
-  { label: '，', value: '，', title: 'Insert comma "，" (0 beats)' },
-  { label: '。', value: '。', title: 'Insert period "。" (0 beats)' },
-  { label: '！', value: '！', title: 'Insert exclamation mark "！" (0 beats)' },
-  { label: '？', value: '？', title: 'Insert question mark "？" (0 beats)' },
-  { label: '、', value: '、', title: 'Insert enumeration comma "、" (0 beats)' },
-  { label: '；', value: '；', title: 'Insert semicolon "；" (0 beats)' },
-  { label: '：', value: '：', title: 'Insert colon "：" (0 beats)' },
-  { label: '—', value: '—', title: 'Insert dash "—" (0 beats)' },
-  { label: '…', value: '…', title: 'Insert ellipsis "…" (0 beats)' },
+  { label: '，', value: '，', title: 'Insert delimiter comma "，" (0 beats)' },
+  { label: '。', value: '。', title: 'Insert delimiter period "。" (0 beats)' },
+  { label: '！', value: '！', title: 'Insert exclamation mark "！"' },
+  { label: '？', value: '？', title: 'Insert question mark "？"' },
+  { label: '、', value: '、', title: 'Insert enumeration comma "、"' },
+  { label: '；', value: '；', title: 'Insert semicolon "；"' },
+  { label: '：', value: '：', title: 'Insert colon "："' },
+  { label: '—', value: '—', title: 'Insert dash "—"' },
+  { label: '…', value: '…', title: 'Insert ellipsis "…"' },
 ];
 
 export const COMMON_ANNOTATIONS = ['rit.', 'accel.', 'a tempo', 'fine', 'V', 'fermata'];
@@ -1051,19 +1094,45 @@ export function getNoteBeatDuration(note: NumberedNotationNote | null | undefine
  * strictly have duration: 0 and pitch: 'empty', with no unnecessary time duration activated.
  */
 export function normalizeNoteDuration(note: NumberedNotationNote): NumberedNotationNote {
+  const rawHanlo = note.lyric?.hanlo ?? note.lyric?.custom ?? note.lyric?.hanji ?? '';
+  const rawPoj = note.lyric?.poj ?? note.lyric?.tl ?? '';
+  const trigHanlo = checkZeroBeatTrigger(rawHanlo);
+  const trigPoj = checkZeroBeatTrigger(rawPoj);
+  const zeroBeatTrigger = trigHanlo.isMatch || trigPoj.isMatch;
+
   if (
     isNonNotationItem(note) ||
     note.pitch === 'empty' ||
-    (typeof note.duration === 'number' && note.duration <= 0)
+    (typeof note.duration === 'number' && note.duration <= 0) ||
+    zeroBeatTrigger
   ) {
+    const matched = trigHanlo.isMatch ? trigHanlo : trigPoj;
+    const syncText = matched.isMatch ? matched.normalized : (rawHanlo || rawPoj);
+
     return {
       ...note,
       pitch: 'empty',
       duration: 0 as NoteDuration,
       isDotted: false,
+      isDoubleDotted: false,
       isTied: false,
+      tieToNext: false,
+      slurToNext: false,
       accidental: '',
       octave: 0,
+      preGraceNotes: undefined,
+      postGraceNotes: undefined,
+      ...(matched.isMatch
+        ? {
+            lyric: {
+              ...note.lyric,
+              poj: syncText,
+              hanlo: syncText,
+              hanji: syncText,
+              custom: syncText,
+            },
+          }
+        : {}),
     };
   }
   return note;

@@ -6,6 +6,8 @@ import {
   groupSongIntoVerses,
   getPunctuationDisplayChar,
   COMMON_PUNCTUATIONS,
+  checkZeroBeatTrigger,
+  normalizeNoteDuration,
 } from '../lib/taigiUtils.ts';
 import type { Song, NumberedNotationNote } from '../types/song.ts';
 
@@ -92,5 +94,89 @@ describe('Enhanced Delimiter List & Zero-Beat Empty Note Conversion', () => {
     assert.equal(getPunctuationDisplayChar('␣'), '␣');
     assert.equal(getPunctuationDisplayChar('，'), '，');
     assert.equal(getPunctuationDisplayChar('。'), '。');
+  });
+
+  describe('Strict Zero-Beat Trigger & Clean Reset Rules', () => {
+    it('strictly matches only ，, 。, \\n/↵, and space/␣ as zero-beat triggers', () => {
+      // Allowed delimiters: comma and period only
+      assert.deepEqual(checkZeroBeatTrigger('，'), { isMatch: true, normalized: '，' });
+      assert.deepEqual(checkZeroBeatTrigger(','), { isMatch: true, normalized: '，' });
+      assert.deepEqual(checkZeroBeatTrigger('。'), { isMatch: true, normalized: '。' });
+      assert.deepEqual(checkZeroBeatTrigger('.'), { isMatch: true, normalized: '。' });
+
+      // Allowed newlines
+      assert.deepEqual(checkZeroBeatTrigger('\n'), { isMatch: true, normalized: '\n' });
+      assert.deepEqual(checkZeroBeatTrigger('\r'), { isMatch: true, normalized: '\n' });
+      assert.deepEqual(checkZeroBeatTrigger('↵'), { isMatch: true, normalized: '\n' });
+
+      // Allowed whitespace spacers
+      assert.deepEqual(checkZeroBeatTrigger(' '), { isMatch: true, normalized: ' ' });
+      assert.deepEqual(checkZeroBeatTrigger('␣'), { isMatch: true, normalized: ' ' });
+
+      // NO OTHER DELIMITERS may trigger zero-beat conversion
+      const nonZeroBeatDelimiters = ['！', '？', '、', '；', '：', '—', '…', '「', '」', '!', '?'];
+      for (const d of nonZeroBeatDelimiters) {
+        assert.equal(checkZeroBeatTrigger(d).isMatch, false, `Delimiter "${d}" must NOT be a zero-beat trigger`);
+      }
+      assert.equal(checkZeroBeatTrigger('To̍k').isMatch, false);
+      assert.equal(checkZeroBeatTrigger('獨').isMatch, false);
+    });
+
+    it('cleanly resets pitch dots, ties, accidentals, and octave marks when normalized', () => {
+      const complexNote: NumberedNotationNote = {
+        id: 'test-complex-note',
+        pitch: 5,
+        octave: 1, // Octave dot above
+        accidental: '#', // Sharp
+        duration: 1.75, // Double dotted quarter
+        isDotted: true,
+        isDoubleDotted: true,
+        isTied: true,
+        tieToNext: true,
+        slurToNext: true,
+        preGraceNotes: [{ pitch: 3, octave: 0 }],
+        postGraceNotes: [{ pitch: 6, octave: 0 }],
+        lyric: {
+          poj: '，',
+          hanlo: '，',
+        },
+      };
+
+      const normalized = normalizeNoteDuration(complexNote);
+
+      assert.equal(normalized.pitch, 'empty', 'Pitch must be converted to empty');
+      assert.equal(normalized.duration, 0, 'Duration must be converted to 0 beats');
+      assert.equal(normalized.isDotted, false, 'isDotted must be reset to false');
+      assert.equal(normalized.isDoubleDotted, false, 'isDoubleDotted must be reset to false');
+      assert.equal(normalized.isTied, false, 'isTied must be reset to false');
+      assert.equal(normalized.tieToNext, false, 'tieToNext must be reset to false');
+      assert.equal(normalized.slurToNext, false, 'slurToNext must be reset to false');
+      assert.equal(normalized.accidental, '', 'accidental must be reset to empty');
+      assert.equal(normalized.octave, 0, 'octave must be reset to 0');
+      assert.equal(normalized.preGraceNotes, undefined, 'preGraceNotes must be cleared');
+      assert.equal(normalized.postGraceNotes, undefined, 'postGraceNotes must be cleared');
+    });
+
+    it('synchronizes POJ and Hàn-lô fields simultaneously on zero-beat conversion', () => {
+      const noteWithPojDelim: NumberedNotationNote = {
+        id: 'sync-note-1',
+        pitch: 3,
+        octave: -1,
+        duration: 2,
+        lyric: {
+          poj: '。', // User entered period in POJ field
+          hanlo: '舊字',
+        },
+      };
+
+      const normalized = normalizeNoteDuration(noteWithPojDelim);
+      assert.equal(normalized.lyric.poj, '。');
+      assert.equal(normalized.lyric.hanlo, '。');
+      assert.equal(normalized.lyric.hanji, '。');
+      assert.equal(normalized.lyric.custom, '。');
+      assert.equal(normalized.pitch, 'empty');
+      assert.equal(normalized.duration, 0);
+      assert.equal(normalized.octave, 0);
+    });
   });
 });

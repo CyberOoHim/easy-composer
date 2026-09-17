@@ -166,9 +166,9 @@ export function engraveMeasure(
       pitchDisplay = String(note.pitch);
     }
 
-    const octaveDotsAbove = note.octave > 0 ? Math.min(note.octave, 3) : 0;
-    const octaveDotsBelow = note.octave < 0 ? Math.min(Math.abs(note.octave), 3) : 0;
-    const accidentalSymbol = formatAccidentalGlyph(note.accidental);
+    const octaveDotsAbove = !isEmpty && note.octave > 0 ? Math.min(note.octave, 3) : 0;
+    const octaveDotsBelow = !isEmpty && note.octave < 0 ? Math.min(Math.abs(note.octave), 3) : 0;
+    const accidentalSymbol = !isEmpty ? formatAccidentalGlyph(note.accidental) : '';
 
     rawEngravedNotes.push({
       note,
@@ -267,9 +267,9 @@ export function engraveMeasure(
         beamCount,
         isDotted: Boolean(oNote.isDotted),
         dashCount,
-        octaveDotsAbove: oNote.octave > 0 ? Math.min(oNote.octave, 3) : 0,
-        octaveDotsBelow: oNote.octave < 0 ? Math.min(Math.abs(oNote.octave), 3) : 0,
-        accidentalSymbol: formatAccidentalGlyph(oNote.accidental),
+        octaveDotsAbove: !isEmpty && oNote.octave > 0 ? Math.min(oNote.octave, 3) : 0,
+        octaveDotsBelow: !isEmpty && oNote.octave < 0 ? Math.min(Math.abs(oNote.octave), 3) : 0,
+        accidentalSymbol: !isEmpty ? formatAccidentalGlyph(oNote.accidental) : '',
         isRest,
         isEmpty,
         pitchDisplay,
