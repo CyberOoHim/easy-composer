@@ -215,10 +215,17 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
   const subtitle = rawSong.subtitle || '';
   const composer = rawSong.composer || '';
   const lyricist = rawSong.lyricist || '';
+  const notator = rawSong.notator || undefined;
+  const catalogNumber = rawSong.catalogNumber || undefined;
+  const footnote = rawSong.footnote || undefined;
+  const orientation = rawSong.orientation === 'landscape' ? 'landscape' : 'portrait';
+  const verseCount = typeof rawSong.verseCount === 'number' && rawSong.verseCount >= 1 && rawSong.verseCount <= 5 ? rawSong.verseCount : undefined;
+  const verseDisplayOption = rawSong.verseDisplayOption || undefined;
+  const verseSettings = rawSong.verseSettings && typeof rawSong.verseSettings === 'object' ? rawSong.verseSettings : undefined;
   const key = normalizeKey(options.key || rawSong.key);
   const timeSignature = normalizeTimeSig(options.time || rawSong.timeSignature);
   const bpm = options.bpm || (typeof rawSong.bpm === 'number' && rawSong.bpm > 30 && rawSong.bpm < 300 ? rawSong.bpm : 80);
-  const notesPerLine = rawSong.notesPerLine || 4;
+  const notesPerLine = rawSong.notesPerLine || (orientation === 'landscape' ? 5 : 4);
 
   const expectedBeats = getExpectedBeats(timeSignature);
   const measures = [];
@@ -231,9 +238,15 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
     const measureNumber = typeof m.measureNumber === 'number' ? m.measureNumber : mIdx + 1;
     const measureId = m.id && typeof m.id === 'string' ? m.id : `m-${measureNumber}-${Date.now().toString(36)}-${mIdx}`;
     const chord = typeof m.chord === 'string' && m.chord.trim() ? m.chord.trim() : undefined;
+    const chords = Array.isArray(m.chords) ? m.chords.map(c => String(c).trim()).filter(Boolean) : undefined;
+    const mTimeSig = m.timeSignature ? normalizeTimeSig(m.timeSignature) : undefined;
     const section = typeof m.section === 'string' && m.section.trim() ? m.section.trim() : undefined;
     const barlineType = m.barlineType || undefined;
     const isLineBreak = Boolean(m.isLineBreak);
+    const voltaEnding = Array.isArray(m.voltaEnding) ? m.voltaEnding.map(Number).filter(n => !isNaN(n)) : undefined;
+    const isPrelude = typeof m.isPrelude === 'boolean' ? m.isPrelude : undefined;
+    const obbligatoText = typeof m.obbligatoText === 'string' && m.obbligatoText.trim() ? m.obbligatoText.trim() : undefined;
+    const obbligato = Array.isArray(m.obbligato) ? m.obbligato : undefined;
 
     const notes = [];
     const rawNotes = Array.isArray(m.notes) ? m.notes : [];
@@ -264,6 +277,9 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
         custom: hanlo,
       };
 
+      const lyricsByVerse = n.lyricsByVerse && typeof n.lyricsByVerse === 'object' ? n.lyricsByVerse : undefined;
+      const instrument = typeof n.instrument === 'string' ? n.instrument : undefined;
+
       notes.push({
         id: noteId,
         pitch,
@@ -278,8 +294,10 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
         preGraceNotes: Array.isArray(n.preGraceNotes) && n.preGraceNotes.length > 0 ? n.preGraceNotes : undefined,
         postGraceNotes: Array.isArray(n.postGraceNotes) && n.postGraceNotes.length > 0 ? n.postGraceNotes : undefined,
         articulation: n.articulation && n.articulation !== 'none' ? n.articulation : undefined,
+        instrument,
         annotation: n.annotation || undefined,
         lyric,
+        lyricsByVerse,
       });
     });
 
@@ -324,9 +342,15 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
       id: measureId,
       measureNumber,
       chord,
+      chords: chords && chords.length > 0 ? chords : undefined,
+      timeSignature: mTimeSig,
       section,
       barlineType,
       isLineBreak,
+      voltaEnding: voltaEnding && voltaEnding.length > 0 ? voltaEnding : undefined,
+      isPrelude,
+      obbligatoText,
+      obbligato,
       notes,
     });
   });
@@ -338,10 +362,17 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
       subtitle: subtitle || undefined,
       composer: composer || undefined,
       lyricist: lyricist || undefined,
+      notator,
+      catalogNumber,
+      footnote,
       key,
       timeSignature,
       bpm,
       notesPerLine,
+      orientation,
+      verseCount,
+      verseDisplayOption,
+      verseSettings,
       measures,
       description: rawSong.description || `Transcribed score for ${title}.`,
     },

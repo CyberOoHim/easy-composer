@@ -25,6 +25,18 @@
       "type": "string",
       "description": "Lyricist name (作詞者)"
     },
+    "notator": {
+      "type": "string",
+      "description": "Score engraver or transcriber credit (記譜者 / 採譜者)"
+    },
+    "catalogNumber": {
+      "type": "string",
+      "description": "Score catalog serial ID (e.g. LPDC—JCR1341)"
+    },
+    "footnote": {
+      "type": "string",
+      "description": "Publication, copyright, or historical footnote text"
+    },
     "key": {
       "type": "string",
       "enum": ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"],
@@ -45,6 +57,27 @@
       "type": "number",
       "default": 4,
       "description": "Measures displayed per row in sheet view"
+    },
+    "orientation": {
+      "type": "string",
+      "enum": ["portrait", "landscape"],
+      "default": "portrait",
+      "description": "Sheet view page orientation layout"
+    },
+    "verseCount": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5,
+      "description": "Total count of active parallel lyric verses"
+    },
+    "verseDisplayOption": {
+      "type": "string",
+      "enum": ["hanlo", "poj", "both_poj_top", "both_hanlo_top", "both"],
+      "description": "Display mode for lyrics across verses"
+    },
+    "verseSettings": {
+      "type": "object",
+      "description": "Per-verse display and styling overrides"
     },
     "description": {
       "type": "string",
@@ -84,9 +117,27 @@
             "enum": ["single", "double", "end", "repeat_start", "repeat_end"],
             "default": "single"
           },
+          "timeSignature": {
+            "type": "string",
+            "enum": ["4/4", "3/4", "2/4", "6/8"],
+            "description": "Optional measure-level time signature change"
+          },
           "isLineBreak": {
             "type": "boolean",
             "description": "Forces system/line break after this measure. Also serves as a phrase boundary for Karaoke mode."
+          },
+          "voltaEnding": {
+            "type": "array",
+            "items": { "type": "integer", "minimum": 1, "maximum": 5 },
+            "description": "Volta repeat bracket endings e.g. [1] or [2] or [1, 2]"
+          },
+          "isPrelude": {
+            "type": "boolean",
+            "description": "True if an instrumental prelude or interlude section"
+          },
+          "obbligatoText": {
+            "type": "string",
+            "description": "Quick text representation of counter-melody e.g. '0 56 53 21 6 5'"
           },
           "notes": {
             "type": "array",
@@ -129,6 +180,10 @@
                   "type": "boolean",
                   "description": "Double rhythm dot (+75% duration)"
                 },
+                "isTied": {
+                  "type": "boolean",
+                  "description": "Legacy tie indicator"
+                },
                 "tieToNext": {
                   "type": "boolean",
                   "description": "Tie connecting to next note of same pitch (sustains playback audio)"
@@ -145,6 +200,37 @@
                   "type": "string",
                   "enum": ["none", "staccato", "tenuto", "accent", "fermata", "portamento_up", "portamento_down"]
                 },
+                "instrument": {
+                  "type": "string",
+                  "enum": ["piano", "flute", "whistle", "guitar", "synth", "bell", "cello"],
+                  "description": "Playback instrument override for this note"
+                },
+                "preGraceNotes": {
+                  "type": "array",
+                  "description": "Pre-grace notes (acciaccatura)",
+                  "items": {
+                    "type": "object",
+                    "required": ["pitch", "octave"],
+                    "properties": {
+                      "pitch": { "type": "integer", "minimum": 1, "maximum": 7 },
+                      "octave": { "type": "integer", "minimum": -2, "maximum": 2 },
+                      "accidental": { "type": "string", "enum": ["", "#", "b"] }
+                    }
+                  }
+                },
+                "postGraceNotes": {
+                  "type": "array",
+                  "description": "Post-grace notes",
+                  "items": {
+                    "type": "object",
+                    "required": ["pitch", "octave"],
+                    "properties": {
+                      "pitch": { "type": "integer", "minimum": 1, "maximum": 7 },
+                      "octave": { "type": "integer", "minimum": -2, "maximum": 2 },
+                      "accidental": { "type": "string", "enum": ["", "#", "b"] }
+                    }
+                  }
+                },
                 "annotation": {
                   "type": "string",
                   "description": "Performance or vocal annotation (e.g. rit., 合唱, V, 間奏)"
@@ -160,6 +246,32 @@
                     "poj": {
                       "type": "string",
                       "description": "Pe̍h-ōe-jī Romanization with tone diacritics (e.g. Bāng, Hōo, gún ê)"
+                    },
+                    "hanji": {
+                      "type": "string",
+                      "description": "Hanji character"
+                    },
+                    "tl": {
+                      "type": "string",
+                      "description": "Tâi-lô Romanization"
+                    },
+                    "custom": {
+                      "type": "string",
+                      "description": "Custom lyric text"
+                    }
+                  }
+                },
+                "lyricsByVerse": {
+                  "type": "object",
+                  "description": "Multi-verse lyrics mapped by verse index (1, 2, 3, 4, 5)",
+                  "additionalProperties": {
+                    "type": "object",
+                    "properties": {
+                      "hanlo": { "type": "string" },
+                      "poj": { "type": "string" },
+                      "hanji": { "type": "string" },
+                      "tl": { "type": "string" },
+                      "custom": { "type": "string" }
                     }
                   }
                 }

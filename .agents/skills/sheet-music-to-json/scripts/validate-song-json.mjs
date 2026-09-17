@@ -47,6 +47,8 @@ function validateSongFile(filePath) {
   if (!VALID_KEYS.includes(data.key)) errors.push(`Invalid root "key": "${data.key}". Expected one of: ${VALID_KEYS.join(', ')}`);
   if (!VALID_TIME_SIGS.includes(data.timeSignature)) errors.push(`Invalid root "timeSignature": "${data.timeSignature}". Expected one of: ${VALID_TIME_SIGS.join(', ')}`);
   if (typeof data.bpm !== 'number' || data.bpm <= 0) errors.push(`Invalid root "bpm": ${data.bpm}. Expected a positive number`);
+  if (data.orientation && !['portrait', 'landscape'].includes(data.orientation)) errors.push(`Invalid "orientation": "${data.orientation}". Expected "portrait" or "landscape"`);
+  if (data.verseCount !== undefined && (typeof data.verseCount !== 'number' || data.verseCount < 1 || data.verseCount > 5)) errors.push(`Invalid "verseCount": ${data.verseCount}. Expected 1..5`);
   if (!Array.isArray(data.measures) || data.measures.length === 0) errors.push('Missing or empty root "measures" array');
 
   if (errors.length > 0) {
@@ -55,7 +57,7 @@ function validateSongFile(filePath) {
     process.exit(1);
   }
 
-  const expectedBeats = getExpectedBeats(data.timeSignature);
+  const defaultExpectedBeats = getExpectedBeats(data.timeSignature);
   let totalNotes = 0;
   let totalLyrics = 0;
   let rhythmIssues = 0;
@@ -68,6 +70,11 @@ function validateSongFile(filePath) {
       return;
     }
 
+    if (m.barlineType && !['single', 'double', 'end', 'repeat_start', 'repeat_end'].includes(m.barlineType)) {
+      warnings.push(`Measure ${mNum} has unknown barlineType: "${m.barlineType}"`);
+    }
+
+    const expectedBeats = m.timeSignature ? getExpectedBeats(m.timeSignature) : defaultExpectedBeats;
     let measureBeats = 0;
 
     m.notes.forEach((n, nIdx) => {
@@ -89,13 +96,19 @@ function validateSongFile(filePath) {
         measureBeats += n.duration;
       }
 
+      if (n.instrument && !['piano', 'flute', 'whistle', 'guitar', 'synth', 'bell', 'cello'].includes(n.instrument)) {
+        warnings.push(`Measure ${mNum}, note ${nIdx} has non-standard instrument: "${n.instrument}"`);
+      }
+
       if (n.lyric && (n.lyric.hanlo || n.lyric.poj || n.lyric.hanji || n.lyric.custom)) {
+        totalLyrics++;
+      } else if (n.lyricsByVerse && Object.keys(n.lyricsByVerse).length > 0) {
         totalLyrics++;
       }
     });
 
     const diff = Math.abs(measureBeats - expectedBeats);
-    if (diff > 0.05) {
+    if (diff > 0.05 && !m.isPrelude && !m.section?.includes('前奏') && !m.section?.includes('Pickup') && !m.section?.includes('弱起')) {
       rhythmIssues++;
       warnings.push(`Measure ${mNum} total duration is ${measureBeats.toFixed(2)} beats, expected ${expectedBeats} beats.`);
     }

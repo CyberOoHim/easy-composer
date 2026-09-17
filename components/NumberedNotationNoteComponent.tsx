@@ -82,8 +82,8 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
       : 0;
 
   // Lyric texts
-  const hanlo = note.lyric.hanlo || note.lyric.custom || note.lyric.hanji || '';
-  const poj = note.lyric.poj || note.lyric.tl || '';
+  const hanlo = note.lyric?.hanlo || note.lyric?.custom || note.lyric?.hanji || '';
+  const poj = note.lyric?.poj || note.lyric?.tl || '';
   const annotation = note.annotation || '';
 
   // Determine what lyrics to show based on display mode

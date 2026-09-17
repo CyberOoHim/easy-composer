@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { FilePlus2, BookmarkPlus, X, AlertCircle, Sparkles } from 'lucide-react';
+import { FilePlus2, BookmarkPlus, X, AlertCircle, Sparkles, Upload } from 'lucide-react';
 
 interface NewSongModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentSongTitle: string;
   onConfirm: (saveCurrentFirst: boolean) => void;
+  onOpenImport?: () => void;
 }
 
 export const NewSongModal: React.FC<NewSongModalProps> = ({
@@ -15,6 +16,7 @@ export const NewSongModal: React.FC<NewSongModalProps> = ({
   onClose,
   currentSongTitle,
   onConfirm,
+  onOpenImport,
 }) => {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -93,35 +95,54 @@ export const NewSongModal: React.FC<NewSongModalProps> = ({
         </div>
 
         {/* Footer Actions */}
-        <div className="p-4 sm:p-6 pt-0 flex flex-col sm:flex-row-reverse gap-2 sm:gap-2.5">
-          <button
-            id="new-song-save-and-create-btn"
-            type="button"
-            onClick={() => onConfirm(true)}
-            className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-extrabold text-xs rounded-xl shadow-xs transition-all active:scale-98 cursor-pointer min-h-[40px]"
-          >
-            <BookmarkPlus className="w-4 h-4" />
-            <span>Save Current & Create New</span>
-          </button>
+        <div className="p-4 sm:p-6 pt-0 flex flex-col gap-2">
+          <div className="flex flex-col sm:flex-row-reverse gap-2 sm:gap-2.5">
+            <button
+              id="new-song-save-and-create-btn"
+              type="button"
+              onClick={() => onConfirm(true)}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-extrabold text-xs rounded-xl shadow-xs transition-all active:scale-98 cursor-pointer min-h-[40px]"
+            >
+              <BookmarkPlus className="w-4 h-4" />
+              <span>Save Current & Create New</span>
+            </button>
 
-          <button
-            id="new-song-direct-create-btn"
-            type="button"
-            onClick={() => onConfirm(false)}
-            className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer min-h-[40px]"
-          >
-            <FilePlus2 className="w-3.5 h-3.5 text-zinc-500" />
-            <span>Create Blank Song</span>
-          </button>
+            <button
+              id="new-song-direct-create-btn"
+              type="button"
+              onClick={() => onConfirm(false)}
+              className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer min-h-[40px]"
+            >
+              <FilePlus2 className="w-3.5 h-3.5 text-zinc-500" />
+              <span>Create Blank Song</span>
+            </button>
+          </div>
 
-          <button
-            id="new-song-cancel-btn"
-            type="button"
-            onClick={onClose}
-            className="flex items-center justify-center px-3 py-2 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium text-xs transition-colors cursor-pointer min-h-[40px]"
-          >
-            Cancel
-          </button>
+          <div className="flex items-center justify-between pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+            {onOpenImport ? (
+              <button
+                id="new-song-import-score-btn"
+                type="button"
+                onClick={() => {
+                  onClose();
+                  onOpenImport();
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 font-bold text-xs rounded-lg transition-colors cursor-pointer"
+              >
+                <Upload className="w-3.5 h-3.5" />
+                <span>Import Score (JSON/Text)</span>
+              </button>
+            ) : <div />}
+
+            <button
+              id="new-song-cancel-btn"
+              type="button"
+              onClick={onClose}
+              className="flex items-center justify-center px-3 py-1.5 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 font-medium text-xs transition-colors cursor-pointer"
+            >
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
     </div>

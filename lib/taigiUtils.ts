@@ -1224,6 +1224,7 @@ export function normalizeSongDurations(song: Song): Song {
     measures: (song.measures || []).map(m => ({
       ...m,
       notes: Array.isArray(m?.notes) ? m.notes.map(normalizeNoteDuration) : [],
+      ...(Array.isArray(m?.obbligato) ? { obbligato: m.obbligato.map(normalizeNoteDuration) } : {}),
     })),
   };
 }

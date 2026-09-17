@@ -313,13 +313,21 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
     }
 
     try {
+      let raw = importText.trim();
+      if (raw.charCodeAt(0) === 0xfeff) {
+        raw = raw.slice(1).trim();
+      }
+      if (raw.startsWith('```')) {
+        raw = raw.replace(/^```(?:json)?\s*\r?\n?([\s\S]*?)\r?\n?```$/i, '$1').trim();
+      }
+
       let loadedSong: Song;
-      if (importText.trim().startsWith('{')) {
+      if (raw.startsWith('{')) {
         // JSON
-        loadedSong = importSongFromJson(importText.trim());
+        loadedSong = importSongFromJson(raw);
       } else {
         // Text format
-        loadedSong = importSongFromText(importText.trim());
+        loadedSong = importSongFromText(raw);
       }
       try {
         await saveSongToDB(loadedSong);
@@ -345,6 +353,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
       setImportText(content);
     };
     reader.readAsText(file);
+    e.target.value = '';
   };
 
   return (
@@ -1057,7 +1066,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                   <input
                     id="import-file-input"
                     type="file"
-                    accept=".json,.txt"
+                    accept=".json,.taigi.json,.txt,application/json,text/plain"
                     onChange={handleFileUpload}
                     className="hidden"
                   />

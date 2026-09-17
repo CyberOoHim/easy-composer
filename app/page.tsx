@@ -234,9 +234,19 @@ export default function Home() {
     setIsNewSongConfirmOpen(true);
   }, [closeAllPrimaryModals]);
 
-  const handleOpenLibrary = useCallback(() => {
+  const handleOpenLibrary = useCallback(
+    (tab: 'presets' | 'custom' | 'export' | 'import' = 'presets', format?: 'json' | 'text' | 'midi') => {
+      closeAllPrimaryModals();
+      setImportExportTab(tab);
+      setImportExportFormat(format);
+      setIsImportExportOpen(true);
+    },
+    [closeAllPrimaryModals]
+  );
+
+  const handleOpenImportScore = useCallback(() => {
     closeAllPrimaryModals();
-    setImportExportTab('presets');
+    setImportExportTab('import');
     setImportExportFormat(undefined);
     setIsImportExportOpen(true);
   }, [closeAllPrimaryModals]);
@@ -610,6 +620,7 @@ export default function Home() {
         onStartFreshSong={handleStartFreshSong}
         onOpenLyricSearch={handleOpenLyricSearch}
         onOpenImportExport={handleOpenLibrary}
+        onOpenImportScore={handleOpenImportScore}
         onOpenMidiExport={handleOpenMidiExport}
         isPlaying={isPlaying}
         onTogglePlay={handleTogglePlay}
@@ -705,6 +716,7 @@ export default function Home() {
         onClose={() => setIsNewSongConfirmOpen(false)}
         currentSongTitle={song.title}
         onConfirm={handleConfirmFreshSong}
+        onOpenImport={handleOpenImportScore}
       />
     </div>
   );

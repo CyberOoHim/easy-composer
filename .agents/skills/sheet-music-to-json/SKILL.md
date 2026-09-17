@@ -113,13 +113,20 @@ The application requires a JSON file adhering to the `Song` interface (`types/so
 export interface Song {
   id: string;               // Unique song id (e.g. "song-1718000000000")
   title: string;            // Song title (e.g. "望春風")
-  subtitle?: string;         // Subtitle (e.g. "Bāng Chhun-hong")
+  subtitle?: string;        // Subtitle (e.g. "Bāng Chhun-hong")
   composer?: string;        // Composer (e.g. "鄧雨賢")
   lyricist?: string;        // Lyricist (e.g. "李臨秋")
+  notator?: string;         // Notator / Transcriber (e.g. "林清月")
+  catalogNumber?: string;   // Catalog ID (e.g. "T-001")
+  footnote?: string;        // Footnote notes
+  orientation?: 'portrait' | 'landscape'; // Page layout orientation
+  verseCount?: number;      // Number of verses (1..5)
+  verseDisplayOption?: 'stacked' | 'tabs' | 'side_by_side';
+  verseSettings?: Record<number, { label?: string; hanloColor?: string; pojColor?: string }>;
   key: KeySignature;        // 'C' | 'Db' | 'D' | 'Eb' | 'E' | 'F' | 'F#' | 'G' | 'Ab' | 'A' | 'Bb' | 'B'
   timeSignature: TimeSignature; // '4/4' | '3/4' | '2/4' | '6/8'
   bpm: number;              // Tempo (default: 80)
-  notesPerLine?: number;    // Measures per row (default: 4)
+  notesPerLine?: number;    // Measures per row (default: 4 for portrait, 5 for landscape)
   description?: string;     // Notes, history, provenance
   measures: Measure[];      // Chronological array of measures
 }
@@ -130,11 +137,15 @@ export interface Song {
 export interface Measure {
   id: string;               // e.g. "m-1-abc"
   measureNumber: number;    // 1-based sequential index (1, 2, 3...)
-  chord?: string;           // Harmonic chord (e.g. "F", "C7", "Am", "Dm", "Bb")
-  chords?: string[];        // Multiple chords array
-  section?: string;         // Section tag (e.g. "前奏", "主歌", "副歌", "尾奏", "Verse 1")
+  chord?: string;           // Primary harmonic chord (e.g. "F", "C7", "Am", "Dm", "Bb")
+  chords?: string[];        // Multiple chords array within measure
+  timeSignature?: string;   // Measure-level time signature change
+  section?: string;         // Section tag (e.g. "前奏", "主歌 1-A", "副歌 A", "尾奏")
   barlineType?: 'single' | 'double' | 'end' | 'repeat_start' | 'repeat_end';
+  voltaEnding?: number[];   // Volta repeat bracket endings e.g. [1] or [2] or [1, 2]
   isLineBreak?: boolean;    // Line/system break flag
+  isPrelude?: boolean;      // True if instrumental prelude/interlude
+  obbligatoText?: string;   // Quick text representation of counter-melody e.g. "0 56 53 21 6 5"
   notes: NumberedNotationNote[];      // Notes in this measure
 }
 ```
@@ -149,16 +160,29 @@ export interface NumberedNotationNote {
   duration: number;         // In beats: 4 (whole), 2 (half), 1 (quarter), 0.5 (8th), 0.25 (16th)
   isDotted?: boolean;       // Display dot (+50% duration)
   isDoubleDotted?: boolean; // Display double dot (+75% duration)
+  isTied?: boolean;         // Legacy tie indicator
   tieToNext?: boolean;      // Sustained tie to next note of identical pitch
   slurToNext?: boolean;     // Legato slur to next note across differing pitches
-  preGraceNotes?: GraceNote[];  // Optional pre-grace decorative notes
-  postGraceNotes?: GraceNote[]; // Optional post-grace notes
-  articulation?: 'none' | 'staccato' | 'tenuto' | 'accent' | 'fermata';
+  isTriplet?: boolean;      // Note belongs to triplet grouping
+  preGraceNotes?: GraceNote[];  // Pre-grace acciaccatura notes e.g. [{ pitch: 5, octave: 0 }]
+  postGraceNotes?: GraceNote[]; // Post-grace notes
+  instrument?: 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell' | 'cello';
+  articulation?: 'none' | 'staccato' | 'tenuto' | 'accent' | 'fermata' | 'portamento_up' | 'portamento_down';
   annotation?: string;      // Direction (e.g. "rit.", "合唱", "V")
   lyric: {
     hanlo?: string;         // Traditional Hanji or mixed Han-lo (e.g. "獨", "阮ê")
     poj?: string;           // Pe̍h-ōe-jī with tone marks (e.g. "To̍k", "gún ê")
+    hanji?: string;
+    tl?: string;
+    custom?: string;
   };
+  lyricsByVerse?: Record<number, {
+    hanlo?: string;
+    poj?: string;
+    hanji?: string;
+    tl?: string;
+    custom?: string;
+  }>;
 }
 ```
 

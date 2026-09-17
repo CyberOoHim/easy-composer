@@ -13,14 +13,34 @@ export function isStructuredAppText(text) {
   return hasMeasureHeader || (hasNumberedNotation && lines.some(l => /^Title:/i.test(l)));
 }
 
+function parseGraceString(str) {
+  const results = [];
+  const regex = /([#b]?)([1-7])([\+',]*)/g;
+  let match;
+  while ((match = regex.exec(str)) !== null) {
+    const accidental = (match[1] === '#' || match[1] === 'b') ? match[1] : '';
+    const pitch = parseInt(match[2], 10);
+    const octSigns = match[3] || '';
+    const plusCount = (octSigns.match(/[\+']/g) || []).length;
+    const commaCount = (octSigns.match(/,/g) || []).length;
+    const octave = plusCount > 0 ? Math.min(2, plusCount) : commaCount > 0 ? -Math.min(2, commaCount) : 0;
+    results.push({ pitch, octave, accidental });
+  }
+  return results;
+}
+
 function parseToken(tok, id) {
   let pitch = 1;
   let octave = 0;
   let accidental = '';
   let duration = 1;
   let isDotted = false;
+  let isDoubleDotted = false;
   let tieToNext = false;
   let slurToNext = false;
+  let isTriplet = false;
+  let preGraceNotes = undefined;
+  let postGraceNotes = undefined;
 
   let clean = tok.trim();
 
@@ -52,14 +72,30 @@ function parseToken(tok, id) {
     };
   }
 
-  // Ties & slurs at end
-  if (clean.endsWith('~')) {
+  // Ties & slurs
+  if (clean.includes('~')) {
     tieToNext = true;
-    clean = clean.slice(0, -1);
+    clean = clean.replace(/~/g, '');
   }
-  if (clean.endsWith('^')) {
+  if (clean.includes('^')) {
     slurToNext = true;
-    clean = clean.slice(0, -1);
+    clean = clean.replace(/\^/g, '');
+  }
+
+  // Pre-grace notes e.g. (5)1 or (61)2
+  const preGraceMatch = clean.match(/^\(([^)]+)\)/);
+  if (preGraceMatch) {
+    const parsed = parseGraceString(preGraceMatch[1]);
+    if (parsed.length > 0) preGraceNotes = parsed;
+    clean = clean.slice(preGraceMatch[0].length);
+  }
+
+  // Post-grace notes e.g. 1(2)
+  const postGraceMatch = clean.match(/\(([^)]+)\)$/);
+  if (postGraceMatch) {
+    const parsed = parseGraceString(postGraceMatch[1]);
+    if (parsed.length > 0) postGraceNotes = parsed;
+    clean = clean.slice(0, -postGraceMatch[0].length);
   }
 
   // Accidental prefix
@@ -108,8 +144,19 @@ function parseToken(tok, id) {
   else if (clean.includes('--')) duration = 3;
   else if (clean.includes('-')) duration = 2;
 
-  // Dotted
-  if (clean.includes('.') || clean.includes('·')) {
+  // Triplet
+  if (clean.includes('/3')) {
+    isTriplet = true;
+    if (clean.includes('*2/3')) duration = 0.667;
+    else duration = 0.333;
+  }
+
+  // Dotted & double dotted
+  if (clean.includes('..')) {
+    isDoubleDotted = true;
+    if (duration === 1) duration = 1.75;
+    else if (duration === 2) duration = 3.5;
+  } else if (clean.includes('.') || clean.includes('·')) {
     isDotted = true;
     if (duration === 1) duration = 1.5;
     else if (duration === 0.5) duration = 0.75;
@@ -123,8 +170,12 @@ function parseToken(tok, id) {
     accidental: accidental || undefined,
     duration,
     isDotted: isDotted || undefined,
+    isDoubleDotted: isDoubleDotted || undefined,
     tieToNext: tieToNext || undefined,
     slurToNext: slurToNext || undefined,
+    isTriplet: isTriplet || undefined,
+    preGraceNotes,
+    postGraceNotes,
     lyric: {},
   };
 }
@@ -140,6 +191,10 @@ export function parseStructuredTextScore(text, options = {}) {
     subtitle: '',
     composer: '',
     lyricist: '',
+    notator: undefined,
+    catalogNumber: undefined,
+    footnote: undefined,
+    orientation: 'portrait',
     key: options.key || 'F',
     timeSignature: options.time || '4/4',
     bpm: options.bpm || 80,
@@ -152,6 +207,7 @@ export function parseStructuredTextScore(text, options = {}) {
   let measureIndex = 1;
   let pendingRoman = null;
   let pendingHanlo = null;
+  const pendingVerses = {};
 
   function applyLyrics() {
     if (!currentMeasure || !currentMeasure.notes || currentMeasure.notes.length === 0) return;
@@ -173,6 +229,25 @@ export function parseStructuredTextScore(text, options = {}) {
         }
       });
     }
+    Object.keys(pendingVerses).forEach(vKey => {
+      const v = parseInt(vKey, 10);
+      const vData = pendingVerses[v];
+      currentMeasure.notes.forEach((n, idx) => {
+        if (!n.lyricsByVerse) n.lyricsByVerse = {};
+        if (!n.lyricsByVerse[v]) n.lyricsByVerse[v] = {};
+        if (vData.roman && vData.roman[idx]) {
+          const tok = vData.roman[idx];
+          n.lyricsByVerse[v].poj = tok === '—' || tok === '-' ? '' : tok;
+        }
+        if (vData.hanlo && vData.hanlo[idx]) {
+          const tok = vData.hanlo[idx];
+          const val = tok === '—' || tok === '-' ? '' : tok;
+          n.lyricsByVerse[v].hanlo = val;
+          n.lyricsByVerse[v].hanji = val;
+          n.lyricsByVerse[v].custom = val;
+        }
+      });
+    });
   }
 
   for (let i = 0; i < lines.length; i++) {
@@ -187,6 +262,21 @@ export function parseStructuredTextScore(text, options = {}) {
       song.composer = line.replace('Composer:', '').trim();
     } else if (line.startsWith('Lyricist:')) {
       song.lyricist = line.replace('Lyricist:', '').trim();
+    } else if (line.startsWith('Notator:')) {
+      song.notator = line.replace('Notator:', '').trim();
+    } else if (line.startsWith('Catalog:')) {
+      song.catalogNumber = line.replace('Catalog:', '').trim();
+    } else if (line.startsWith('Footnote:')) {
+      song.footnote = line.replace('Footnote:', '').trim();
+    } else if (line.startsWith('Orientation:')) {
+      const o = line.replace('Orientation:', '').trim();
+      if (o === 'landscape' || o === 'portrait') song.orientation = o;
+    } else if (line.startsWith('NotesPerLine:')) {
+      const n = parseInt(line.replace('NotesPerLine:', '').trim(), 10);
+      if (n > 0) song.notesPerLine = n;
+    } else if (line.startsWith('VerseCount:')) {
+      const v = parseInt(line.replace('VerseCount:', '').trim(), 10);
+      if (v > 0) song.verseCount = v;
     } else if (line.startsWith('Description:')) {
       song.description = line.replace('Description:', '').trim();
     } else if (line.startsWith('Key:')) {
@@ -206,15 +296,24 @@ export function parseStructuredTextScore(text, options = {}) {
 
       pendingRoman = null;
       pendingHanlo = null;
+      Object.keys(pendingVerses).forEach(k => delete pendingVerses[Number(k)]);
 
-      const chordMatch = line.match(/Chord:\s*([A-Za-z0-9#b\/\s]+)/i);
+      const chordMatch = line.match(/Chord:\s*([A-Za-z0-9#b\/\s]+?)(?=(\s+[A-Z][a-z]+:|\s*\[|\s*$))/i);
       const sectionMatch = line.match(/\(([^)]+)\)/);
+      const timeMatch = line.match(/Time:\s*([0-9\/]+)/i);
+      const barlineMatch = line.match(/Barline:\s*([a-z_]+)/i);
+      const voltaMatch = line.match(/Volta:\s*([0-9,\s]+)/i);
+      const hasBreak = /\[Break\]/i.test(line) || /Break:\s*true/i.test(line);
 
       currentMeasure = {
         id: `m-${measureIndex}-${Date.now().toString(36)}`,
         measureNumber: measureIndex++,
         chord: chordMatch ? chordMatch[1].trim() : undefined,
         section: sectionMatch ? sectionMatch[1].trim() : undefined,
+        timeSignature: timeMatch ? timeMatch[1].trim() : undefined,
+        barlineType: barlineMatch ? barlineMatch[1].trim() : undefined,
+        voltaEnding: voltaMatch ? voltaMatch[1].split(',').map(n => parseInt(n.trim(), 10)).filter(n => !isNaN(n)) : undefined,
+        isLineBreak: hasBreak,
         notes: [],
       };
     } else if (currentMeasure) {
@@ -222,12 +321,33 @@ export function parseStructuredTextScore(text, options = {}) {
         const tokens = line.replace(/^Numbered [Nn]otation:/i, '').trim().split(/\s+/).filter(Boolean);
         currentMeasure.notes = tokens.map((tok, nIdx) => parseToken(tok, `${currentMeasure.id}-n${nIdx + 1}`));
         applyLyrics();
-      } else if (/^(羅馬字|Roman|POJ|TL):/i.test(line)) {
-        pendingRoman = line.replace(/^(羅馬字|Roman|POJ|TL):/i, '').trim().split(/\s+/).filter(Boolean);
-        applyLyrics();
-      } else if (/^(漢羅|Hanlo|Hanji|Custom|歌詞|Lyrics):/i.test(line)) {
-        pendingHanlo = line.replace(/^(漢羅|Hanlo|Hanji|Custom|歌詞|Lyrics):/i, '').trim().split(/\s+/).filter(Boolean);
-        applyLyrics();
+      } else if (line.startsWith('Obbligato:')) {
+        currentMeasure.obbligatoText = line.replace(/^Obbligato:/, '').trim();
+      } else {
+        const vRomanMatch = line.match(/^(羅馬字|Roman|POJ|TL)\s*([2-5])?:/i);
+        const vHanloMatch = line.match(/^(漢羅|Hanlo|Hanji|Custom|歌詞|Lyrics)\s*([2-5])?:/i);
+
+        if (vRomanMatch) {
+          const verseNum = vRomanMatch[2] ? parseInt(vRomanMatch[2], 10) : 1;
+          const tokens = line.replace(vRomanMatch[0], '').trim().split(/\s+/).filter(Boolean);
+          if (verseNum === 1) {
+            pendingRoman = tokens;
+          } else {
+            if (!pendingVerses[verseNum]) pendingVerses[verseNum] = {};
+            pendingVerses[verseNum].roman = tokens;
+          }
+          applyLyrics();
+        } else if (vHanloMatch) {
+          const verseNum = vHanloMatch[2] ? parseInt(vHanloMatch[2], 10) : 1;
+          const tokens = line.replace(vHanloMatch[0], '').trim().split(/\s+/).filter(Boolean);
+          if (verseNum === 1) {
+            pendingHanlo = tokens;
+          } else {
+            if (!pendingVerses[verseNum]) pendingVerses[verseNum] = {};
+            pendingVerses[verseNum].hanlo = tokens;
+          }
+          applyLyrics();
+        }
       }
     }
   }

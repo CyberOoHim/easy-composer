@@ -23,6 +23,7 @@ import {
   ChevronDown,
   SlidersHorizontal,
   Download,
+  Upload,
   Search,
   RotateCcw,
   RotateCw,
@@ -42,7 +43,8 @@ interface HeaderBarProps {
   onSelectSong: (song: Song) => void;
   onStartFreshSong?: () => void;
   onOpenLyricSearch?: () => void;
-  onOpenImportExport: () => void;
+  onOpenImportExport: (tab?: 'presets' | 'custom' | 'export' | 'import', format?: 'json' | 'text' | 'midi') => void;
+  onOpenImportScore?: () => void;
   onOpenMidiExport?: () => void;
   isPlaying: boolean;
   onTogglePlay: () => void;
@@ -112,6 +114,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onStartFreshSong,
   onOpenLyricSearch,
   onOpenImportExport,
+  onOpenImportScore,
   onOpenMidiExport,
   isPlaying,
   onTogglePlay,
@@ -144,9 +147,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 }) => {
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [isStudioMenuOpen, setIsStudioMenuOpen] = useState<boolean>(false);
+  const [isScoreActionMenuOpen, setIsScoreActionMenuOpen] = useState<boolean>(false);
   const [defaultRestoreNotice, setDefaultRestoreNotice] = useState<string | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isStudioOpen = isStudioMenuOpen && !isAnyModalOpen;
+  const isScoreMenuOpen = isScoreActionMenuOpen && !isAnyModalOpen;
 
   const showNotice = useCallback((msg: string) => {
     if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
@@ -185,17 +190,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     }
   };
 
-  // Close Studio popup when Escape is pressed
+  // Close Studio and Score popups when Escape is pressed
   useEffect(() => {
-    if (!isStudioOpen) return;
+    if (!isStudioOpen && !isScoreMenuOpen) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsStudioMenuOpen(false);
+        setIsScoreActionMenuOpen(false);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isStudioOpen]);
+  }, [isStudioOpen, isScoreMenuOpen]);
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#10121a]/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800/80 shadow-xs transition-colors select-none pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] print:hidden">
@@ -257,18 +263,130 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               1={song.key} · {song.timeSignature} · {song.bpm}BPM
             </span>
 
-            {/* New Song Quick Button */}
-            {onStartFreshSong && (
+            {/* New / Import Score Menu Quick Trigger */}
+            <div className="relative shrink-0 flex items-center">
               <button
                 id="header-new-song-btn"
                 type="button"
-                onClick={onStartFreshSong}
-                className="hidden sm:flex items-center justify-center p-1 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-lg border border-zinc-200/90 dark:border-zinc-750 text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 w-7.5 sm:h-8 sm:w-8 shrink-0 touch-manipulation"
-                title="Create New Blank Song"
+                onClick={() => setIsScoreActionMenuOpen(prev => !prev)}
+                className={`flex items-center justify-center p-1 rounded-lg border text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 w-7.5 sm:h-8 sm:w-8 shrink-0 touch-manipulation ${
+                  isScoreMenuOpen
+                    ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs'
+                    : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750'
+                }`}
+                title="Score Actions: Create New Blank Song or Import Score (樂譜建立與匯入)"
+                aria-expanded={isScoreMenuOpen}
               >
-                <FilePlus2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                <FilePlus2 className={`w-3.5 h-3.5 shrink-0 ${isScoreMenuOpen ? 'text-zinc-950' : 'text-amber-500'}`} />
               </button>
-            )}
+
+              {/* Click-away backdrop */}
+              {isScoreMenuOpen && (
+                <div
+                  id="header-score-menu-backdrop"
+                  className="fixed inset-0 z-40 bg-black/20 dark:bg-black/40 backdrop-blur-[0.5px]"
+                  onClick={() => setIsScoreActionMenuOpen(false)}
+                />
+              )}
+
+              {/* Popover Dropdown under the button */}
+              {isScoreMenuOpen && (
+                <div
+                  id="header-score-menu-popover"
+                  role="menu"
+                  aria-label="Score Options"
+                  className="absolute left-0 top-full mt-1.5 z-50 w-64 p-2 bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-1 text-left"
+                >
+                  <div className="px-2.5 py-1.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                      Score Actions / 樂譜操作
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setIsScoreActionMenuOpen(false)}
+                      className="p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  {/* 1. Import Score Button */}
+                  <button
+                    id="header-menu-import-score-btn"
+                    type="button"
+                    onClick={() => {
+                      setIsScoreActionMenuOpen(false);
+                      if (onOpenImportScore) {
+                        onOpenImportScore();
+                      } else {
+                        onOpenImportExport('import');
+                      }
+                    }}
+                    className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-amber-500/10 text-zinc-800 dark:text-zinc-100 hover:text-amber-700 dark:hover:text-amber-400 transition-colors cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-colors">
+                      <Upload className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                        Import Score (匯入樂譜)
+                      </span>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                        Load JSON or Text notation file
+                      </span>
+                    </div>
+                  </button>
+
+                  {/* 2. New Blank Song Button */}
+                  {onStartFreshSong && (
+                    <button
+                      id="header-menu-new-song-btn"
+                      type="button"
+                      onClick={() => {
+                        setIsScoreActionMenuOpen(false);
+                        onStartFreshSong();
+                      }}
+                      className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 transition-colors cursor-pointer group"
+                    >
+                      <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center shrink-0 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700">
+                        <FilePlus2 className="w-3.5 h-3.5 text-amber-500" />
+                      </div>
+                      <div className="flex flex-col min-w-0">
+                        <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                          Create New Blank Song
+                        </span>
+                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                          Start fresh score (Key C, 4/4, 80 BPM)
+                        </span>
+                      </div>
+                    </button>
+                  )}
+
+                  {/* 3. Repertoire / Presets */}
+                  <button
+                    id="header-menu-repertoire-btn"
+                    type="button"
+                    onClick={() => {
+                      setIsScoreActionMenuOpen(false);
+                      onOpenImportExport('presets');
+                    }}
+                    className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 transition-colors cursor-pointer group"
+                  >
+                    <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center shrink-0 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700">
+                      <Library className="w-3.5 h-3.5 text-zinc-500" />
+                    </div>
+                    <div className="flex flex-col min-w-0">
+                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                        Score Repertoire & Presets
+                      </span>
+                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                        Browse factory scores and library
+                      </span>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -752,12 +870,30 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 type="button"
                 onClick={() => {
                   setIsStudioMenuOpen(false);
-                  onOpenImportExport();
+                  onOpenImportExport('presets');
                 }}
                 className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
               >
                 <Library className="w-4 h-4 text-amber-500 shrink-0" />
                 <span>Score Repertoire</span>
+              </button>
+
+              {/* Import Score */}
+              <button
+                id="studio-menu-import-score-btn"
+                type="button"
+                onClick={() => {
+                  setIsStudioMenuOpen(false);
+                  if (onOpenImportScore) {
+                    onOpenImportScore();
+                  } else {
+                    onOpenImportExport('import');
+                  }
+                }}
+                className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
+              >
+                <Upload className="w-4 h-4 text-amber-500 shrink-0" />
+                <span>Import Score</span>
               </button>
 
               {/* MIDI Export */}
@@ -768,10 +904,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     setIsStudioMenuOpen(false);
                     onOpenMidiExport();
                   }}
-                  className="flex items-center gap-2 p-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
+                  className="col-span-2 flex items-center justify-center gap-2 p-2.5 rounded-xl bg-zinc-100/80 hover:bg-zinc-200/80 dark:bg-zinc-850 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 border border-zinc-200 dark:border-zinc-750 text-xs font-bold transition-all cursor-pointer"
                 >
                   <Download className="w-4 h-4 text-amber-500 shrink-0" />
-                  <span>Export MIDI</span>
+                  <span>Export MIDI File</span>
                 </button>
               )}
             </div>

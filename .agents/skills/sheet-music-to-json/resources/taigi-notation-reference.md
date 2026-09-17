@@ -154,3 +154,76 @@ The conversion tool (`convert-sheet.mjs`) supports four primary input modalities
 - Direct Multimodal Agent Vision transcription with multi-page sequencing and strict schema validation.
 - Auto-detects key signatures, barlines, chords, grace notes, and Taigi lyrics directly without external API calls.
 
+---
+
+## 8. Extended Notation & Advanced Elements
+
+### A. Pre-Grace & Post-Grace Notes (依音 / 倚音)
+- **Pre-grace notes (前倚音 / acciaccatura)**:
+  Appears as small superscript notes before the principal note.
+  Represented in JSON as:
+  ```json
+  "preGraceNotes": [
+    { "pitch": 5, "octave": 0, "accidental": "" }
+  ]
+  ```
+  Text shorthand: `(5)1` or `(61)2` or `(#4)5`.
+- **Post-grace notes (後倚音)**:
+  Appears as small superscript notes after the principal note.
+  ```json
+  "postGraceNotes": [
+    { "pitch": 2, "octave": 0, "accidental": "" }
+  ]
+  ```
+  Text shorthand: `1(2)`.
+
+### B. Repeat Signs & Volta Bracket Endings (反覆記號與房子)
+- **Barline Types (`barlineType`)**:
+  - `single`: Standard measure bar `|`
+  - `double`: Section divider `||`
+  - `repeat_start`: Forward repeat bar `|:`
+  - `repeat_end`: Backward repeat bar `:|`
+  - `end`: Final double bar `|]`
+- **Volta Brackets (`voltaEnding`)**:
+  - 1st ending (1. ): `"voltaEnding": [1]`
+  - 2nd ending (2. ): `"voltaEnding": [2]`
+  - Combined ending (1. 2. ): `"voltaEnding": [1, 2]`
+  Text shorthand: `[Measure 16] Barline: repeat_end Volta: 1`
+
+### C. Counter-Melody / Obbligato (副旋律 / 助奏)
+- **`isPrelude: true`**: Denotes an instrumental prelude (前奏) or interlude (間奏) measure.
+- **`obbligatoText`**: Quick inline text representation of the secondary counter-melody (e.g. `"0 56 53 21 6 5"`).
+- **`obbligato`**: Secondary counter-melody note objects running parallel to the vocal melody.
+
+### D. Multi-Verse Lyrics (多段歌詞)
+When a song has multiple verses (e.g. 1st verse, 2nd verse, 3rd verse):
+- Root metadata:
+  - `"verseCount": 3` (1 to 5)
+  - `"verseDisplayOption": "stacked"` ("stacked" | "tabs" | "side_by_side")
+  - `"verseSettings"`: Per-verse styling or label overrides
+- Note-level storage:
+  - Primary verse in `note.lyric` (for backward compatibility and primary prompter)
+  - Multi-verse mapping in `note.lyricsByVerse`:
+    ```json
+    "lyricsByVerse": {
+      "1": { "hanlo": "獨夜無伴", "poj": "To̍k iā bô phōaⁿ" },
+      "2": { "hanlo": "開窗看月", "poj": "Khui thang khòaⁿ goe̍h" },
+      "3": { "hanlo": "月娘落山", "poj": "Goe̍h-niû lo̍h-soaⁿ" }
+    }
+    ```
+
+### E. Multiple Chords per Measure (`chords`)
+If harmonic movement changes mid-measure (e.g. F in beat 1, C7 in beat 3):
+- `"chord": "F"` (primary chord)
+- `"chords": ["F", "C7"]` or chords positioned per note
+
+### F. Playback Instrument Overrides (`instrument`)
+The app's Web Audio sound engine supports instrument timbres per note or track:
+- `piano` (default acoustic grand piano)
+- `flute` (pure breath woodwind)
+- `whistle` (clear pitch whistle)
+- `guitar` (plucked acoustic nylon guitar)
+- `synth` (analog lead synth)
+- `bell` (chime / glockenspiel)
+- `cello` (warm bowed string)
+
