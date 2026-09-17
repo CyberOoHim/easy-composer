@@ -524,6 +524,48 @@ describe('autoWrapSongMeasures', () => {
         'Should produce 3 lines: content line (1-2), consecutive empty line (3-5), and section badge line (6)'
       );
     });
+
+    it('Mode 3 (auto_wrap): strictly enforces capacity and keeps landscape measures inside sheet boundaries', async () => {
+      const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
+      const { PRESET_SONGS } = await import('../lib/presets.ts');
+      const bch = PRESET_SONGS[0];
+
+      // 1. In Landscape auto_wrap with standard iPad content width (~880px):
+      // No system should exceed 5 measures, and totalRequiredWidth of each system should stay within the line budget
+      const ipadSystems = groupMeasuresIntoSystems(bch.measures, '4/4', 5, 'auto_wrap', 'landscape', 880);
+      for (const sys of ipadSystems) {
+        assert.ok(
+          sys.measures.length <= 5,
+          `System should have at most 5 measures in landscape auto_wrap, got ${sys.measures.length}`
+        );
+        assert.ok(
+          sys.totalRequiredWidth <= 900,
+          `System totalRequiredWidth (${sys.totalRequiredWidth}) should comfortably fit in landscape canvas`
+        );
+      }
+
+      // Ensure no line has 6 measures (which previously caused measure 14 and 20 overflow)
+      const maxMeasuresInAnySystem = Math.max(...ipadSystems.map(s => s.measures.length));
+      assert.ok(maxMeasuresInAnySystem <= 5, 'Landscape auto_wrap must never pack 6 measures into a system');
+
+      // 2. In Landscape auto_wrap with default width (no maxLineWidth provided)
+      const defaultLandscapeSystems = groupMeasuresIntoSystems(bch.measures, '4/4', 5, 'auto_wrap', 'landscape');
+      for (const sys of defaultLandscapeSystems) {
+        assert.ok(
+          sys.measures.length <= 5,
+          `Default landscape auto_wrap system should not exceed 5 measures, got ${sys.measures.length}`
+        );
+      }
+
+      // 3. In Portrait auto_wrap: no system should exceed 4 measures
+      const portraitSystems = groupMeasuresIntoSystems(bch.measures, '4/4', 4, 'auto_wrap', 'portrait', 760);
+      for (const sys of portraitSystems) {
+        assert.ok(
+          sys.measures.length <= 4,
+          `Portrait auto_wrap system should not exceed 4 measures, got ${sys.measures.length}`
+        );
+      }
+    });
   });
 });
 

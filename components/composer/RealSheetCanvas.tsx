@@ -553,17 +553,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   );
   const currentNote = currentMeasure?.notes[currentNIdx];
 
-  // Engrave score into systems with horizontal continuous beams, 3 wrap modes, and orientation budget
-  const systems = useMemo(() => {
-    return groupMeasuresIntoSystems(
-      song.measures,
-      song.timeSignature || '4/4',
-      song.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4),
-      sheetWrapMode,
-      sheetOrientation
-    );
-  }, [song.measures, song.timeSignature, song.notesPerLine, sheetWrapMode, sheetOrientation]);
-
   // Standard realistic physical sheet widths (A4)
   // Portrait: 210mm (~896px / max-w-4xl)
   // Landscape: 297mm (~1240px / max-w-[1240px])
@@ -604,6 +593,22 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     if (viewportAvailWidth > 0 && viewportAvailWidth < 768) return 48;
     return 64;
   }, [viewportAvailWidth]);
+
+  const availableContentWidth = useMemo(() => {
+    return Math.max(300, Math.floor(standardSheetWidth - paperPadding * 2));
+  }, [standardSheetWidth, paperPadding]);
+
+  // Engrave score into systems with horizontal continuous beams, 3 wrap modes, and orientation budget
+  const systems = useMemo(() => {
+    return groupMeasuresIntoSystems(
+      song.measures,
+      song.timeSignature || '4/4',
+      song.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4),
+      sheetWrapMode,
+      sheetOrientation,
+      availableContentWidth
+    );
+  }, [song.measures, song.timeSignature, song.notesPerLine, sheetWrapMode, sheetOrientation, availableContentWidth]);
 
   // Natural measure width for no_wrap mode (spacious, collision-free, unstretched)
   const getNaturalMeasureWidth = useCallback((engravedM: EngravedMeasure) => {
@@ -2496,12 +2501,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         : undefined,
                       minWidth: sheetWrapMode === 'no_wrap'
                         ? `${Math.max(120, Math.round((engravedM.requiredWidth || 120) * 1.02))}px`
-                        : sheetWrapMode === 'auto_wrap'
-                        ? `${Math.min(200, Math.round((engravedM.requiredWidth || 75) * 0.75))}px`
                         : 0,
                     }}
                     className={`relative ${
-                      sheetWrapMode === 'no_wrap' ? 'flex-none' : 'flex-1'
+                      sheetWrapMode === 'no_wrap' ? 'flex-none' : 'flex-1 min-w-0'
                     } flex flex-col justify-between px-1 sm:px-1.5 pt-1 pb-0.5 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
                       isSelectedMeasure
                         ? sheetTheme === 'dark' ? 'bg-amber-950/30' : 'bg-amber-50/40'

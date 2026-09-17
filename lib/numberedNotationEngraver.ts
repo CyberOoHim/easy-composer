@@ -551,14 +551,17 @@ export function groupMeasuresIntoSystems(
   timeSignature: TimeSignature,
   defaultMeasuresPerSystem = 4,
   wrapMode: SheetWrapMode = 'no_wrap',
-  orientation: SheetOrientation = 'portrait'
+  orientation: SheetOrientation = 'portrait',
+  maxLineWidth?: number
 ): EngravedSystem[] {
   const systems: EngravedSystem[] = [];
 
   let currentSystem: EngravedMeasure[] = [];
   let currentSystemWidth = 0;
-  // Content line width budgets: ~800px for Portrait (A4 210mm), ~1160px for Landscape (A4 297mm)
-  const MAX_SYSTEM_LINE_WIDTH = orientation === 'landscape' ? 1160 : 800;
+  // Content line width budgets: ~760px for Portrait (A4 896px minus padding), ~980px for Landscape (A4 1240px minus padding)
+  const MAX_SYSTEM_LINE_WIDTH = maxLineWidth
+    ? Math.max(300, maxLineWidth - 10)
+    : (orientation === 'landscape' ? 980 : 760);
   const effectiveDefaultMeasures =
     defaultMeasuresPerSystem || (orientation === 'landscape' ? 5 : 4);
 
@@ -574,17 +577,20 @@ export function groupMeasuresIntoSystems(
         const isMajorSection = Boolean(measure.section && measure.section.trim());
         const sectionBreak = isMajorSection && currentSystem.length >= 2;
 
+        // Break if current system has reached target measures per line (strict capacity limit)
+        const reachesCapacity = currentSystem.length >= effectiveDefaultMeasures;
+
         // Break if adding this measure would exceed the line budget (preventing collision & overflow)
         const exceedsWidth = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH;
 
         // In auto_wrap, respect previous measure's line break if line has reached target capacity
-        // or line width has reached at least 90% of sheet width budget
+        // or line width has reached at least 85% of sheet width budget
         const prevHadBreak = Boolean(
           currentSystem[currentSystem.length - 1].isLineBreak &&
-          (currentSystem.length >= effectiveDefaultMeasures || currentSystemWidth >= MAX_SYSTEM_LINE_WIDTH * 0.90)
+          (currentSystem.length >= effectiveDefaultMeasures || currentSystemWidth >= MAX_SYSTEM_LINE_WIDTH * 0.85)
         );
 
-        if (sectionBreak || exceedsWidth || prevHadBreak) {
+        if (sectionBreak || reachesCapacity || exceedsWidth || prevHadBreak) {
           shouldBreakBefore = true;
         }
       }
