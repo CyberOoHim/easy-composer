@@ -1055,15 +1055,18 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   // Pitch setter with NoteInputMode support
   const handleSetPitch = useCallback(
     (p: PitchNumber) => {
+      const isEmpty = p === 'empty';
       if (noteInputMode === 'replace') {
         updateCurrentNote(note => ({
           ...note,
           pitch: p,
+          duration: isEmpty ? (0 as NoteDuration) : (note.duration <= 0 ? (1 as NoteDuration) : note.duration),
         }));
       } else if (noteInputMode === 'progressive_replace') {
         updateCurrentNote(note => ({
           ...note,
           pitch: p,
+          duration: isEmpty ? (0 as NoteDuration) : (note.duration <= 0 ? (1 as NoteDuration) : note.duration),
         }));
         stepToNextNote();
       } else if (noteInputMode === 'progressive_insert') {
@@ -1073,7 +1076,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
           pitch: p,
           octave: currentNote?.octave || 0,
-          duration: currentNote?.duration || 1,
+          duration: isEmpty ? (0 as NoteDuration) : (currentNote?.duration && currentNote.duration > 0 ? currentNote.duration : 1),
           lyric: {},
         };
         const newNotes = [...targetM.notes];
@@ -1524,6 +1527,11 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         if (e.key === '0') {
           e.preventDefault();
           handleSetPitch(0);
+          return;
+        }
+        if (e.key === '`' || e.key === '_' || e.key === '␣') {
+          e.preventDefault();
+          handleSetPitch('empty');
           return;
         }
         if (e.key === '-') {

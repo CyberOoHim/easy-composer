@@ -28,6 +28,7 @@ const SHORTCUT_GROUPS: { title: string; items: ShortcutItem[] }[] = [
     items: [
       { keyDesc: '1 ~ 7', action: 'Type pitch (Numbered notation 1 to 7)', badge: 'Pitch' },
       { keyDesc: '0', action: 'Rest note (0)', badge: 'Rest' },
+      { keyDesc: '` / _ / ␣', action: 'Empty / zero-beat spacer note (␣) [0 beats]', badge: 'Empty' },
       { keyDesc: '-', action: 'Sustain dash / extend note duration (-)', badge: 'Dash' },
       { keyDesc: '/', action: 'Halve note duration (1 ➔ 1/2 ➔ 1/4)' },
       { keyDesc: '*', action: 'Double note duration (1/4 ➔ 1/2 ➔ 1 ➔ 2 ➔ 4)' },

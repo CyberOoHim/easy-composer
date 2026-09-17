@@ -1028,9 +1028,18 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 type="button"
                 onClick={() => onSetPitch(0)}
                 className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-mono font-black text-sm sm:text-base flex items-center justify-center text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
-                title="Rest note (0)"
+                title="Rest note (0) [Key 0]"
               >
                 0
+              </button>
+              <button
+                id="floating-hud-pitch-empty-btn"
+                type="button"
+                onClick={() => onSetPitch('empty')}
+                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-mono font-black text-sm sm:text-base flex items-center justify-center text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
+                title="Empty / Zero-beat spacer (␣) [0 beats] (Key ` / _)"
+              >
+                ␣
               </button>
               <button
                 id="floating-hud-pitch-dash-btn"
