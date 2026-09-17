@@ -148,10 +148,44 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
   const [isStudioMenuOpen, setIsStudioMenuOpen] = useState<boolean>(false);
   const [isScoreActionMenuOpen, setIsScoreActionMenuOpen] = useState<boolean>(false);
+  const [scoreMenuPos, setScoreMenuPos] = useState<{ top: number; left: number }>({ top: 48, left: 180 });
+  const scoreBtnRef = useRef<HTMLButtonElement | null>(null);
   const [defaultRestoreNotice, setDefaultRestoreNotice] = useState<string | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isStudioOpen = isStudioMenuOpen && !isAnyModalOpen;
   const isScoreMenuOpen = isScoreActionMenuOpen && !isAnyModalOpen;
+
+  const handleToggleScoreMenu = useCallback((e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (!isScoreActionMenuOpen && scoreBtnRef.current) {
+      const rect = scoreBtnRef.current.getBoundingClientRect();
+      setScoreMenuPos({
+        top: Math.round(rect.bottom + 6),
+        left: Math.max(8, Math.min(Math.round(rect.left), typeof window !== 'undefined' ? window.innerWidth - 280 : 180)),
+      });
+    }
+    setIsScoreActionMenuOpen(prev => !prev);
+  }, [isScoreActionMenuOpen]);
+
+  // Keep score menu aligned on window resize or scroll
+  useEffect(() => {
+    if (!isScoreMenuOpen) return;
+    const updatePos = () => {
+      if (scoreBtnRef.current) {
+        const rect = scoreBtnRef.current.getBoundingClientRect();
+        setScoreMenuPos({
+          top: Math.round(rect.bottom + 6),
+          left: Math.max(8, Math.min(Math.round(rect.left), window.innerWidth - 280)),
+        });
+      }
+    };
+    window.addEventListener('resize', updatePos);
+    window.addEventListener('scroll', updatePos, { passive: true });
+    return () => {
+      window.removeEventListener('resize', updatePos);
+      window.removeEventListener('scroll', updatePos);
+    };
+  }, [isScoreMenuOpen]);
 
   const showNotice = useCallback((msg: string) => {
     if (noticeTimerRef.current) clearTimeout(noticeTimerRef.current);
@@ -266,10 +300,11 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             {/* New / Import Score Menu Quick Trigger */}
             <div className="relative shrink-0 flex items-center">
               <button
+                ref={scoreBtnRef}
                 id="header-new-song-btn"
                 type="button"
-                onClick={() => setIsScoreActionMenuOpen(prev => !prev)}
-                className={`flex items-center justify-center p-1 rounded-lg border text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 w-7.5 sm:h-8 sm:w-8 shrink-0 touch-manipulation ${
+                onClick={handleToggleScoreMenu}
+                className={`relative z-10 flex items-center justify-center p-1 rounded-lg border text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 w-7.5 sm:h-8 sm:w-8 shrink-0 touch-manipulation ${
                   isScoreMenuOpen
                     ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs'
                     : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750'
@@ -279,113 +314,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               >
                 <FilePlus2 className={`w-3.5 h-3.5 shrink-0 ${isScoreMenuOpen ? 'text-zinc-950' : 'text-amber-500'}`} />
               </button>
-
-              {/* Click-away backdrop */}
-              {isScoreMenuOpen && (
-                <div
-                  id="header-score-menu-backdrop"
-                  className="fixed inset-0 z-40 bg-black/20 dark:bg-black/40 backdrop-blur-[0.5px]"
-                  onClick={() => setIsScoreActionMenuOpen(false)}
-                />
-              )}
-
-              {/* Popover Dropdown under the button */}
-              {isScoreMenuOpen && (
-                <div
-                  id="header-score-menu-popover"
-                  role="menu"
-                  aria-label="Score Options"
-                  className="absolute left-0 top-full mt-1.5 z-50 w-64 p-2 bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-1 text-left"
-                >
-                  <div className="px-2.5 py-1.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                      Score Actions / 樂譜操作
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setIsScoreActionMenuOpen(false)}
-                      className="p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  {/* 1. Import Score Button */}
-                  <button
-                    id="header-menu-import-score-btn"
-                    type="button"
-                    onClick={() => {
-                      setIsScoreActionMenuOpen(false);
-                      if (onOpenImportScore) {
-                        onOpenImportScore();
-                      } else {
-                        onOpenImportExport('import');
-                      }
-                    }}
-                    className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-amber-500/10 text-zinc-800 dark:text-zinc-100 hover:text-amber-700 dark:hover:text-amber-400 transition-colors cursor-pointer group"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-colors">
-                      <Upload className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                        Import Score (匯入樂譜)
-                      </span>
-                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
-                        Load JSON or Text notation file
-                      </span>
-                    </div>
-                  </button>
-
-                  {/* 2. New Blank Song Button */}
-                  {onStartFreshSong && (
-                    <button
-                      id="header-menu-new-song-btn"
-                      type="button"
-                      onClick={() => {
-                        setIsScoreActionMenuOpen(false);
-                        onStartFreshSong();
-                      }}
-                      className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 transition-colors cursor-pointer group"
-                    >
-                      <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center shrink-0 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700">
-                        <FilePlus2 className="w-3.5 h-3.5 text-amber-500" />
-                      </div>
-                      <div className="flex flex-col min-w-0">
-                        <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                          Create New Blank Song
-                        </span>
-                        <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
-                          Start fresh score (Key C, 4/4, 80 BPM)
-                        </span>
-                      </div>
-                    </button>
-                  )}
-
-                  {/* 3. Repertoire / Presets */}
-                  <button
-                    id="header-menu-repertoire-btn"
-                    type="button"
-                    onClick={() => {
-                      setIsScoreActionMenuOpen(false);
-                      onOpenImportExport('presets');
-                    }}
-                    className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 transition-colors cursor-pointer group"
-                  >
-                    <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center shrink-0 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700">
-                      <Library className="w-3.5 h-3.5 text-zinc-500" />
-                    </div>
-                    <div className="flex flex-col min-w-0">
-                      <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                        Score Repertoire & Presets
-                      </span>
-                      <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
-                        Browse factory scores and library
-                      </span>
-                    </div>
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -1030,6 +958,117 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Click-away backdrop for Score Action Menu */}
+      {isScoreMenuOpen && (
+        <div
+          id="header-score-menu-backdrop"
+          className="fixed inset-0 z-40 bg-black/25 dark:bg-black/45 backdrop-blur-[0.5px] animate-in fade-in duration-150"
+          onClick={() => setIsScoreActionMenuOpen(false)}
+        />
+      )}
+
+      {/* Score Actions Popover Card - Positioned below the button, never clipped */}
+      {isScoreMenuOpen && (
+        <div
+          id="header-score-menu-popover"
+          role="menu"
+          aria-label="Score Options"
+          style={{
+            top: `${scoreMenuPos.top}px`,
+            left: `${scoreMenuPos.left}px`,
+          }}
+          className="fixed z-50 w-68 sm:w-72 p-2 bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-150 flex flex-col gap-1 text-left"
+        >
+          <div className="px-2.5 py-1.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+              Score Actions / 樂譜操作
+            </span>
+            <button
+              type="button"
+              onClick={() => setIsScoreActionMenuOpen(false)}
+              className="p-0.5 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 rounded cursor-pointer"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          {/* 1. Import Score Button */}
+          <button
+            id="header-menu-import-score-btn"
+            type="button"
+            onClick={() => {
+              setIsScoreActionMenuOpen(false);
+              if (onOpenImportScore) {
+                onOpenImportScore();
+              } else {
+                onOpenImportExport('import');
+              }
+            }}
+            className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-amber-500/10 text-zinc-800 dark:text-zinc-100 hover:text-amber-700 dark:hover:text-amber-400 transition-colors cursor-pointer group"
+          >
+            <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-colors">
+              <Upload className="w-3.5 h-3.5" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                Import Score (匯入樂譜)
+              </span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                Load JSON or Text notation file
+              </span>
+            </div>
+          </button>
+
+          {/* 2. New Blank Song Button */}
+          {onStartFreshSong && (
+            <button
+              id="header-menu-new-song-btn"
+              type="button"
+              onClick={() => {
+                setIsScoreActionMenuOpen(false);
+                onStartFreshSong();
+              }}
+              className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 transition-colors cursor-pointer group"
+            >
+              <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center shrink-0 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700">
+                <FilePlus2 className="w-3.5 h-3.5 text-amber-500" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                  Create New Blank Song
+                </span>
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                  Start fresh score (Key C, 4/4, 80 BPM)
+                </span>
+              </div>
+            </button>
+          )}
+
+          {/* 3. Repertoire / Presets */}
+          <button
+            id="header-menu-repertoire-btn"
+            type="button"
+            onClick={() => {
+              setIsScoreActionMenuOpen(false);
+              onOpenImportExport('presets');
+            }}
+            className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-100 transition-colors cursor-pointer group"
+          >
+            <div className="w-7 h-7 rounded-lg bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 flex items-center justify-center shrink-0 group-hover:bg-zinc-200 dark:group-hover:bg-zinc-700">
+              <Library className="w-3.5 h-3.5 text-zinc-500" />
+            </div>
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                Score Repertoire & Presets
+              </span>
+              <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                Browse factory scores and library
+              </span>
+            </div>
+          </button>
         </div>
       )}
 

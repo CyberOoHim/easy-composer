@@ -348,15 +348,13 @@ describe('Enhanced Delimiter List & Zero-Beat Empty Note Conversion', () => {
         assert.equal(hasEmpty0Beat, false, `Measure ${m.measureNumber} in 雨夜花 should not contain fake 0-beat newline notes`);
       }
 
-      // 3. 伊是咱的寶貝: 8 systems of 2 measures each, zero trailing \n in lyrics
-      const isl = PRESET_SONGS[2];
-      const islSystems = groupMeasuresIntoSystems(isl.measures, isl.timeSignature, 4, 'no_wrap');
-      assert.equal(islSystems.length, 8, '伊是咱的寶貝 should produce exactly 8 systems in no_wrap mode');
-      assert.ok(
-        islSystems.every(s => s.measures.length === 2),
-        'Every system in 伊是咱的寶貝 must have exactly 2 measures'
-      );
-      for (const m of isl.measures) {
+      // 3. 四季紅: 18 systems in no_wrap mode, zero trailing \n in lyrics
+      const skh = PRESET_SONGS[2];
+      assert.equal(skh.id, 'su-ki-hong', 'Third preset song must be 四季紅');
+      const skhSystems = groupMeasuresIntoSystems(skh.measures, skh.timeSignature, 4, 'no_wrap');
+      assert.equal(skhSystems.length, 18, '四季紅 should produce exactly 18 systems in no_wrap mode');
+      assert.equal(skh.measures.length, 34, '四季紅 should have 34 measures');
+      for (const m of skh.measures) {
         for (const n of m.notes) {
           assert.equal(/[\n\r]/.test(n.lyric?.hanlo || ''), false, `Note ${n.id} hanlo must not contain newlines`);
           assert.equal(/[\n\r]/.test(n.lyric?.poj || ''), false, `Note ${n.id} poj must not contain newlines`);
