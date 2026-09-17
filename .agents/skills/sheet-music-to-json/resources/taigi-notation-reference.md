@@ -58,7 +58,9 @@ Mappings for enharmonics:
 
 ---
 
-## 3. Taiwanese Hokkien Lyrics (Taigi 歌詞)
+## 3. Taiwanese Hokkien Lyrics (Taigi 歌詞) - Mandatory Output Requirement
+
+> **Note on Mandatory Output JSON Elements**: The output Song JSON must strictly include **`title`**, **`measures`**, and **`lyrics`**. Every vocal score must have aligned lyrics transcribed for all melody notes.
 
 Each note with a sung syllable holds a `lyric` object:
 ```json

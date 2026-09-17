@@ -41,15 +41,19 @@ function validateSongFile(filePath) {
   const errors = [];
   const warnings = [];
 
-  // Root fields validation
+  // Root fields validation (Mandatory title, measures, and core metadata)
   if (!data.id || typeof data.id !== 'string') errors.push('Missing or invalid root "id" (string required)');
-  if (!data.title || typeof data.title !== 'string') errors.push('Missing or invalid root "title" (string required)');
+  if (!data.title || typeof data.title !== 'string' || data.title.trim() === '') {
+    errors.push('Missing or empty mandatory root "title" (non-empty string required)');
+  }
   if (!VALID_KEYS.includes(data.key)) errors.push(`Invalid root "key": "${data.key}". Expected one of: ${VALID_KEYS.join(', ')}`);
   if (!VALID_TIME_SIGS.includes(data.timeSignature)) errors.push(`Invalid root "timeSignature": "${data.timeSignature}". Expected one of: ${VALID_TIME_SIGS.join(', ')}`);
   if (typeof data.bpm !== 'number' || data.bpm <= 0) errors.push(`Invalid root "bpm": ${data.bpm}. Expected a positive number`);
   if (data.orientation && !['portrait', 'landscape'].includes(data.orientation)) errors.push(`Invalid "orientation": "${data.orientation}". Expected "portrait" or "landscape"`);
   if (data.verseCount !== undefined && (typeof data.verseCount !== 'number' || data.verseCount < 1 || data.verseCount > 5)) errors.push(`Invalid "verseCount": ${data.verseCount}. Expected 1..5`);
-  if (!Array.isArray(data.measures) || data.measures.length === 0) errors.push('Missing or empty root "measures" array');
+  if (!Array.isArray(data.measures) || data.measures.length === 0) {
+    errors.push('Missing or empty mandatory root "measures" array (at least 1 measure required)');
+  }
 
   if (errors.length > 0) {
     console.error('\n❌ Critical Schema Errors Found:');
@@ -113,6 +117,11 @@ function validateSongFile(filePath) {
       warnings.push(`Measure ${mNum} total duration is ${measureBeats.toFixed(2)} beats, expected ${expectedBeats} beats.`);
     }
   });
+
+  // Mandatory lyrics check across the song
+  if (totalLyrics === 0) {
+    errors.push('Missing mandatory lyrics in output JSON: The song must contain lyrics ("hanlo" and "poj") aligned to melody notes');
+  }
 
   // App import simulation check
   try {
@@ -180,13 +189,13 @@ function validateSongFile(filePath) {
   }
 
   console.log(`\n📊 Analysis Results:`);
-  console.log(`   Title:             ${data.title} ${data.subtitle ? `(${data.subtitle})` : ''}`);
-  console.log(`   Composer / Lyric:  ${data.composer || '—'} / ${data.lyricist || '—'}`);
-  console.log(`   Key & Time:        Key ${data.key}, Time ${data.timeSignature}, ${data.bpm} BPM`);
-  console.log(`   Measures count:    ${data.measures.length}`);
-  console.log(`   Notes count:       ${totalNotes}`);
-  console.log(`   Syllables count:   ${totalLyrics}`);
-  console.log(`   Karaoke phrases:   ${phraseCount || 1}`);
+  console.log(`   Title (Mandatory):    ✓ ${data.title} ${data.subtitle ? `(${data.subtitle})` : ''}`);
+  console.log(`   Measures (Mandatory): ✓ ${data.measures.length} measures`);
+  console.log(`   Lyrics (Mandatory):   ✓ ${totalLyrics} syllables`);
+  console.log(`   Composer / Lyricist:  ${data.composer || '—'} / ${data.lyricist || '—'}`);
+  console.log(`   Key & Time:           Key ${data.key}, Time ${data.timeSignature}, ${data.bpm} BPM`);
+  console.log(`   Notes count:          ${totalNotes}`);
+  console.log(`   Karaoke phrases:      ${phraseCount || 1}`);
 
   if (karaokeTips.length > 0) {
     console.log(`\n🎤 Karaoke Readability Guidance (${karaokeTips.length}):`);

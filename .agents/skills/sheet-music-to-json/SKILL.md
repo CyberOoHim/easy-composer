@@ -4,12 +4,22 @@ description: >
   Converts musical scores and notations from Text-based Numbered Notation (簡譜)
   with lyrics (.txt, .md), Standard MIDI files (.mid, .midi), scanned sheet music
   images (PNG, JPG, WEBP), and PDF documents into the standardized Song JSON format
-  qualified for direct import into the Taigi Composer / Karaoke application.
+  (strictly containing title, measures, and lyrics) qualified for direct import into
+  the Taigi Composer / Karaoke application.
 ---
 
 # Sheet Music & Score to JSON Conversion Skill
 
 This skill enables agents and automated workflows to take musical scores from diverse input formats—including **text-based numbered notation with lyrics**, **standard MIDI files**, **scanned sheet images**, and **multi-page PDF documents**—and convert them into 100% compliant Song JSON for instant playback, rehearsal, karaoke stage rendering, and interactive editing in the Taigi Composer app.
+
+> [!IMPORTANT]
+> **Mandatory Output JSON Requirements**:
+> Every generated or converted Song JSON **MUST** contain:
+> 1. **`title`**: Non-empty song title string (e.g. `"望春風"`).
+> 2. **`measures`**: Non-empty chronological array of measure objects containing musical notes, pitches, and durations.
+> 3. **`lyrics`**: Aligned lyrics for all vocal melody notes, including both `hanlo` (漢字/漢羅) and `poj` (白話字 with tone marks) in each note's `lyric` object (or multi-verse `lyricsByVerse`).
+>
+> Any output JSON lacking a title, measures, or lyrics is incomplete and strictly invalid.
 
 ---
 
@@ -106,6 +116,18 @@ The Antigravity Agent inspects sheet music files directly without calling any ex
 ---
 
 ## 3. The Target Song JSON Schema
+
+### Mandatory Output Requirements: `title`, `measures`, and `lyrics`
+
+Every generated or converted Song JSON **MUST** contain the following three core components:
+
+| Mandatory Field | Location in JSON | Type | Description & Enforcement |
+| :--- | :--- | :--- | :--- |
+| **`title`** | Root `data.title` | `string` (non-empty) | **Song Title**: Must be present as a descriptive, non-empty string (e.g. `"望春風"`). Output missing `title` will fail validation. |
+| **`measures`** | Root `data.measures` | `Measure[]` (non-empty) | **Chronological Measures**: Must contain at least 1 measure with an array of notes capturing the melodic pitch, octave, and rhythm. |
+| **`lyrics`** | `data.measures[].notes[].lyric` | `LyricSyllable` | **Aligned Lyrics**: Sung notes across the measures must contain transcribed lyrics with both `hanlo` (漢字/漢羅) and `poj` (白話字 with tone marks) or multi-verse `lyricsByVerse`. Songs without lyrics cannot be performed in Karaoke or Rehearsal mode and will fail validation. |
+
+---
 
 The application requires a JSON file adhering to the `Song` interface (`types/song.ts`):
 
@@ -218,10 +240,12 @@ $$\sum \text{duration} = \text{Expected Beats per Measure}$$
 
 Use `--auto-fix-rhythm` to automatically insert padding rests into any measure that falls short of the expected beats.
 
-### D. Lyrics Extraction (Taigi / Taiwanese Hokkien)
+### D. Lyrics Extraction (Taigi / Taiwanese Hokkien) - Mandatory
+- **Lyrics are strictly mandatory in the output JSON**: Every vocal score must have complete lyrics transcribed and aligned with melody notes.
 - Transcribe **both** `hanlo` (漢字/漢羅) and `poj` (白話字/Pe̍h-ōe-jī).
 - The Agent directly provides both `hanlo` (漢字/漢羅) and accurate `poj` (白話字) with official tone diacritics using its Taiwanese Hokkien linguistic knowledge, without calling external APIs.
 - For notes that continue a sustained syllable under a tie or slur, set `lyric: { hanlo: "—", poj: "—" }` or `{}`.
+- An output JSON lacking lyrics will fail validation checks.
 
 ### E. Verse & Phrase Segmentation for Karaoke Readability (Short While Meaningful)
 
@@ -249,12 +273,12 @@ To deliver an optimal singing and reading experience, **the skill must split ver
 
 ### Workflow A: Visual Sheet Music (Images & PDF) and Freeform Text (Direct Agent Handling)
 1. **Step 1 - Inspect**: The Agent inspects the visual score or freeform score directly using `view_file`.
-2. **Step 2 - Transcribe**: The Agent decodes key, meter, measures, Numbered Notation pitch numbers, durations, ties/slurs, and bilingual lyrics (Hanlo + POJ tone marks), structuring karaoke phrases.
-3. **Step 3 - Write & Balance**: The Agent writes the Song JSON directly, or passes draft JSON through the sanitizer to auto-pad deficit measures:
+2. **Step 2 - Transcribe**: The Agent decodes key, meter, measures, Numbered Notation pitch numbers, durations, ties/slurs, and bilingual lyrics (Hanlo + POJ tone marks), structuring karaoke phrases. The output JSON **must strictly contain `title`, `measures`, and `lyrics`**.
+3. **Step 3 - Write & Balance**: The Agent writes the Song JSON directly (ensuring `title`, `measures`, and `lyrics` are all present and populated), or passes draft JSON through the sanitizer to auto-pad deficit measures:
    ```bash
    node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs draft.json --auto-fix-rhythm -o my-song.taigi.json
    ```
-4. **Step 4 - Validate**:
+4. **Step 4 - Validate**: Run `validate-song-json.mjs` to verify `title`, `measures`, `lyrics`, and rhythm integrity:
    ```bash
    node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs ./my-song.taigi.json
    ```

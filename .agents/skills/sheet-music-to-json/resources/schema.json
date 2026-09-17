@@ -1,7 +1,7 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "TaigiSong",
-  "description": "JSON schema for Taigi Numbered Notation score format compatible with the Taigi Composer app.",
+  "description": "JSON schema for Taigi Numbered Notation score format compatible with the Taigi Composer app. The output JSON must strictly contain title, measures, and lyrics.",
   "type": "object",
   "required": ["id", "title", "key", "timeSignature", "bpm", "measures"],
   "properties": {
@@ -11,7 +11,7 @@
     },
     "title": {
       "type": "string",
-      "description": "Song title (e.g. 望春風)"
+      "description": "Song title (e.g. 望春風) - Mandatory non-empty string"
     },
     "subtitle": {
       "type": "string",
@@ -85,7 +85,7 @@
     },
     "measures": {
       "type": "array",
-      "description": "List of measures in chronological performance order",
+      "description": "List of measures in chronological performance order - Mandatory non-empty array with notes and aligned lyrics",
       "items": {
         "type": "object",
         "required": ["id", "measureNumber", "notes"],
