@@ -183,8 +183,8 @@ describe('Enhanced Delimiter List & Zero-Beat Empty Note Conversion', () => {
   });
 
   describe('No Wrap Mode Line Split Triggers (Delimiters & Newline Breaks)', () => {
-    it('triggers line split on delimiters: ， and 。 (and ascii , and .)', () => {
-      const delimiters = ['，', '。', ',', '.'];
+    it('triggers line split on delimiters: ，, 。, ！, ？ (and ascii ,, ., !, ?)', () => {
+      const delimiters = ['，', '。', '！', '？', ',', '.', '!', '?'];
       for (const d of delimiters) {
         const note: NumberedNotationNote = {
           id: 'n-delim',
@@ -226,7 +226,7 @@ describe('Enhanced Delimiter List & Zero-Beat Empty Note Conversion', () => {
     });
 
     it('triggers line split on lyric syllables with attached delimiters or newlines', () => {
-      const attachedDelims = ['koa，', 'koa,', 'koa。', 'koa.', '歌，', '歌。'];
+      const attachedDelims = ['koa，', 'koa,', 'koa。', 'koa.', 'koa！', 'koa!', 'koa？', 'koa?', '歌，', '歌。', '歌！', '歌？'];
       for (const word of attachedDelims) {
         const note: NumberedNotationNote = {
           id: 'n-attached-delim',

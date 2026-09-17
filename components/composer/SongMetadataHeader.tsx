@@ -27,6 +27,7 @@ import {
   setStoredAutoTransposeChords,
   getStoredSyncAllMeasures,
   setStoredSyncAllMeasures,
+  getStoredSheetWrapMode,
   SETTINGS_RESET_EVENT,
 } from '@/lib/storage';
 import {
@@ -926,8 +927,13 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   value={song.notesPerLine || (song.orientation === 'landscape' ? 5 : 4)}
                   onChange={e => {
                     const newNotes = parseInt(e.target.value, 10) || (song.orientation === 'landscape' ? 5 : 4);
-                    const rewrapped = autoWrapSongMeasures(song, newNotes, song.orientation);
-                    onUpdateSong({ ...rewrapped, notesPerLine: newNotes });
+                    const currentWrapMode = getStoredSheetWrapMode('no_wrap');
+                    if (currentWrapMode === 'no_wrap') {
+                      onUpdateSong({ ...song, notesPerLine: newNotes });
+                    } else {
+                      const rewrapped = autoWrapSongMeasures(song, newNotes, song.orientation);
+                      onUpdateSong({ ...rewrapped, notesPerLine: newNotes });
+                    }
                   }}
                   className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors cursor-pointer"
                 >
@@ -970,8 +976,13 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                     } else if (next === 'portrait' && (!nextNotes || nextNotes === 5 || nextNotes === 7)) {
                       nextNotes = 4;
                     }
-                    const rewrapped = autoWrapSongMeasures(song, nextNotes, next);
-                    onUpdateSong({ ...rewrapped, notesPerLine: nextNotes, orientation: next });
+                    const currentWrapMode = getStoredSheetWrapMode('no_wrap');
+                    if (currentWrapMode === 'no_wrap') {
+                      onUpdateSong({ ...song, notesPerLine: nextNotes, orientation: next });
+                    } else {
+                      const rewrapped = autoWrapSongMeasures(song, nextNotes, next);
+                      onUpdateSong({ ...rewrapped, notesPerLine: nextNotes, orientation: next });
+                    }
                   }}
                   className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors cursor-pointer"
                 >

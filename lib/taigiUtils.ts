@@ -778,7 +778,7 @@ export function isNewlineBreak(str?: string): boolean {
 
 /**
  * Checks if a note contains a no-wrap line-split trigger:
- * - Delimiters: '，' and '。' (and ascii ',' and '.')
+ * - Delimiters: '，', '。', '！', '？' (and ascii ',', '.', '!', '?')
  * - Newline verse breaks: '↵', '\n', '\r'
  * - EXCLUDED: Whitespace spacers ('␣', ' ')
  */
@@ -815,8 +815,8 @@ export function isNoWrapLineSplitTrigger(note: NumberedNotationNote | null | und
       continue;
     }
 
-    // Delimiters: ， and 。 (and ascii , / .)
-    if (/[，。,]|\.(?!\w)/.test(text)) {
+    // Delimiters: ，, 。, ！, ？ (and ascii , . ! ?)
+    if (/[，。！？,!?]|\.(?!\w)/.test(text)) {
       return true;
     }
   }
@@ -827,7 +827,10 @@ export function isNoWrapLineSplitTrigger(note: NumberedNotationNote | null | und
     if (/[\n\r↵]/.test(annot)) {
       return true;
     }
-    if (annot === '，' || annot === '。' || annot === ',' || annot === '.') {
+    if (
+      annot === '，' || annot === '。' || annot === '！' || annot === '？' ||
+      annot === ',' || annot === '.' || annot === '!' || annot === '?'
+    ) {
       return true;
     }
   }

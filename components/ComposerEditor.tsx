@@ -1267,13 +1267,17 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       nextNotes = 4;
     }
 
-    // Re-wrap song measures and update line breaks for the new orientation
-    const rewrapped = autoWrapSongMeasures(song, nextNotes, next);
-    handleUpdateSong({ ...rewrapped, notesPerLine: nextNotes, orientation: next });
+    // Only re-wrap measures if NOT in no_wrap mode (preserve delimiter-based and manual line breaks)
+    if (sheetWrapMode === 'no_wrap') {
+      handleUpdateSong({ ...song, notesPerLine: nextNotes, orientation: next });
+    } else {
+      const rewrapped = autoWrapSongMeasures(song, nextNotes, next);
+      handleUpdateSong({ ...rewrapped, notesPerLine: nextNotes, orientation: next });
+    }
 
     const targetBars = nextNotes || (next === 'landscape' ? 5 : 4);
     showNotice(`Orientation: ${next === 'portrait' ? `Portrait (210×297mm · ${targetBars} bars/line)` : `Landscape (297×210mm · ${targetBars} bars/line)`}`);
-  }, [sheetOrientation, song, handleUpdateSong, showNotice]);
+  }, [sheetOrientation, song, sheetWrapMode, handleUpdateSong, showNotice]);
 
   // Auto wrap song measures to fit within the realistic sheet
   const handleAutoWrapMeasures = useCallback(() => {

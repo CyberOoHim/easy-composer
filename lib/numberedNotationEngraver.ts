@@ -605,10 +605,10 @@ export function groupMeasuresIntoSystems(
       // - Manual line break on the previous measure (measure.isLineBreak)
       // - Delimiter barlines on previous measure ('end', 'repeat_end', 'double')
       // - Section start delimiter on current measure (measure.section)
-      // - Delimiters on previous measure: '，', '。', ',', '.'
+      // - Delimiters on previous measure: '，', '。', '！', '？', ',', '.', '!', '?'
       // - Newline verse breaks on previous measure: '↵', '\n', '\r'
       // - Whitespace spacers ('␣', ' ') are explicitly EXCLUDED from triggering line splits
-      // - Consecutive empty measures grouped as the same line, ending before a measure with badge or with lyrics
+      // - Consecutive empty measures grouped as the same line, ending before a measure with badge, lyrics, or notes
       if (currentSystem.length > 0) {
         const prevEngraved = currentSystem[currentSystem.length - 1];
         const prevMeasure = prevEngraved.measure;

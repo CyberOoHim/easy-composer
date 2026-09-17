@@ -347,12 +347,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       const next: SheetOrientation = prev === 'portrait' ? 'landscape' : 'portrait';
       setStoredSheetOrientation(next);
       if (onUpdateSong) {
-        const rewrapped = autoWrapSongMeasures(song, undefined, next);
-        onUpdateSong(rewrapped);
+        if (sheetWrapMode === 'no_wrap') {
+          onUpdateSong({ ...song, orientation: next });
+        } else {
+          const rewrapped = autoWrapSongMeasures(song, undefined, next);
+          onUpdateSong({ ...rewrapped, orientation: next });
+        }
       }
       return next;
     });
-  }, [propOnToggleOrientation, onUpdateSong, song]);
+  }, [propOnToggleOrientation, onUpdateSong, song, sheetWrapMode]);
 
   // Zoom scaling (Persisted in browser local storage)
   const [zoomScale, setZoomScaleState] = useState<number>(() => {

@@ -1,7 +1,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { autoWrapSongMeasures } from '../lib/taigiUtils.ts';
-import type { Song, Measure, NumberedNotationNote } from '../types/song.ts';
+import type { Song, Measure, NumberedNotationNote, SheetOrientation } from '../types/song.ts';
 
 function makeMockMeasure(
   id: string,
@@ -353,11 +353,19 @@ describe('autoWrapSongMeasures', () => {
       // Line 2: m3, m4 (ends at isLineBreak)
       // Line 3: m5, m6 (starts with section Chorus, ends at repeat_end)
       // Line 4: m7
-      assert.equal(delimitedSystems.length, 4, 'Should produce 4 systems separated by delimiters');
+      assert.equal(delimitedSystems.length, 4, 'Should produce 4 systems separated by delimiters in portrait');
       assert.deepEqual(
         delimitedSystems.map(s => s.measures.map(m => m.measureNumber)),
         [[1, 2], [3, 4], [5, 6], [7]],
-        'Systems should be split precisely at delimiter barlines, section starts, and line breaks'
+        'Systems should be split precisely at delimiter barlines, section starts, and line breaks in portrait'
+      );
+
+      const delimitedSystemsLandscape = groupMeasuresIntoSystems(delimitedMeasures, '4/4', 5, 'no_wrap', 'landscape');
+      assert.equal(delimitedSystemsLandscape.length, 4, 'Should produce 4 systems separated by delimiters in landscape');
+      assert.deepEqual(
+        delimitedSystemsLandscape.map(s => s.measures.map(m => m.measureNumber)),
+        [[1, 2], [3, 4], [5, 6], [7]],
+        'Systems should be split precisely at delimiter barlines, section starts, and line breaks in landscape'
       );
     });
 
@@ -411,6 +419,14 @@ describe('autoWrapSongMeasures', () => {
         'Delimiters and newlines must split lines, while whitespace spacers must be excluded from splitting'
       );
 
+      const systemsLandscape = groupMeasuresIntoSystems(measures, '4/4', 5, 'no_wrap', 'landscape');
+      assert.equal(systemsLandscape.length, 4, 'Landscape should split into exactly 4 systems');
+      assert.deepEqual(
+        systemsLandscape.map(s => s.measures.map(m => m.measureNumber)),
+        [[1], [2, 3], [4], [5, 6]],
+        'Delimiters and newlines must split lines in landscape identically to portrait'
+      );
+
       // Also verify halfwidth delimiters (comma and period) and \n / \r
       const halfwidthMeasures: Measure[] = [
         makeMeasureWithLastNote('h1', 1, { hanlo: ',', poj: ',' }),
@@ -427,6 +443,25 @@ describe('autoWrapSongMeasures', () => {
         [[1], [2], [3], [4], [5]],
         'Halfwidth delimiters and \\n, \\r must trigger line splits'
       );
+
+      const halfwidthSystemsLandscape = groupMeasuresIntoSystems(halfwidthMeasures, '4/4', 5, 'no_wrap', 'landscape');
+      assert.equal(halfwidthSystemsLandscape.length, 5, 'Landscape each delimiter and newline should create a new line');
+      assert.deepEqual(
+        halfwidthSystemsLandscape.map(s => s.measures.map(m => m.measureNumber)),
+        [[1], [2], [3], [4], [5]],
+        'Halfwidth delimiters and \\n, \\r must trigger line splits in landscape'
+      );
+
+      // Also verify exclamation marks and question marks (fullwidth and halfwidth)
+      const punctMeasures: Measure[] = [
+        makeMeasureWithLastNote('p1', 1, { hanlo: '歌！', poj: 'koa!' }),
+        makeMeasureWithLastNote('p2', 2, { hanlo: '聲？', poj: 'siaⁿ?' }),
+        makeMeasureWithLastNote('p3', 3, { hanlo: '響', poj: 'hiáng' }),
+      ];
+      const punctPortrait = groupMeasuresIntoSystems(punctMeasures, '4/4', 4, 'no_wrap', 'portrait');
+      const punctLandscape = groupMeasuresIntoSystems(punctMeasures, '4/4', 5, 'no_wrap', 'landscape');
+      assert.deepEqual(punctPortrait.map(s => s.measures.map(m => m.measureNumber)), [[1], [2], [3]]);
+      assert.deepEqual(punctLandscape.map(s => s.measures.map(m => m.measureNumber)), [[1], [2], [3]]);
     });
 
 
@@ -517,11 +552,81 @@ describe('autoWrapSongMeasures', () => {
         makeMeasureWithBadge('m6', 6, 'Outro'),
       ];
 
+      const systems1Landscape = groupMeasuresIntoSystems(seq1, '4/4', 5, 'no_wrap', 'landscape');
+      assert.deepEqual(
+        systems1Landscape.map(s => s.measures.map(m => m.measureNumber)),
+        [[1, 2, 3], [4, 5]],
+        'Landscape should group consecutive empty measures on line 1 and end before measure with lyrics'
+      );
+
+      const systems2Landscape = groupMeasuresIntoSystems(seq2, '4/4', 5, 'no_wrap', 'landscape');
+      assert.deepEqual(
+        systems2Landscape.map(s => s.measures.map(m => m.measureNumber)),
+        [[1, 2, 3, 4], [5, 6]],
+        'Landscape should group consecutive empty measures on line 1 and start before badge'
+      );
+
       const systems3 = groupMeasuresIntoSystems(seq3, '4/4', 4, 'no_wrap', 'portrait');
       assert.deepEqual(
         systems3.map(s => s.measures.map(m => m.measureNumber)),
         [[1, 2], [3, 4, 5], [6]],
         'Should produce 3 lines: content line (1-2), consecutive empty line (3-5), and section badge line (6)'
+      );
+
+      const systems3Landscape = groupMeasuresIntoSystems(seq3, '4/4', 5, 'no_wrap', 'landscape');
+      assert.deepEqual(
+        systems3Landscape.map(s => s.measures.map(m => m.measureNumber)),
+        [[1, 2], [3, 4, 5], [6]],
+        'Landscape should produce 3 lines identical to portrait'
+      );
+    });
+
+    it('preserves no_wrap layout across orientation toggles without autoWrap injection', async () => {
+      const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
+
+      // Create a song with 8 continuous measures where only measure 4 has a delimiter
+      const songMeasures: Measure[] = Array.from({ length: 8 }, (_, i) => ({
+        id: `m-${i + 1}`,
+        measureNumber: i + 1,
+        isLineBreak: false,
+        notes: [
+          {
+            id: `n-${i + 1}-1`,
+            pitch: 1,
+            octave: 0,
+            duration: 1,
+            lyric: i === 3 ? { hanlo: '歌，', poj: 'koa,' } : { hanlo: '歌', poj: 'koa' },
+          },
+        ],
+      }));
+
+      // In no_wrap, portrait and landscape both produce exactly 2 systems: [1..4] and [5..8]
+      const systemsPortrait = groupMeasuresIntoSystems(songMeasures, '4/4', 4, 'no_wrap', 'portrait');
+      const systemsLandscape = groupMeasuresIntoSystems(songMeasures, '4/4', 5, 'no_wrap', 'landscape');
+
+      assert.deepEqual(systemsPortrait.map(s => s.measures.map(m => m.measureNumber)), [[1, 2, 3, 4], [5, 6, 7, 8]]);
+      assert.deepEqual(systemsLandscape.map(s => s.measures.map(m => m.measureNumber)), [[1, 2, 3, 4], [5, 6, 7, 8]]);
+
+      // Verify that toggling orientation without autoWrap preserves the exact measure structure
+      const orientationToggled = {
+        title: 'Test',
+        measures: songMeasures,
+        orientation: 'landscape' as SheetOrientation,
+        notesPerLine: 5,
+      };
+
+      const systemsAfterToggle = groupMeasuresIntoSystems(
+        orientationToggled.measures,
+        '4/4',
+        orientationToggled.notesPerLine,
+        'no_wrap',
+        orientationToggled.orientation
+      );
+
+      assert.deepEqual(
+        systemsAfterToggle.map(s => s.measures.map(m => m.measureNumber)),
+        [[1, 2, 3, 4], [5, 6, 7, 8]],
+        'Toggling orientation in no_wrap mode must preserve delimiter line breaks without injecting 5-bar wraps'
       );
     });
 
