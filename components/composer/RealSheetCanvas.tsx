@@ -598,9 +598,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     return 64;
   }, [viewportAvailWidth]);
 
+  // Print Mode State for Viewport-Independent Layout Calculation
+  const [isPrinting, setIsPrinting] = useState(false);
+
   const availableContentWidth = useMemo(() => {
     return Math.max(300, Math.floor(standardSheetWidth - paperPadding * 2));
   }, [standardSheetWidth, paperPadding]);
+
+  // Content width for system engraving: in print, always use true physical paper line budgets (A4 297mm/210mm)
+  const effectiveContentWidth = useMemo(() => {
+    if (isPrinting) {
+      return sheetOrientation === 'landscape' ? 980 : 760;
+    }
+    return availableContentWidth;
+  }, [isPrinting, sheetOrientation, availableContentWidth]);
 
   // Engrave score into systems with horizontal continuous beams, 3 wrap modes, and orientation budget
   const systems = useMemo(() => {
@@ -610,9 +621,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       song.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4),
       sheetWrapMode,
       sheetOrientation,
-      availableContentWidth
+      effectiveContentWidth
     );
-  }, [song.measures, song.timeSignature, song.notesPerLine, sheetWrapMode, sheetOrientation, availableContentWidth]);
+  }, [song.measures, song.timeSignature, song.notesPerLine, sheetWrapMode, sheetOrientation, effectiveContentWidth]);
 
   // Natural measure width for no_wrap mode (spacious, collision-free, unstretched)
   const getNaturalMeasureWidth = useCallback((engravedM: EngravedMeasure) => {
@@ -637,6 +648,31 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   }, [sheetWrapMode, standardSheetWidth, longestSystemLineWidth]);
 
   const isSheetExtended = sheetWrapMode === 'no_wrap' && extendedSheetWidth > standardSheetWidth;
+
+  // Target printable widths at standard 96 DPI CSS pixels (A4 minus 12mm left & right margins)
+  // Portrait: 210mm - 24mm = 186mm (~703px)
+  // Landscape: 297mm - 24mm = 273mm (~1032px)
+  const targetPrintableWidth = sheetOrientation === 'landscape' ? 1032 : 703;
+  // Width of the longest system line including border allowance
+  const longestLineWidth = useMemo(() => {
+    return Math.max(longestSystemLineWidth + 8, 100);
+  }, [longestSystemLineWidth]);
+
+  // In No Wrap mode, zoom the sheet to fit the whole length of the longest line:
+  // If longest line exceeds printable width, zoom down so it fits completely without clipping.
+  // If shorter, maintain 1.0 scale so notes and lyrics do not become artificially oversized.
+  const noWrapPrintZoom = useMemo(() => {
+    if (longestLineWidth > targetPrintableWidth) {
+      return Number((targetPrintableWidth / longestLineWidth).toFixed(4));
+    }
+    return 1.0;
+  }, [longestLineWidth, targetPrintableWidth]);
+
+  // Effective print width for the paper stage in No Wrap mode:
+  // At least targetPrintableWidth so header and footer span the full page width
+  const printPaperWidth = useMemo(() => {
+    return Math.max(longestLineWidth, targetPrintableWidth);
+  }, [longestLineWidth, targetPrintableWidth]);
 
   // Handle Note Selection
   const handleNoteClick = useCallback(
@@ -1973,6 +2009,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Print Score handler - strictly isolate realistic physical sheet
   const handlePrint = useCallback(() => {
+    setIsPrinting(true);
     setActiveSheetPicker(null);
     setEditingHeaderField(null);
     setActiveHudDrawer('none');
@@ -1984,6 +2021,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   useEffect(() => {
     const handleBeforePrint = () => {
+      setIsPrinting(true);
       setActiveSheetPicker(null);
       setEditingHeaderField(null);
       setActiveHudDrawer('none');
@@ -1991,9 +2029,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         document.activeElement.blur();
       }
     };
+    const handleAfterPrint = () => {
+      setIsPrinting(false);
+    };
     window.addEventListener('beforeprint', handleBeforePrint);
+    window.addEventListener('afterprint', handleAfterPrint);
     return () => {
       window.removeEventListener('beforeprint', handleBeforePrint);
+      window.removeEventListener('afterprint', handleAfterPrint);
     };
   }, [setActiveHudDrawer]);
 
@@ -2007,10 +2050,11 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           : 'bg-[#ede8de] dark:bg-[#ede8de] text-zinc-900 dark:text-zinc-900'
       }`}
     >
-      {/* Dynamic @page orientation for WYSIWYG Print / PDF Export */}
+      {/* Top-level Dynamic @page orientation for WYSIWYG Print / PDF Export (fully parsed by WebKit Mobile Safari & Chromium) */}
       <style
+        id="dynamic-sheet-print-page-style"
         dangerouslySetInnerHTML={{
-          __html: `@media print { @page { size: ${sheetOrientation}; margin: 10mm 12mm 12mm 12mm; } }`,
+          __html: `@page { size: ${sheetOrientation}; margin: 10mm 12mm 12mm 12mm; }`,
         }}
       />
 
@@ -2132,9 +2176,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       <div
         id="real-sheet-paper-stage"
         data-sheet-orientation={sheetOrientation}
+        data-sheet-wrap-mode={sheetWrapMode}
         style={{
           transform: `scale(${zoomScale})`,
           transformOrigin: 'top left',
+          '--print-paper-width': `${printPaperWidth}px`,
+          '--print-no-wrap-zoom': `${noWrapPrintZoom}`,
           ...(sheetWrapMode === 'no_wrap'
             ? {
                 width: `${extendedSheetWidth}px`,
@@ -2142,7 +2189,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 maxWidth: 'none',
               }
             : {}),
-        }}
+        } as React.CSSProperties}
         className={`relative w-full ${
           sheetWrapMode === 'no_wrap'
             ? ''
@@ -2151,7 +2198,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             : 'max-w-4xl'
         } ${
           sheetOrientation === 'landscape' ? 'min-h-[640px]' : 'min-h-[960px]'
-        } rounded-xs p-3.5 sm:p-6 md:p-8 transition-all duration-150 print:shadow-none print:border-none print:p-0 print:max-w-none print:w-full print:rounded-none select-none ${
+        } rounded-xs p-3.5 sm:p-6 md:p-8 transition-all duration-150 print:shadow-none print:border-none print:p-0 print:max-w-none print:rounded-none select-none ${
           sheetTheme === 'dark'
             ? 'bg-[#14161f] text-zinc-100 border border-zinc-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.06)]'
             : 'bg-[#FCFAF6] text-zinc-900 border border-[#E7E2D8] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.06)]'
@@ -2473,7 +2520,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             <div
               key={`system-${system.systemIndex}`}
               id={`sheet-system-${system.systemIndex}`}
-              className={`relative flex items-stretch border-l-2 print:overflow-visible print:w-full print:break-inside-avoid ${
+              className={`relative flex items-stretch border-l-2 print:overflow-visible print:break-inside-avoid ${
                 sheetWrapMode === 'no_wrap' ? 'w-fit self-start' : 'w-full'
               } ${
                 sheetTheme === 'dark' ? 'border-zinc-400' : 'border-zinc-800'

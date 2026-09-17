@@ -259,7 +259,6 @@ html, body {
    ========================================================================= */
 
 @page {
-  size: auto;
   margin: 10mm 12mm 12mm 12mm;
 }
 
@@ -347,19 +346,34 @@ html, body {
     display: block !important;
   }
 
-  /* 4. Realistic Physical Sheet Paper Stage: pure white manuscript paper, 100% width, no zoom distortion */
+  /* 4. Realistic Physical Sheet Paper Stage: pure white manuscript paper */
   #real-sheet-paper-stage {
     padding: 0 !important;
     margin: 0 !important;
-    width: 100% !important;
-    max-width: 100% !important;
     border: none !important;
     border-radius: 0 !important;
     box-shadow: none !important;
     background-color: #ffffff !important;
     color: #18181b !important;
-    transform: none !important; /* Critical: override inline transform: scale(...) for exact 100% page width */
     overflow: visible !important;
+  }
+
+  /* Auto Fit and Auto Wrap modes: span 100% of printable page width without zoom distortion */
+  #real-sheet-paper-stage:not([data-sheet-wrap-mode="no_wrap"]) {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    zoom: 1 !important;
+    transform: none !important;
+  }
+
+  /* No Wrap Mode: zoom sheet to fit the whole length of the longest line cleanly within physical paper */
+  #real-sheet-paper-stage[data-sheet-wrap-mode="no_wrap"] {
+    width: var(--print-paper-width, 100%) !important;
+    max-width: none !important;
+    min-width: 0 !important;
+    zoom: var(--print-no-wrap-zoom, 1) !important;
+    transform: none !important;
   }
 
   /* 5. Suppress interactive visual cues (selection rings, focus outlines, hover effects, playing pulses) */
@@ -390,6 +404,7 @@ html, body {
   #real-sheet-systems-container {
     width: 100% !important;
     max-width: 100% !important;
+    min-width: 0 !important;
     gap: 16px !important;
     overflow: visible !important;
   }
@@ -401,11 +416,27 @@ html, body {
     overflow: visible !important;
   }
 
+  /* In Auto Fit and Auto Wrap modes: systems span full width */
+  #real-sheet-paper-stage:not([data-sheet-wrap-mode="no_wrap"]) #real-sheet-systems-container > div {
+    display: flex !important;
+    width: 100% !important;
+    max-width: 100% !important;
+  }
+
+  /* In No Wrap mode: systems retain natural measure layout within zoomed sheet */
+  #real-sheet-paper-stage[data-sheet-wrap-mode="no_wrap"] #real-sheet-systems-container > div {
+    display: flex !important;
+    width: max-content !important;
+    max-width: 100% !important;
+  }
+
   /* 7. Publication-grade physical sheet header & high-contrast carbon ink tones */
   #real-sheet-header {
     display: block !important;
     visibility: visible !important;
     width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
     margin-bottom: 12px !important;
     padding-bottom: 10px !important;
     border-bottom: 1px solid #18181b !important;
@@ -520,7 +551,11 @@ html, body {
 
   /* Paper footnote and footer */
   #sheet-footnote-block,
+  #real-sheet-footer,
   #real-sheet-paper-stage footer {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
     color: #52525b !important;
     border-color: #e4e4e7 !important;
     break-inside: avoid !important;
