@@ -300,6 +300,69 @@ describe('Enhanced Delimiter List & Zero-Beat Empty Note Conversion', () => {
       };
       assert.equal(isNoWrapLineSplitTrigger(breakNote), true, 'Annotation "↵" must trigger line split');
     });
+
+    it('protects verse index prefixes (e.g. 1.3.獨, 1.歌) from triggering accidental line split', () => {
+      const versePrefixNotes = [
+        { id: 'n-vprefix-1', lyric: { hanlo: '1.3.獨', poj: '1.3.To̍k' } },
+        { id: 'n-vprefix-2', lyric: { hanlo: '1. 歌', poj: '1. koa' } },
+        { id: 'n-vprefix-3', lyric: { hanlo: '2.想', poj: '2.Siūⁿ' } },
+        { id: 'n-vprefix-4', lyric: { custom: '1.3.獨' } },
+      ];
+
+      for (const item of versePrefixNotes) {
+        const note: NumberedNotationNote = {
+          id: item.id,
+          pitch: 1,
+          octave: 0,
+          duration: 1,
+          lyric: item.lyric,
+        };
+        assert.equal(isNoWrapLineSplitTrigger(note), false, `Verse prefix "${JSON.stringify(item.lyric)}" must NOT trigger line split`);
+      }
+    });
+
+    it('refactored preset songs in no_wrap mode produce short and meaningful balanced systems', async () => {
+      const { PRESET_SONGS } = await import('../lib/presets.ts');
+      const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
+
+      // 1. 望春風: 9 short, meaningful systems: [4, 2, 2, 2, 2, 2, 3, 3, 2]
+      const bch = PRESET_SONGS[0];
+      const bchSystems = groupMeasuresIntoSystems(bch.measures, bch.timeSignature, 4, 'no_wrap');
+      assert.equal(bchSystems.length, 9, '望春風 should produce exactly 9 systems in no_wrap mode');
+      assert.deepEqual(
+        bchSystems.map(s => s.measures.length),
+        [4, 2, 2, 2, 2, 2, 3, 3, 2],
+        '望春風 measures per system should match [4, 2, 2, 2, 2, 2, 3, 3, 2]'
+      );
+
+      // 2. 雨夜花: 16 systems of 2 measures each, zero fake empty newline notes
+      const u = PRESET_SONGS[1];
+      const uSystems = groupMeasuresIntoSystems(u.measures, u.timeSignature, 2, 'no_wrap');
+      assert.equal(uSystems.length, 16, '雨夜花 should produce exactly 16 systems in no_wrap mode');
+      assert.ok(
+        uSystems.every(s => s.measures.length === 2),
+        'Every system in 雨夜花 must have exactly 2 measures'
+      );
+      for (const m of u.measures) {
+        const hasEmpty0Beat = m.notes.some(n => n.pitch === 'empty' && n.duration === 0);
+        assert.equal(hasEmpty0Beat, false, `Measure ${m.measureNumber} in 雨夜花 should not contain fake 0-beat newline notes`);
+      }
+
+      // 3. 伊是咱的寶貝: 8 systems of 2 measures each, zero trailing \n in lyrics
+      const isl = PRESET_SONGS[2];
+      const islSystems = groupMeasuresIntoSystems(isl.measures, isl.timeSignature, 4, 'no_wrap');
+      assert.equal(islSystems.length, 8, '伊是咱的寶貝 should produce exactly 8 systems in no_wrap mode');
+      assert.ok(
+        islSystems.every(s => s.measures.length === 2),
+        'Every system in 伊是咱的寶貝 must have exactly 2 measures'
+      );
+      for (const m of isl.measures) {
+        for (const n of m.notes) {
+          assert.equal(/[\n\r]/.test(n.lyric?.hanlo || ''), false, `Note ${n.id} hanlo must not contain newlines`);
+          assert.equal(/[\n\r]/.test(n.lyric?.poj || ''), false, `Note ${n.id} poj must not contain newlines`);
+        }
+      }
+    });
   });
 });
 

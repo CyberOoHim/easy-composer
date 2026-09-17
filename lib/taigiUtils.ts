@@ -815,8 +815,14 @@ export function isNoWrapLineSplitTrigger(note: NumberedNotationNote | null | und
       continue;
     }
 
+    // Strip leading verse prefixes (e.g. "1.", "2.", "1.3.", "(1).") so verse markers do not trigger line split
+    const textWithoutVersePrefix = trimmed.replace(/^\s*(\d+(\.\d+)*|[A-Za-z]|\([0-9A-Za-z]+\))\.\s*/, '');
+    if (textWithoutVersePrefix === '') {
+      continue;
+    }
+
     // Delimiters: ，, 。, ！, ？ (and ascii , . ! ?)
-    if (/[，。！？,!?]|\.(?!\w)/.test(text)) {
+    if (/[，。！？,!?]|\.(?!\w)/.test(textWithoutVersePrefix)) {
       return true;
     }
   }

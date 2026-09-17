@@ -97,7 +97,7 @@ export const PRESET_SONGS: Song[] = [
             octave: -1,
             duration: 1.5,
             isDotted: true,
-            lyric: { poj: 'To̍k', hanlo: '獨', custom: '1.3.獨' },
+            lyric: { poj: 'To̍k', hanlo: '獨' },
             lyricsByVerse: { 1: { hanlo: '獨', poj: 'To̍k' }, 2: { hanlo: '想', poj: 'Siūⁿ' } },
           },
           {
@@ -130,6 +130,7 @@ export const PRESET_SONGS: Song[] = [
         id: 'bch_m6',
         measureNumber: 6,
         chord: 'B',
+        isLineBreak: true,
         notes: [
           {
             id: 'bch_n6_1',
@@ -208,8 +209,8 @@ export const PRESET_SONGS: Song[] = [
             pitch: 1,
             octave: 0,
             duration: 1.0,
-            lyric: { poj: 'chhoe,', hanlo: '吹，' },
-            lyricsByVerse: { 1: { hanlo: '吹，', poj: 'chhoe,' }, 2: { hanlo: '內，', poj: 'lāi,' } },
+            lyric: { poj: 'chhoe', hanlo: '吹' },
+            lyricsByVerse: { 1: { hanlo: '吹', poj: 'chhoe' }, 2: { hanlo: '內', poj: 'lāi' } },
           },
         ],
       },
@@ -279,6 +280,7 @@ export const PRESET_SONGS: Song[] = [
         id: 'bch_m10',
         measureNumber: 10,
         chord: 'G#m',
+        isLineBreak: true,
         notes: [
           {
             id: 'bch_n10_1',
@@ -345,8 +347,8 @@ export const PRESET_SONGS: Song[] = [
             pitch: 2,
             octave: 0,
             duration: 0.5,
-            lyric: { poj: 'ke.', hanlo: '家。' },
-            lyricsByVerse: { 1: { hanlo: '家。', poj: 'ke.' }, 2: { hanlo: 'khui.', poj: '開。' } },
+            lyric: { poj: 'ke', hanlo: '家' },
+            lyricsByVerse: { 1: { hanlo: '家', poj: 'ke' }, 2: { hanlo: '開', poj: 'khui' } },
           },
         ],
       },
@@ -416,6 +418,7 @@ export const PRESET_SONGS: Song[] = [
         id: 'bch_m14',
         measureNumber: 14,
         chord: 'E',
+        isLineBreak: true,
         notes: [
           {
             id: 'bch_n14_1',
@@ -488,8 +491,8 @@ export const PRESET_SONGS: Song[] = [
             pitch: 5,
             octave: 0,
             duration: 1.0,
-            lyric: { poj: 'tē,', hanlo: '弟，' },
-            lyricsByVerse: { 1: { hanlo: '弟，', poj: 'tē,' }, 2: { hanlo: 'kìⁿ,', poj: '見，' } },
+            lyric: { poj: 'tē', hanlo: '弟' },
+            lyricsByVerse: { 1: { hanlo: '弟', poj: 'tē' }, 2: { hanlo: '覓', poj: 'bāi' } },
           },
           {
             id: 'bch_n16_2',
@@ -529,8 +532,8 @@ export const PRESET_SONGS: Song[] = [
             octave: -1,
             duration: 1.5,
             isDotted: true,
-            lyric: { poj: 'i', hanlo: '伊' },
-            lyricsByVerse: { 1: { hanlo: '伊', poj: 'i' }, 2: { hanlo: 'gún', poj: 'gún' } },
+            lyric: { poj: 'i,', hanlo: '伊，' },
+            lyricsByVerse: { 1: { hanlo: '伊，', poj: 'i,' }, 2: { hanlo: '阮，', poj: 'gún,' } },
           },
           { id: 'bch_n17_2', pitch: 5, octave: -1, duration: 0.25, lyric: { poj: '', hanlo: '' } },
           { id: 'bch_n17_3', pitch: 6, octave: -1, duration: 0.25, lyric: { poj: '', hanlo: '' } },
@@ -571,8 +574,8 @@ export const PRESET_SONGS: Song[] = [
             pitch: 6,
             octave: -1,
             duration: 2.0,
-            lyric: { poj: 'sè,', hanlo: '勢，' },
-            lyricsByVerse: { 1: { hanlo: '勢，', poj: 'sè,' }, 2: { hanlo: 'tai,', poj: 'tai,' } },
+            lyric: { poj: 'sè', hanlo: '勢' },
+            lyricsByVerse: { 1: { hanlo: '勢', poj: 'sè' }, 2: { hanlo: 'tai', poj: 'tai' } },
           },
         ],
       },
@@ -622,8 +625,8 @@ export const PRESET_SONGS: Song[] = [
             pitch: 2,
             octave: 0,
             duration: 0.5,
-            lyric: { poj: 'pê.', hanlo: '琶。' },
-            lyricsByVerse: { 1: { hanlo: '琶。', poj: 'pê.' }, 2: { hanlo: 'ti.', poj: '知。' } },
+            lyric: { poj: 'pê', hanlo: '琶' },
+            lyricsByVerse: { 1: { hanlo: '琶', poj: 'pê' }, 2: { hanlo: 'ti', poj: 'ti' } },
           },
         ],
       },
@@ -633,6 +636,7 @@ export const PRESET_SONGS: Song[] = [
         chord: 'E',
         voltaEnding: [1, 2],
         barlineType: 'repeat_end',
+        isLineBreak: true,
         notes: [
           { id: 'bch_n20_1', pitch: 1, octave: 0, duration: 4.0, lyric: { poj: '', hanlo: '' } },
         ],
@@ -683,8 +687,8 @@ export const PRESET_SONGS: Song[] = [
             pitch: 2,
             octave: 0,
             duration: 0.5,
-            lyric: { poj: 'pê.', hanlo: '琶。' },
-            lyricsByVerse: { 1: { hanlo: '琶。', poj: 'pê.' } },
+            lyric: { poj: 'pê', hanlo: '琶' },
+            lyricsByVerse: { 1: { hanlo: '琶', poj: 'pê' } },
           },
         ],
       },
@@ -738,8 +742,7 @@ export const PRESET_SONGS: Song[] = [
           { id: 'u_v1_n6', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: '', hanlo: '' } },
           { id: 'u_v1_n7', pitch: 1, octave: 0, duration: 0.5, slurToNext: true, lyric: { poj: 'iā', hanlo: '夜' } },
           { id: 'u_v1_n8', pitch: 6, octave: -1, duration: 0.5, lyric: { poj: '', hanlo: '' } },
-          { id: 'u_v1_n9', pitch: 5, octave: -1, duration: 2.0, lyric: { poj: 'hoe', hanlo: '花' } },
-          { id: 'u_v1_b1', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v1_n9', pitch: 5, octave: -1, duration: 2.0, lyric: { poj: 'hoe,', hanlo: '花，' } },
         ],
       },
       {
@@ -763,8 +766,7 @@ export const PRESET_SONGS: Song[] = [
         notes: [
           { id: 'u_v1_n16', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'chhoe', hanlo: '吹' } },
           { id: 'u_v1_n17', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'lo̍h', hanlo: '落' } },
-          { id: 'u_v1_n18', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: 'tē', hanlo: '地' } },
-          { id: 'u_v1_b2', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v1_n18', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: 'tē.', hanlo: '地。' } },
         ],
       },
       {
@@ -791,8 +793,7 @@ export const PRESET_SONGS: Song[] = [
           { id: 'u_v1_n27', pitch: 3, octave: 0, duration: 0.5, slurToNext: true, lyric: { poj: 'ji̍t', hanlo: '日' } },
           { id: 'u_v1_n28', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: '', hanlo: '' } },
           { id: 'u_v1_n29', pitch: 1, octave: 0, duration: 1.0, lyric: { poj: 'oàn', hanlo: '怨' } },
-          { id: 'u_v1_n30', pitch: 6, octave: -1, duration: 1.0, lyric: { poj: 'chhè', hanlo: '嗟' } },
-          { id: 'u_v1_b3', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v1_n30', pitch: 6, octave: -1, duration: 1.0, lyric: { poj: 'chhè,', hanlo: '嗟，' } },
         ],
       },
       {
@@ -815,8 +816,7 @@ export const PRESET_SONGS: Song[] = [
         notes: [
           { id: 'u_v1_n35', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'put', hanlo: '不' } },
           { id: 'u_v1_n36', pitch: 2, octave: 0, duration: 1.0, lyric: { poj: 'chài', hanlo: '再' } },
-          { id: 'u_v1_n37', pitch: 1, octave: 0, duration: 2.0, lyric: { poj: 'hôe', hanlo: '回' } },
-          { id: 'u_v1_b4', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v1_n37', pitch: 1, octave: 0, duration: 2.0, lyric: { poj: 'hôe.', hanlo: '回。' } },
         ],
       },
 
@@ -845,8 +845,7 @@ export const PRESET_SONGS: Song[] = [
           { id: 'u_v2_n6', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: '', hanlo: '' } },
           { id: 'u_v2_n7', pitch: 1, octave: 0, duration: 0.5, slurToNext: true, lyric: { poj: 'lo̍h', hanlo: '落' } },
           { id: 'u_v2_n8', pitch: 6, octave: -1, duration: 0.5, lyric: { poj: '', hanlo: '' } },
-          { id: 'u_v2_n9', pitch: 5, octave: -1, duration: 2.0, lyric: { poj: 'thô͘', hanlo: '土' } },
-          { id: 'u_v2_b1', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v2_n9', pitch: 5, octave: -1, duration: 2.0, lyric: { poj: 'thô͘,', hanlo: '土，' } },
         ],
       },
       {
@@ -869,9 +868,8 @@ export const PRESET_SONGS: Song[] = [
         isLineBreak: true,
         notes: [
           { id: 'u_v2_n16', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'khòaⁿ', hanlo: '看' } },
-          { id: 'u_v2_n17', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'kò͘', hanlo: '顧' } },
-          { id: 'u_v2_n18', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: '', hanlo: '──' } },
-          { id: 'u_v2_b2', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v2_n17', pitch: 3, octave: 0, duration: 1.0, slurToNext: true, lyric: { poj: 'kò͘', hanlo: '顧' } },
+          { id: 'u_v2_n18', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: '?', hanlo: '？' } },
         ],
       },
       {
@@ -898,8 +896,7 @@ export const PRESET_SONGS: Song[] = [
           { id: 'u_v2_n27', pitch: 3, octave: 0, duration: 0.5, slurToNext: true, lyric: { poj: 'goán', hanlo: '阮' } },
           { id: 'u_v2_n28', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: '', hanlo: '' } },
           { id: 'u_v2_n29', pitch: 1, octave: 0, duration: 1.0, lyric: { poj: 'chiân', hanlo: '前' } },
-          { id: 'u_v2_n30', pitch: 6, octave: -1, duration: 1.0, lyric: { poj: 'tô͘', hanlo: '途' } },
-          { id: 'u_v2_b3', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v2_n30', pitch: 6, octave: -1, duration: 1.0, lyric: { poj: 'tô͘,', hanlo: '途，' } },
         ],
       },
       {
@@ -922,8 +919,7 @@ export const PRESET_SONGS: Song[] = [
         notes: [
           { id: 'u_v2_n35', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'beh', hanlo: 'beh' } },
           { id: 'u_v2_n36', pitch: 2, octave: 0, duration: 1.0, lyric: { poj: 'jû', hanlo: '如' } },
-          { id: 'u_v2_n37', pitch: 1, octave: 0, duration: 2.0, lyric: { poj: 'hô', hanlo: '何' } },
-          { id: 'u_v2_b4', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v2_n37', pitch: 1, octave: 0, duration: 2.0, lyric: { poj: 'hô?', hanlo: '何？' } },
         ],
       },
 
@@ -952,8 +948,7 @@ export const PRESET_SONGS: Song[] = [
           { id: 'u_v3_n6', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: '', hanlo: '' } },
           { id: 'u_v3_n7', pitch: 1, octave: 0, duration: 0.5, slurToNext: true, lyric: { poj: 'bô', hanlo: '無' } },
           { id: 'u_v3_n8', pitch: 6, octave: -1, duration: 0.5, lyric: { poj: '', hanlo: '' } },
-          { id: 'u_v3_n9', pitch: 5, octave: -1, duration: 2.0, lyric: { poj: 'chêng', hanlo: '情' } },
-          { id: 'u_v3_b1', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v3_n9', pitch: 5, octave: -1, duration: 2.0, lyric: { poj: 'chêng,', hanlo: '情，' } },
         ],
       },
       {
@@ -976,9 +971,8 @@ export const PRESET_SONGS: Song[] = [
         isLineBreak: true,
         notes: [
           { id: 'u_v3_n16', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'chiân', hanlo: '前' } },
-          { id: 'u_v3_n17', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'tô͘', hanlo: '途' } },
-          { id: 'u_v3_n18', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: '', hanlo: '──' } },
-          { id: 'u_v3_b2', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v3_n17', pitch: 3, octave: 0, duration: 1.0, slurToNext: true, lyric: { poj: 'tô͘', hanlo: '途' } },
+          { id: 'u_v3_n18', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: '.', hanlo: '。' } },
         ],
       },
       {
@@ -1005,8 +999,7 @@ export const PRESET_SONGS: Song[] = [
           { id: 'u_v3_n27', pitch: 3, octave: 0, duration: 0.5, slurToNext: true, lyric: { poj: 'jio̍k', hanlo: '弱' } },
           { id: 'u_v3_n28', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: '', hanlo: '' } },
           { id: 'u_v3_n29', pitch: 1, octave: 0, duration: 1.0, lyric: { poj: 'sim', hanlo: '心' } },
-          { id: 'u_v3_n30', pitch: 6, octave: -1, duration: 1.0, lyric: { poj: 'sèng', hanlo: '性' } },
-          { id: 'u_v3_b3', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v3_n30', pitch: 6, octave: -1, duration: 1.0, lyric: { poj: 'sèng,', hanlo: '性，' } },
         ],
       },
       {
@@ -1029,8 +1022,7 @@ export const PRESET_SONGS: Song[] = [
         notes: [
           { id: 'u_v3_n35', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'sit', hanlo: '失' } },
           { id: 'u_v3_n36', pitch: 2, octave: 0, duration: 1.0, lyric: { poj: 'kong', hanlo: '光' } },
-          { id: 'u_v3_n37', pitch: 1, octave: 0, duration: 2.0, lyric: { poj: 'bêng', hanlo: '明' } },
-          { id: 'u_v3_b4', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v3_n37', pitch: 1, octave: 0, duration: 2.0, lyric: { poj: 'bêng.', hanlo: '明。' } },
         ],
       },
 
@@ -1059,8 +1051,7 @@ export const PRESET_SONGS: Song[] = [
           { id: 'u_v4_n6', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: '', hanlo: '' } },
           { id: 'u_v4_n7', pitch: 1, octave: 0, duration: 0.5, slurToNext: true, lyric: { poj: 'chúi', hanlo: '水' } },
           { id: 'u_v4_n8', pitch: 6, octave: -1, duration: 0.5, lyric: { poj: '', hanlo: '' } },
-          { id: 'u_v4_n9', pitch: 5, octave: -1, duration: 2.0, lyric: { poj: 'tih', hanlo: '滴' } },
-          { id: 'u_v4_b1', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v4_n9', pitch: 5, octave: -1, duration: 2.0, lyric: { poj: 'tih,', hanlo: '滴，' } },
         ],
       },
       {
@@ -1084,8 +1075,7 @@ export const PRESET_SONGS: Song[] = [
         notes: [
           { id: 'u_v4_n16', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'siū', hanlo: '受' } },
           { id: 'u_v4_n17', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'lān', hanlo: '難' } },
-          { id: 'u_v4_n18', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: 'tî', hanlo: '池' } },
-          { id: 'u_v4_b2', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v4_n18', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: 'tî.', hanlo: '池。' } },
         ],
       },
       {
@@ -1112,8 +1102,7 @@ export const PRESET_SONGS: Song[] = [
           { id: 'u_v4_n27', pitch: 3, octave: 0, duration: 0.5, slurToNext: true, lyric: { poj: 'hio̍h', hanlo: '葉' } },
           { id: 'u_v4_n28', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: '', hanlo: '' } },
           { id: 'u_v4_n29', pitch: 1, octave: 0, duration: 1.0, lyric: { poj: 'lī', hanlo: '離' } },
-          { id: 'u_v4_n30', pitch: 6, octave: -1, duration: 1.0, lyric: { poj: 'ki', hanlo: '枝' } },
-          { id: 'u_v4_b3', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v4_n30', pitch: 6, octave: -1, duration: 1.0, lyric: { poj: 'ki,', hanlo: '枝，' } },
         ],
       },
       {
@@ -1136,8 +1125,7 @@ export const PRESET_SONGS: Song[] = [
         notes: [
           { id: 'u_v4_n35', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'thang', hanlo: 'thang' } },
           { id: 'u_v4_n36', pitch: 2, octave: 0, duration: 1.0, lyric: { poj: 'khòaⁿ', hanlo: '看' } },
-          { id: 'u_v4_n37', pitch: 1, octave: 0, duration: 2.0, lyric: { poj: 'kìⁿ', hanlo: '見' } },
-          { id: 'u_v4_b4', pitch: 'empty', octave: 0, duration: 0, lyric: { poj: '\n', hanlo: '\n', hanji: '\n', custom: '\n' } },
+          { id: 'u_v4_n37', pitch: 1, octave: 0, duration: 2.0, lyric: { poj: 'kìⁿ.', hanlo: '見。' } },
         ],
       },
     ],
@@ -1173,7 +1161,7 @@ export const PRESET_SONGS: Song[] = [
         notes: [
           { id: 'i_n2_1', pitch: 2, octave: 0, duration: 1.5, isDotted: true, slurToNext: true, lyric: { poj: 'sìⁿ', hanlo: '生' } },
           { id: 'i_n2_2', pitch: 3, octave: 0, duration: 0.5, lyric: { poj: 'lo̍h', hanlo: '落' } },
-          { id: 'i_n2_3', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: 'tē,\n', hanlo: '地，\n' } },
+          { id: 'i_n2_3', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: 'tē,', hanlo: '地，' } },
         ],
       },
       {
@@ -1195,7 +1183,7 @@ export const PRESET_SONGS: Song[] = [
         chord: 'F',
         isLineBreak: true,
         notes: [
-          { id: 'i_n4_1', pitch: 1, octave: 0, duration: 4.0, lyric: { poj: 'chē,\n', hanlo: '多，\n' } },
+          { id: 'i_n4_1', pitch: 1, octave: 0, duration: 4.0, lyric: { poj: 'chē.', hanlo: '多。' } },
         ],
       },
       {
@@ -1217,7 +1205,7 @@ export const PRESET_SONGS: Song[] = [
         notes: [
           { id: 'i_n6_1', pitch: 2, octave: 0, duration: 1.5, isDotted: true, slurToNext: true, lyric: { poj: 'ài', hanlo: '愛' } },
           { id: 'i_n6_2', pitch: 3, octave: 0, duration: 0.5, lyric: { poj: 'kah', hanlo: '甲' } },
-          { id: 'i_n6_3', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: 'phōe,\n', hanlo: '被，\n' } },
+          { id: 'i_n6_3', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: 'phōe,', hanlo: '被，' } },
         ],
       },
       {
@@ -1241,7 +1229,7 @@ export const PRESET_SONGS: Song[] = [
         chord: 'F',
         isLineBreak: true,
         notes: [
-          { id: 'i_n8_1', pitch: 1, octave: 0, duration: 4.0, lyric: { poj: 'tē;\n', hanlo: '地，\n' } },
+          { id: 'i_n8_1', pitch: 1, octave: 0, duration: 4.0, lyric: { poj: 'tē.', hanlo: '地。' } },
         ],
       },
       {
@@ -1268,7 +1256,7 @@ export const PRESET_SONGS: Song[] = [
         notes: [
           { id: 'i_n10_1', pitch: 3, octave: 0, duration: 1.0, lyric: { poj: 'ê', hanlo: '的' } },
           { id: 'i_n10_2', pitch: 1, octave: 0, duration: 1.0, lyric: { poj: 'koan', hanlo: '關' } },
-          { id: 'i_n10_3', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: 'sim,\n', hanlo: '心，\n' } },
+          { id: 'i_n10_3', pitch: 2, octave: 0, duration: 2.0, lyric: { poj: 'sim,', hanlo: '心，' } },
         ],
       },
       {
@@ -1292,7 +1280,7 @@ export const PRESET_SONGS: Song[] = [
         chord: 'F',
         isLineBreak: true,
         notes: [
-          { id: 'i_n12_1', pitch: 1, octave: 0, duration: 4.0, lyric: { poj: 'tē,\n', hanlo: '地，\n' } },
+          { id: 'i_n12_1', pitch: 1, octave: 0, duration: 4.0, lyric: { poj: 'tē.', hanlo: '地。' } },
         ],
       },
       {
@@ -1318,7 +1306,7 @@ export const PRESET_SONGS: Song[] = [
           { id: 'i_n14_1', pitch: 6, octave: 0, duration: 1.0, lyric: { poj: 'lán', hanlo: '咱' } },
           { id: 'i_n14_2', pitch: 5, octave: 0, duration: 1.0, lyric: { poj: 'khiā', hanlo: '站' } },
           { id: 'i_n14_3', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: 'chò', hanlo: '作' } },
-          { id: 'i_n14_4', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: 'hóe,\n', hanlo: '伙，\n' } },
+          { id: 'i_n14_4', pitch: 2, octave: 0, duration: 0.5, lyric: { poj: 'hóe,', hanlo: '伙，' } },
           { id: 'i_n14_5', pitch: 0, octave: 0, duration: 1.0, lyric: {} },
         ],
       },
@@ -1341,7 +1329,7 @@ export const PRESET_SONGS: Song[] = [
         isLineBreak: true,
         notes: [
           { id: 'i_n16_1', pitch: 5, octave: 0, duration: 2.0, slurToNext: true, lyric: { poj: 'pó', hanlo: '寶' } },
-          { id: 'i_n16_2', pitch: 1, octave: 0, duration: 2.0, lyric: { poj: 'pòe.\n', hanlo: '貝。\n' } },
+          { id: 'i_n16_2', pitch: 1, octave: 0, duration: 2.0, lyric: { poj: 'pòe.', hanlo: '貝。' } },
         ],
       },
     ],
