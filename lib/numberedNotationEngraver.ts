@@ -363,10 +363,10 @@ export function calculateNoteRequiredWidth(
   const isTriplet = Boolean(note.isTriplet);
 
   // Pitch element widths (compact baseline)
-  let pitchWidth = 20 + dashCount * 12 + graceCount * 12;
-  if (hasAccidental) pitchWidth += 8;
-  if (isDotted) pitchWidth += 6;
-  if (isTriplet) pitchWidth += 6;
+  let pitchWidth = 15 + dashCount * 8 + graceCount * 8;
+  if (hasAccidental) pitchWidth += 6;
+  if (isDotted) pitchWidth += 5;
+  if (isTriplet) pitchWidth += 5;
 
   // Syllable text width across all verse layers
   let maxLyricWidth = 0;
@@ -380,19 +380,19 @@ export function calculateNoteRequiredWidth(
     if (h) {
       for (const ch of h) {
         if (/[，。、！？,.!?…]/.test(ch)) {
-          hWidth += 10;
+          hWidth += 6;
         } else {
-          hWidth += 14;
+          hWidth += 12;
         }
       }
     }
 
     let pWidth = 0;
     if (p) {
-      pWidth = p.length * 8.5;
+      pWidth = p.length * 7.0;
       // Snug word boundary margin if not continuing with hyphen to next syllable
       if (!p.endsWith('-') && !p.endsWith('--')) {
-        pWidth += 4;
+        pWidth += 2;
       }
     }
 
@@ -416,7 +416,7 @@ export function calculateNoteRequiredWidth(
     }
   }
 
-  return Math.max(22, Math.round(Math.max(pitchWidth, maxLyricWidth + 4)));
+  return Math.max(16, Math.round(Math.max(pitchWidth, maxLyricWidth + 2)));
 }
 
 /**
@@ -428,33 +428,33 @@ export function calculateMeasureRequiredWidth(
   chordText: string,
   sectionText: string
 ): number {
-  let baseWidth = 36; // Barlines, measure number, default margins
+  let baseWidth = 24; // Barlines, measure number, default margins
   if (chordText && chordText.length > 2) {
-    baseWidth += (chordText.length - 2) * 8;
+    baseWidth += (chordText.length - 2) * 7;
   }
   if (sectionText) {
-    baseWidth += Math.max(30, sectionText.length * 8);
+    baseWidth += Math.max(24, sectionText.length * 7);
   }
   if (measure.voltaEnding && measure.voltaEnding.length > 0) {
-    baseWidth += 24;
+    baseWidth += 20;
   }
   if (measure.isPrelude) {
-    baseWidth += 18;
+    baseWidth += 14;
   }
 
   let notesWidth = 0;
   if (engravedNotes && engravedNotes.length > 0) {
-    notesWidth = engravedNotes.reduce((sum, n) => sum + (n.requiredWidth || 30), 0);
+    notesWidth = engravedNotes.reduce((sum, n) => sum + (n.requiredWidth || 24), 0);
   } else {
-    notesWidth = 60;
+    notesWidth = 50;
   }
 
   if (measure.obbligato && measure.obbligato.length > 0) {
-    const obWidth = measure.obbligato.length * 26;
+    const obWidth = measure.obbligato.length * 22;
     notesWidth = Math.max(notesWidth, obWidth);
   }
 
-  return Math.max(110, Math.round(baseWidth + notesWidth));
+  return Math.max(75, Math.round(baseWidth + notesWidth));
 }
 
 /**
@@ -557,16 +557,14 @@ export function groupMeasuresIntoSystems(
 
   let currentSystem: EngravedMeasure[] = [];
   let currentSystemWidth = 0;
-  // Content line width budgets: ~750px for Portrait (A4 210mm), ~1050px for Landscape (A4 297mm)
-  const MAX_SYSTEM_LINE_WIDTH = orientation === 'landscape' ? 1050 : 750;
+  // Content line width budgets: ~800px for Portrait (A4 210mm), ~1160px for Landscape (A4 297mm)
+  const MAX_SYSTEM_LINE_WIDTH = orientation === 'landscape' ? 1160 : 800;
   const effectiveDefaultMeasures =
-    orientation === 'landscape' && (defaultMeasuresPerSystem === 4 || !defaultMeasuresPerSystem)
-      ? 5
-      : (defaultMeasuresPerSystem || 4);
+    defaultMeasuresPerSystem || (orientation === 'landscape' ? 5 : 4);
 
   measures.forEach((measure, idx) => {
     const engraved = engraveMeasure(measure, idx, timeSignature, measures);
-    const mWidth = engraved.requiredWidth || 140;
+    const mWidth = engraved.requiredWidth || 100;
 
     let shouldBreakBefore = false;
 
@@ -580,10 +578,10 @@ export function groupMeasuresIntoSystems(
         const exceedsWidth = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH;
 
         // In auto_wrap, respect previous measure's line break if line has reached target capacity
-        // or line width has reached at least 65% of sheet width budget
+        // or line width has reached at least 90% of sheet width budget
         const prevHadBreak = Boolean(
           currentSystem[currentSystem.length - 1].isLineBreak &&
-          (currentSystem.length >= effectiveDefaultMeasures || currentSystemWidth >= MAX_SYSTEM_LINE_WIDTH * 0.65)
+          (currentSystem.length >= effectiveDefaultMeasures || currentSystemWidth >= MAX_SYSTEM_LINE_WIDTH * 0.90)
         );
 
         if (sectionBreak || exceedsWidth || prevHadBreak) {
@@ -591,22 +589,9 @@ export function groupMeasuresIntoSystems(
         }
       }
     } else if (wrapMode === 'auto_fit') {
-      // 2. Auto Fit (Forced fit / Auto fix): break at target measures per line or density guard
-      if (currentSystem.length > 0) {
-        const reachesLimit = currentSystem.length >= effectiveDefaultMeasures;
-        // In landscape, don't let a sub-capacity break (e.g. 4 bars from portrait) prevent reaching target
-        const prevHadBreak = Boolean(
-          currentSystem[currentSystem.length - 1].isLineBreak &&
-          currentSystem.length >= effectiveDefaultMeasures
-        );
-
-        // Density guard: if adding this measure would push the line beyond sheet boundaries,
-        // break early so syllables never collide and measures never overflow the sheet
-        const exceedsWidth = (currentSystemWidth + mWidth) > MAX_SYSTEM_LINE_WIDTH;
-
-        if (reachesLimit || prevHadBreak || (exceedsWidth && currentSystem.length >= 2)) {
-          shouldBreakBefore = true;
-        }
+      // 2. Auto Fit (Forced fit / Auto fix): strictly break when line reaches target measures per line
+      if (currentSystem.length >= effectiveDefaultMeasures) {
+        shouldBreakBefore = true;
       }
     } else {
       // 1. No Wrap: lines spread completely and ONLY wrap at delimiters, breaks, or empty measure transitions.
@@ -668,8 +653,8 @@ export function groupMeasuresIntoSystems(
     currentSystem.push(engraved);
     currentSystemWidth += mWidth;
 
-    // In auto_wrap and auto_fit mode: end barlines or repeat ends can naturally conclude a system if line has >= 2 measures
-    if (wrapMode === 'auto_wrap' || wrapMode === 'auto_fit') {
+    // In auto_wrap mode: end barlines or repeat ends can naturally conclude a system if line has >= 2 measures
+    if (wrapMode === 'auto_wrap') {
       const hasEndBarline = measure.barlineType === 'end' || measure.barlineType === 'repeat_end';
       if (hasEndBarline && idx < measures.length - 1 && currentSystem.length >= 2) {
         systems.push({

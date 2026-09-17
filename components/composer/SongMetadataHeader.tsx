@@ -925,17 +925,30 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   id="composer-notes-per-line-select"
                   value={song.notesPerLine || (song.orientation === 'landscape' ? 5 : 4)}
                   onChange={e => {
-                    const newNotes = parseInt(e.target.value, 10) || 4;
+                    const newNotes = parseInt(e.target.value, 10) || (song.orientation === 'landscape' ? 5 : 4);
                     const rewrapped = autoWrapSongMeasures(song, newNotes, song.orientation);
                     onUpdateSong({ ...rewrapped, notesPerLine: newNotes });
                   }}
                   className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors cursor-pointer"
                 >
-                  <option value="2">2 Measures / Line</option>
-                  <option value="3">3 Measures / Line</option>
-                  <option value="4">4 Measures / Line (Standard Portrait)</option>
-                  <option value="5">5 Measures / Line (Standard Landscape)</option>
-                  <option value="6">6 Measures / Line (Compact)</option>
+                  {song.orientation === 'landscape' ? (
+                    <>
+                      <option value="2">2 Measures / Line (Ultra-Spacious)</option>
+                      <option value="3">3 Measures / Line (Spacious)</option>
+                      <option value="4">4 Measures / Line (Relaxed)</option>
+                      <option value="5">5 Measures / Line (Standard Landscape)</option>
+                      <option value="6">6 Measures / Line (Compact)</option>
+                      <option value="7">7 Measures / Line (Ultra-Compact)</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="2">2 Measures / Line (Spacious)</option>
+                      <option value="3">3 Measures / Line (Relaxed)</option>
+                      <option value="4">4 Measures / Line (Standard Portrait)</option>
+                      <option value="5">5 Measures / Line (Compact)</option>
+                      <option value="6">6 Measures / Line (Ultra-Compact)</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -951,8 +964,14 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                   value={song.orientation || 'portrait'}
                   onChange={e => {
                     const next = e.target.value as SheetOrientation;
-                    const rewrapped = autoWrapSongMeasures(song, undefined, next);
-                    onUpdateSong(rewrapped);
+                    let nextNotes = song.notesPerLine;
+                    if (next === 'landscape' && (!nextNotes || nextNotes === 4)) {
+                      nextNotes = 5;
+                    } else if (next === 'portrait' && (!nextNotes || nextNotes === 5 || nextNotes === 7)) {
+                      nextNotes = 4;
+                    }
+                    const rewrapped = autoWrapSongMeasures(song, nextNotes, next);
+                    onUpdateSong({ ...rewrapped, notesPerLine: nextNotes, orientation: next });
                   }}
                   className="w-full bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold rounded-xl px-3 py-2 text-sm focus:outline-hidden focus:ring-2 focus:ring-amber-500 transition-colors cursor-pointer"
                 >

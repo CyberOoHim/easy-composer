@@ -558,7 +558,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     return groupMeasuresIntoSystems(
       song.measures,
       song.timeSignature || '4/4',
-      song.notesPerLine || 4,
+      song.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4),
       sheetWrapMode,
       sheetOrientation
     );
@@ -2489,20 +2489,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                       flex: sheetWrapMode === 'no_wrap'
                         ? '0 0 auto'
                         : sheetWrapMode === 'auto_wrap'
-                        ? `${Math.max(1, Math.round(engravedM.requiredWidth || 100))}`
+                        ? `${Math.max(1, Math.round(engravedM.requiredWidth || 75))}`
                         : 1,
                       width: sheetWrapMode === 'no_wrap'
                         ? `${getNaturalMeasureWidth(engravedM)}px`
                         : undefined,
                       minWidth: sheetWrapMode === 'no_wrap'
-                        ? `${Math.max(150, Math.round((engravedM.requiredWidth || 150) * 1.02))}px`
+                        ? `${Math.max(120, Math.round((engravedM.requiredWidth || 120) * 1.02))}px`
                         : sheetWrapMode === 'auto_wrap'
-                        ? `${Math.min(240, Math.round((engravedM.requiredWidth || 110) * 0.75))}px`
-                        : `${Math.round((engravedM.requiredWidth || 110) * 0.65)}px`,
+                        ? `${Math.min(200, Math.round((engravedM.requiredWidth || 75) * 0.75))}px`
+                        : 0,
                     }}
                     className={`relative ${
                       sheetWrapMode === 'no_wrap' ? 'flex-none' : 'flex-1'
-                    } flex flex-col justify-between px-1.5 sm:px-2 pt-1.5 pb-1 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
+                    } flex flex-col justify-between px-1 sm:px-1.5 pt-1 pb-0.5 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
                       isSelectedMeasure
                         ? sheetTheme === 'dark' ? 'bg-amber-950/30' : 'bg-amber-50/40'
                         : sheetTheme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50/80'
@@ -2672,10 +2672,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               }}
                               style={{
                                 zoom: 'var(--note-zoom, 1)',
-                                flex: `${Math.max(1, Math.round((engNote.requiredWidth || 22) / 10))} 0 auto`,
-                                minWidth: `${Math.round(engNote.requiredWidth || 22)}px`,
+                                flex: `${Math.max(1, Math.round((engNote.requiredWidth || 16) / 10))} 1 auto`,
+                                minWidth: `${Math.max(16, Math.round((engNote.requiredWidth || 16) * 0.85))}px`,
                               }}
-                              className={`relative flex flex-col items-center justify-center p-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[30px] print:ring-0 print:bg-transparent ${
+                              className={`relative flex flex-col items-center justify-center p-0 px-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[28px] print:ring-0 print:bg-transparent ${
                                 isSelectedNote
                                   ? sheetTheme === 'dark'
                                     ? 'ring-2 ring-amber-400 bg-amber-950/60'
@@ -2800,7 +2800,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
                                 {/* Sustain Dashes '-' for half and whole notes */}
                                 {engNote.dashCount > 0 && (
-                                  <span className={`ml-1 tracking-widest font-black ${
+                                  <span className={`ml-0.5 tracking-wider font-black ${
                                     sheetTheme === 'dark' ? 'text-zinc-100' : 'text-zinc-950'
                                   }`}>
                                     {Array.from({ length: engNote.dashCount })
@@ -2976,19 +2976,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     }}
                                     style={{
                                       zoom: 'var(--lyric-zoom, 1)',
-                                      flex: `${Math.max(1, Math.round((engNote.requiredWidth || 22) / 10))} 0 auto`,
-                                      minWidth: `${Math.round(engNote.requiredWidth || 22)}px`,
-                                      maxWidth: isSelectedLyric ? `${Math.max(Math.round(engNote.requiredWidth || 22), 30)}px` : undefined,
+                                      flex: `${Math.max(1, Math.round((engNote.requiredWidth || 16) / 10))} 1 auto`,
+                                      minWidth: `${Math.max(16, Math.round((engNote.requiredWidth || 16) * 0.85))}px`,
+                                      maxWidth: isSelectedLyric ? `${Math.max(Math.round(engNote.requiredWidth || 16), 28)}px` : undefined,
                                     }}
-                                    className={`flex-1 text-center min-h-[22px] sm:min-h-[26px] flex items-center ${
+                                    className={`flex-1 text-center min-h-[20px] sm:min-h-[24px] flex items-center ${
                                       connectsToNextWithSemiHyphen
                                         ? 'justify-end pr-0 mr-0'
                                         : connectedFromPrevSemiHyphen
                                         ? 'justify-start pl-0 ml-0'
                                         : 'justify-center'
-                                    } ${
-                                      isPojWordEnd ? 'mr-0.5 sm:mr-1' : ''
-                                    } px-0.5 py-0 rounded cursor-text touch-manipulation transition-all overflow-visible relative z-10 print:ring-0 print:bg-transparent ${
+                                    } px-0 py-0 rounded cursor-text touch-manipulation transition-all overflow-visible relative z-10 print:ring-0 print:bg-transparent ${
                                       isSelectedLyric
                                         ? sheetTheme === 'dark'
                                           ? 'bg-amber-950/80 ring-2 ring-amber-400 font-bold text-amber-200'

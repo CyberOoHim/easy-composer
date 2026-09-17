@@ -177,7 +177,7 @@ describe('autoWrapSongMeasures', () => {
       assert.equal(brokenSystems[1].measures.length, 4);
     });
 
-    it('Mode 2 (auto_fit): targets 4 measures in Portrait and 5 in Landscape, breaking early for dense measures', async () => {
+    it('Mode 2 (auto_fit): strictly follows the dropdown setting in Portrait (4) and Landscape (5)', async () => {
       const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
       const standardMeasures: Measure[] = Array.from({ length: 10 }, (_, i) =>
         makeMockMeasure(`m${i + 1}`, i + 1, 4)
@@ -186,34 +186,39 @@ describe('autoWrapSongMeasures', () => {
       // Portrait auto_fit defaults to 4 measures per line
       const pSystems = groupMeasuresIntoSystems(standardMeasures, '4/4', 4, 'auto_fit', 'portrait');
       assert.equal(pSystems[0].measures.length, 4);
+      assert.equal(pSystems[1].measures.length, 4);
+      assert.equal(pSystems[2].measures.length, 2); // remaining
 
       // Landscape auto_fit defaults to 5 measures per line
-      const lSystems = groupMeasuresIntoSystems(standardMeasures, '4/4', 4, 'auto_fit', 'landscape');
+      const lSystems = groupMeasuresIntoSystems(standardMeasures, '4/4', 5, 'auto_fit', 'landscape');
       assert.equal(lSystems[0].measures.length, 5);
+      assert.equal(lSystems[1].measures.length, 5);
 
-      // High density measures trigger density safeguard to prevent syllable collisions
+      // Auto Fix strictly follows the dropdown setting even with dense measures
       const denseMeasures: Measure[] = [
         makeMockMeasure('d1', 1, 16), // 16 notes (very dense)
         makeMockMeasure('d2', 2, 16),
         makeMockMeasure('d3', 3, 16),
         makeMockMeasure('d4', 4, 16),
       ];
-      const denseSystems = groupMeasuresIntoSystems(denseMeasures, '4/4', 4, 'auto_fit', 'portrait');
-      // Should break before cramming all 4 ultra-dense measures on one portrait line
-      assert.ok(denseSystems.length > 1, 'Dense measures must break early to prevent text collision');
-      assert.ok(denseSystems[0].measures.length < 4, 'First system should have fewer than 4 measures for ultra-dense notes');
+      const denseFixSystems = groupMeasuresIntoSystems(denseMeasures, '4/4', 4, 'auto_fit', 'portrait');
+      assert.equal(denseFixSystems[0].measures.length, 4, 'auto_fit strictly keeps 4 measures per line as requested by user');
+
+      // Whereas auto_wrap dynamically breaks early for dense measures to prevent collision
+      const denseWrapSystems = groupMeasuresIntoSystems(denseMeasures, '4/4', 4, 'auto_wrap', 'portrait');
+      assert.ok(denseWrapSystems.length > 1, 'auto_wrap breaks early to prevent collision');
     });
 
-    it('Mode 3 (auto_wrap): dynamically budgets line width for Portrait (750px) vs Landscape (1050px)', async () => {
+    it('Mode 3 (auto_wrap): dynamically budgets line width for Portrait (800px) vs Landscape (1160px)', async () => {
       const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
       const rawMeasures: Measure[] = Array.from({ length: 12 }, (_, i) =>
         makeMockMeasure(`m${i + 1}`, i + 1, 4)
       );
 
       const pSystems = groupMeasuresIntoSystems(rawMeasures, '4/4', 4, 'auto_wrap', 'portrait');
-      const lSystems = groupMeasuresIntoSystems(rawMeasures, '4/4', 4, 'auto_wrap', 'landscape');
+      const lSystems = groupMeasuresIntoSystems(rawMeasures, '4/4', 5, 'auto_wrap', 'landscape');
 
-      // Landscape should require fewer systems because each line has a 1050px budget instead of 750px
+      // Landscape should require fewer systems because each line has a 1160px budget instead of 800px
       assert.ok(lSystems.length <= pSystems.length, 'Landscape requires fewer or equal systems than portrait');
       assert.ok(lSystems[0].measures.length >= pSystems[0].measures.length, 'Landscape first line should pack more measures');
     });
@@ -241,7 +246,7 @@ describe('autoWrapSongMeasures', () => {
       const longWidth = calculateNoteRequiredWidth(longNote);
 
       assert.ok(longWidth > shortWidth, 'Long POJ syllable must have significantly larger required width');
-      assert.ok(longWidth >= 80, `Long syllable should have >= 80px required width, got ${longWidth}`);
+      assert.ok(longWidth >= 75, `Long syllable should have >= 75px required width, got ${longWidth}`);
 
       // Note with 3 stacked verses
       const multiVerseNote: NumberedNotationNote = {
@@ -257,7 +262,7 @@ describe('autoWrapSongMeasures', () => {
         },
       };
       const mvWidth = calculateNoteRequiredWidth(multiVerseNote);
-      assert.ok(mvWidth >= 60, `Multi-verse note should have >= 60px required width, got ${mvWidth}`);
+      assert.ok(mvWidth >= 55, `Multi-verse note should have >= 55px required width, got ${mvWidth}`);
     });
 
     it('autoWrapSongMeasures adapts wrapping density based on orientation', () => {
@@ -295,17 +300,22 @@ describe('autoWrapSongMeasures', () => {
       assert.equal(rewrapped.measures[9].isLineBreak, true, 'Measure 10 should be the line break in landscape');
     });
 
-    it('groupMeasuresIntoSystems packs 5 measures per system in Landscape for auto_fit even with 4-measure legacy breaks', async () => {
+    it('groupMeasuresIntoSystems strictly follows target measures (5 or 4) in Landscape for auto_fit even with legacy breaks', async () => {
       const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
       const measuresWith4BarBreaks = Array.from({ length: 20 }, (_, i) =>
         makeMockMeasure(`m${i + 1}`, i + 1, 4, { isLineBreak: (i + 1) % 4 === 0 })
       );
 
-      const systems = groupMeasuresIntoSystems(measuresWith4BarBreaks, '4/4', 4, 'auto_fit', 'landscape');
-      // In landscape auto_fit, systems should pack 5 measures, not 4
-      assert.equal(systems[0].measures.length, 5, 'First system should have 5 measures in landscape auto_fit');
-      assert.equal(systems[1].measures.length, 5, 'Second system should have 5 measures in landscape auto_fit');
-      assert.equal(systems.length, 4, '20 measures at 5 per line should produce exactly 4 systems');
+      const systems5 = groupMeasuresIntoSystems(measuresWith4BarBreaks, '4/4', 5, 'auto_fit', 'landscape');
+      // When target is 5 in landscape auto_fit, systems should pack 5 measures
+      assert.equal(systems5[0].measures.length, 5, 'First system should have 5 measures in landscape auto_fit');
+      assert.equal(systems5[1].measures.length, 5, 'Second system should have 5 measures in landscape auto_fit');
+      assert.equal(systems5.length, 4, '20 measures at 5 per line should produce exactly 4 systems');
+
+      const systems4 = groupMeasuresIntoSystems(measuresWith4BarBreaks, '4/4', 4, 'auto_fit', 'landscape');
+      // When target is 4 in landscape auto_fit, systems should strictly pack 4 measures, honoring user choice
+      assert.equal(systems4[0].measures.length, 4, 'First system should have 4 measures in landscape auto_fit when target is 4');
+      assert.equal(systems4.length, 5, '20 measures at 4 per line should produce exactly 5 systems');
     });
 
     it('groupMeasuresIntoSystems in no_wrap spreads completely and wraps only at delimiters and break/new line for portrait and landscape', async () => {
@@ -320,7 +330,7 @@ describe('autoWrapSongMeasures', () => {
       const systemsPortrait = groupMeasuresIntoSystems(continuousMeasures, '4/4', 4, 'no_wrap', 'portrait');
       assert.equal(systemsPortrait.length, 1, 'In no_wrap portrait, measures without delimiters should remain on a single line');
       assert.equal(systemsPortrait[0].measures.length, 10, 'All 10 measures should be in the single system');
-      assert.ok(systemsPortrait[0].totalRequiredWidth > 896, 'Total width extends beyond standard A4 portrait width');
+      assert.ok(systemsPortrait[0].totalRequiredWidth > 750, 'Total width extends and accumulates on single line');
 
       const systemsLandscape = groupMeasuresIntoSystems(continuousMeasures, '4/4', 4, 'no_wrap', 'landscape');
       assert.equal(systemsLandscape.length, 1, 'In no_wrap landscape, measures without delimiters should remain on a single line');

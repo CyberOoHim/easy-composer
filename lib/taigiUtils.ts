@@ -2036,6 +2036,8 @@ export function autoWrapSongMeasures(
     targetMeasuresPerLine ??
     (effectiveOrientation === 'landscape' && (song.notesPerLine === 4 || !song.notesPerLine)
       ? 5
+      : effectiveOrientation === 'portrait' && song.notesPerLine === 5
+      ? 4
       : (song.notesPerLine ?? defaultTarget));
   const baseCapacity = Math.max(
     2,
@@ -2097,7 +2099,7 @@ export function autoWrapSongMeasures(
   // Build systems dynamically
   let currentSystemMeasures: number[] = [];
   let currentSystemWeight = 0;
-  const maxLineWeight = baseCapacity * (effectiveOrientation === 'landscape' ? 1.25 : 1.15);
+  const maxLineWeight = baseCapacity * (effectiveOrientation === 'landscape' ? 1.4 : 1.15);
 
   for (let i = 0; i < newMeasures.length; i++) {
     const m = newMeasures[i];
