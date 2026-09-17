@@ -1,4 +1,5 @@
 import type { Measure, NumberedNotationNote, TimeSignature, PitchNumber, NoteDuration, BarlineType, SheetWrapMode, SheetOrientation } from '../types/song.ts';
+import { measureHasNoWrapSplitTrigger } from './taigiUtils.ts';
 
 /**
  * Calculated engraving data for a single numbered notation note on a printed sheet.
@@ -538,7 +539,9 @@ export function isMeasureEmpty(measure: Measure): boolean {
  * Groups measures into systems (staff lines on the sheet).
  * Supports three layout modes:
  * 1. 'no_wrap': No forced fit nor auto wrap; breaks ONLY at manual line breaks (measure.isLineBreak),
- *    delimiters, or grouping consecutive empty measures into the same line ending before a measure with badge or lyrics.
+ *    delimiters (，, 。, ,, .), newline verse breaks (↵, \n, \r), delimiter barlines, section headers,
+ *    or grouping consecutive empty measures into the same line ending before a measure with badge or lyrics.
+ *    (Whitespace spacers ␣, ' ' are explicitly excluded from splitting lines).
  * 2. 'auto_fit': Forced fit in sheet with fixed measures per line (default 4) or on manual breaks.
  * 3. 'auto_wrap': Real auto-wrap that dynamically breaks lines based on note and lyric content width,
  *    guaranteeing generous spacing and zero collision between syllables and barlines.
@@ -607,11 +610,13 @@ export function groupMeasuresIntoSystems(
       }
     } else {
       // 1. No Wrap: lines spread completely and ONLY wrap at delimiters, breaks, or empty measure transitions.
-      // Delimiters include:
+      // Delimiters & breaks include:
       // - Manual line break on the previous measure (measure.isLineBreak)
       // - Delimiter barlines on previous measure ('end', 'repeat_end', 'double')
       // - Section start delimiter on current measure (measure.section)
-      // - Note delimiter / newline in lyrics on previous measure
+      // - Delimiters on previous measure: '，', '。', ',', '.'
+      // - Newline verse breaks on previous measure: '↵', '\n', '\r'
+      // - Whitespace spacers ('␣', ' ') are explicitly EXCLUDED from triggering line splits
       // - Consecutive empty measures grouped as the same line, ending before a measure with badge or with lyrics
       if (currentSystem.length > 0) {
         const prevEngraved = currentSystem[currentSystem.length - 1];
@@ -622,13 +627,7 @@ export function groupMeasuresIntoSystems(
           prevEngraved.barlineType === 'repeat_end' ||
           prevEngraved.barlineType === 'double';
         const isSectionStartDelimiter = Boolean(measure.section && measure.section.trim());
-        const prevHadLyricNewline = Boolean(
-          prevEngraved.notes?.some(n => {
-            const h = n.note?.lyric?.hanlo || n.note?.lyric?.hanji || n.note?.lyric?.custom || '';
-            const p = n.note?.lyric?.poj || n.note?.lyric?.tl || '';
-            return h.includes('\n') || p.includes('\n');
-          })
-        );
+        const prevHadSplitTrigger = measureHasNoWrapSplitTrigger(prevMeasure);
 
         // Consecutive empty measures grouping:
         // Group consecutive empty measures as the same line, ending before a measure with badge or with lyrics
@@ -645,7 +644,7 @@ export function groupMeasuresIntoSystems(
           prevHadBreak ||
           prevHadDelimiterBarline ||
           isSectionStartDelimiter ||
-          prevHadLyricNewline ||
+          prevHadSplitTrigger ||
           emptyEndingBeforeContent ||
           lyricsEndingBeforeEmpty
         ) {

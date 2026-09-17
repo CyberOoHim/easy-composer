@@ -1237,7 +1237,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
 
       setStoredSheetWrapMode(next);
       if (next === 'no_wrap') {
-        showNotice('Layout: No Wrap (Manual breaks only)');
+        showNotice('Layout: No Wrap (Natural spread; wraps at delimiters & breaks)');
       } else if (next === 'auto_wrap') {
         showNotice('Layout: Auto Wrap (Dynamic spacing, zero syllable collision)');
       } else {

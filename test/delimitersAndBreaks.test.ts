@@ -8,6 +8,8 @@ import {
   COMMON_PUNCTUATIONS,
   checkZeroBeatTrigger,
   normalizeNoteDuration,
+  isNoWrapLineSplitTrigger,
+  measureHasNoWrapSplitTrigger,
 } from '../lib/taigiUtils.ts';
 import type { Song, NumberedNotationNote } from '../types/song.ts';
 
@@ -179,4 +181,125 @@ describe('Enhanced Delimiter List & Zero-Beat Empty Note Conversion', () => {
       assert.equal(normalized.octave, 0);
     });
   });
+
+  describe('No Wrap Mode Line Split Triggers (Delimiters & Newline Breaks)', () => {
+    it('triggers line split on delimiters: ， and 。 (and ascii , and .)', () => {
+      const delimiters = ['，', '。', ',', '.'];
+      for (const d of delimiters) {
+        const note: NumberedNotationNote = {
+          id: 'n-delim',
+          pitch: 'empty',
+          octave: 0,
+          duration: 0,
+          lyric: { hanlo: d, poj: d },
+        };
+        assert.equal(isNoWrapLineSplitTrigger(note), true, `Delimiter "${d}" must trigger line split`);
+      }
+    });
+
+    it('triggers line split on newline verse breaks: ↵, \\n, \\r', () => {
+      const breaks = ['↵', '\n', '\r'];
+      for (const b of breaks) {
+        const note: NumberedNotationNote = {
+          id: 'n-break',
+          pitch: 'empty',
+          octave: 0,
+          duration: 0,
+          lyric: { hanlo: b, poj: b },
+        };
+        assert.equal(isNoWrapLineSplitTrigger(note), true, `Newline break "${b}" must trigger line split`);
+      }
+    });
+
+    it('explicitly excludes whitespace spacers: ␣, \' \'', () => {
+      const spacers = ['␣', ' ', '  '];
+      for (const s of spacers) {
+        const note: NumberedNotationNote = {
+          id: 'n-spacer',
+          pitch: 'empty',
+          octave: 0,
+          duration: 0,
+          lyric: { hanlo: s, poj: s },
+        };
+        assert.equal(isNoWrapLineSplitTrigger(note), false, `Whitespace spacer "${s}" must NOT trigger line split`);
+      }
+    });
+
+    it('triggers line split on lyric syllables with attached delimiters or newlines', () => {
+      const attachedDelims = ['koa，', 'koa,', 'koa。', 'koa.', '歌，', '歌。'];
+      for (const word of attachedDelims) {
+        const note: NumberedNotationNote = {
+          id: 'n-attached-delim',
+          pitch: 1,
+          octave: 0,
+          duration: 1,
+          lyric: { hanlo: word, poj: word },
+        };
+        assert.equal(isNoWrapLineSplitTrigger(note), true, `Word with delimiter "${word}" must trigger line split`);
+      }
+
+      const attachedBreaks = ['koa↵', 'koa\n', 'koa\r', '歌↵', '歌\n'];
+      for (const word of attachedBreaks) {
+        const note: NumberedNotationNote = {
+          id: 'n-attached-break',
+          pitch: 1,
+          octave: 0,
+          duration: 1,
+          lyric: { hanlo: word, poj: word },
+        };
+        assert.equal(isNoWrapLineSplitTrigger(note), true, `Word with break "${word}" must trigger line split`);
+      }
+    });
+
+    it('does not trigger on plain lyrics or space-separated words without delimiters', () => {
+      const plainWords = ['To̍k', 'iā', 'chhiu', 'hong', 'chhun hong', '這條歌'];
+      for (const word of plainWords) {
+        const note: NumberedNotationNote = {
+          id: 'n-plain',
+          pitch: 1,
+          octave: 0,
+          duration: 1,
+          lyric: { hanlo: word, poj: word },
+        };
+        assert.equal(isNoWrapLineSplitTrigger(note), false, `Plain lyric "${word}" must NOT trigger line split`);
+      }
+    });
+
+    it('triggers line split on multi-verse lyrics (lyricsByVerse)', () => {
+      const noteVerse2: NumberedNotationNote = {
+        id: 'n-v2',
+        pitch: 1,
+        octave: 0,
+        duration: 1,
+        lyric: { hanlo: '普通', poj: 'phó͘-thong' },
+        lyricsByVerse: {
+          2: { hanlo: '落土。', poj: 'lo̍h-thó͘.' },
+        },
+      };
+      assert.equal(isNoWrapLineSplitTrigger(noteVerse2), true, 'Delimiter in Verse 2 must trigger line split');
+    });
+
+    it('protects tempo annotations like "rit." while triggering on newline annotations', () => {
+      const ritNote: NumberedNotationNote = {
+        id: 'n-rit',
+        pitch: 1,
+        octave: 0,
+        duration: 1,
+        lyric: {},
+        annotation: 'rit.',
+      };
+      assert.equal(isNoWrapLineSplitTrigger(ritNote), false, 'Annotation "rit." must NOT trigger line split');
+
+      const breakNote: NumberedNotationNote = {
+        id: 'n-annot-break',
+        pitch: 1,
+        octave: 0,
+        duration: 1,
+        lyric: {},
+        annotation: '↵',
+      };
+      assert.equal(isNoWrapLineSplitTrigger(breakNote), true, 'Annotation "↵" must trigger line split');
+    });
+  });
 });
+

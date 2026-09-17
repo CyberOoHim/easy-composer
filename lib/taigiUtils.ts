@@ -777,6 +777,74 @@ export function isNewlineBreak(str?: string): boolean {
 }
 
 /**
+ * Checks if a note contains a no-wrap line-split trigger:
+ * - Delimiters: '，' and '。' (and ascii ',' and '.')
+ * - Newline verse breaks: '↵', '\n', '\r'
+ * - EXCLUDED: Whitespace spacers ('␣', ' ')
+ */
+export function isNoWrapLineSplitTrigger(note: NumberedNotationNote | null | undefined): boolean {
+  if (!note) return false;
+
+  const lyricCandidates: (string | undefined)[] = [
+    note.lyric?.hanlo,
+    note.lyric?.hanji,
+    note.lyric?.custom,
+    note.lyric?.poj,
+    note.lyric?.tl,
+  ];
+
+  if (note.lyricsByVerse) {
+    for (const v of Object.values(note.lyricsByVerse)) {
+      if (v) {
+        lyricCandidates.push(v.hanlo, v.hanji, v.custom, v.poj, v.tl);
+      }
+    }
+  }
+
+  for (const text of lyricCandidates) {
+    if (!text) continue;
+
+    // Newline verse breaks: ↵, \n, \r
+    if (/[\n\r↵]/.test(text)) {
+      return true;
+    }
+
+    const trimmed = text.trim();
+    // Explicitly exclude whitespace spacers ('␣', ' ')
+    if (text === ' ' || text === '␣' || trimmed === '␣' || trimmed === '') {
+      continue;
+    }
+
+    // Delimiters: ， and 。 (and ascii , / .)
+    if (/[，。,]|\.(?!\w)/.test(text)) {
+      return true;
+    }
+  }
+
+  // Check annotation for newline breaks or standalone delimiter characters
+  if (note.annotation) {
+    const annot = note.annotation.trim();
+    if (/[\n\r↵]/.test(annot)) {
+      return true;
+    }
+    if (annot === '，' || annot === '。' || annot === ',' || annot === '.') {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Checks if a measure contains any note with a no-wrap line-split trigger.
+ */
+export function measureHasNoWrapSplitTrigger(measure: Measure | null | undefined): boolean {
+  if (!measure?.notes || measure.notes.length === 0) return false;
+  return measure.notes.some(note => isNoWrapLineSplitTrigger(note));
+}
+
+
+/**
  * Check if a note is an explicit verse/line separator.
  * Splits lines / verses at any of the enhanced delimiters (↵, ␣, ，, 。, ！, ？, 、, ；, ：, —, …, \n, \r)
  * or zero-beat punctuation/spacer notes.

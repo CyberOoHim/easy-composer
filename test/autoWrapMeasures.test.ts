@@ -351,6 +351,75 @@ describe('autoWrapSongMeasures', () => {
       );
     });
 
+    it('splits systems in no_wrap mode at delimiters (，, 。, ,, .) and newline verse breaks (↵, \\n, \\r), excluding whitespace spacers (␣, \' \')', async () => {
+      const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
+
+      // Helper to make a measure with a specific final note
+      const makeMeasureWithLastNote = (
+        id: string,
+        measureNumber: number,
+        lyric: { hanlo?: string; poj?: string }
+      ): Measure => ({
+        id,
+        measureNumber,
+        isLineBreak: false,
+        notes: [
+          { id: `n-${id}-1`, pitch: 1, octave: 0, duration: 1, lyric: { hanlo: '歌', poj: 'koa' } },
+          { id: `n-${id}-2`, pitch: 2, octave: 0, duration: 1, lyric: { hanlo: '聲', poj: 'siaⁿ' } },
+          { id: `n-${id}-3`, pitch: 3, octave: 0, duration: 1, lyric: { hanlo: '響', poj: 'hiáng' } },
+          { id: `n-${id}-4`, pitch: 'empty', octave: 0, duration: 0, lyric },
+        ],
+      });
+
+      // 6 measures:
+      // m1: has delimiter comma '，' -> should split after m1
+      // m2: has whitespace spacer '␣' -> must NOT split after m2
+      // m3: has newline verse break '↵' -> should split after m3
+      // m4: has delimiter period '。' -> should split after m4
+      // m5: has whitespace spacer ' ' -> must NOT split after m5
+      // m6: regular notes
+      const measures: Measure[] = [
+        makeMeasureWithLastNote('m1', 1, { hanlo: '，', poj: '，' }),
+        makeMeasureWithLastNote('m2', 2, { hanlo: '␣', poj: '␣' }),
+        makeMeasureWithLastNote('m3', 3, { hanlo: '↵', poj: '↵' }),
+        makeMeasureWithLastNote('m4', 4, { hanlo: '。', poj: '。' }),
+        makeMeasureWithLastNote('m5', 5, { hanlo: ' ', poj: ' ' }),
+        makeMeasureWithLastNote('m6', 6, { hanlo: '好', poj: 'hó' }),
+      ];
+
+      const systems = groupMeasuresIntoSystems(measures, '4/4', 4, 'no_wrap', 'portrait');
+
+      // Expected systems:
+      // System 1: [1] (splits after m1 because of '，')
+      // System 2: [2, 3] (m2 had '␣' so m3 stays on line; splits after m3 because of '↵')
+      // System 3: [4] (splits after m4 because of '。')
+      // System 4: [5, 6] (m5 had ' ' so m6 stays on line)
+      assert.equal(systems.length, 4, 'Should split into exactly 4 systems');
+      assert.deepEqual(
+        systems.map(s => s.measures.map(m => m.measureNumber)),
+        [[1], [2, 3], [4], [5, 6]],
+        'Delimiters and newlines must split lines, while whitespace spacers must be excluded from splitting'
+      );
+
+      // Also verify halfwidth delimiters (comma and period) and \n / \r
+      const halfwidthMeasures: Measure[] = [
+        makeMeasureWithLastNote('h1', 1, { hanlo: ',', poj: ',' }),
+        makeMeasureWithLastNote('h2', 2, { hanlo: '\n', poj: '\n' }),
+        makeMeasureWithLastNote('h3', 3, { hanlo: '.', poj: '.' }),
+        makeMeasureWithLastNote('h4', 4, { hanlo: '\r', poj: '\r' }),
+        makeMeasureWithLastNote('h5', 5, { hanlo: '完', poj: 'oân' }),
+      ];
+
+      const halfwidthSystems = groupMeasuresIntoSystems(halfwidthMeasures, '4/4', 4, 'no_wrap', 'portrait');
+      assert.equal(halfwidthSystems.length, 5, 'Each delimiter and newline should create a new line');
+      assert.deepEqual(
+        halfwidthSystems.map(s => s.measures.map(m => m.measureNumber)),
+        [[1], [2], [3], [4], [5]],
+        'Halfwidth delimiters and \\n, \\r must trigger line splits'
+      );
+    });
+
+
     it('groups consecutive empty measures as the same line, ending before a measure with badge or with lyrics in no_wrap mode', async () => {
       const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
 
