@@ -661,16 +661,37 @@ export function isStandaloneAnnotationNote(note: NumberedNotationNote | null | u
   return isZeroTime && Boolean(note.annotation);
 }
 
+export const COMMON_PUNCTUATIONS = [
+  { label: '↵', value: '\n', title: 'Insert newline / verse break "↵" (0 beats)' },
+  { label: '␣', value: ' ', title: 'Insert space / spacer "␣" (0 beats)' },
+  { label: '，', value: '，', title: 'Insert comma "，" (0 beats)' },
+  { label: '。', value: '。', title: 'Insert period "。" (0 beats)' },
+  { label: '！', value: '！', title: 'Insert exclamation mark "！" (0 beats)' },
+  { label: '？', value: '？', title: 'Insert question mark "？" (0 beats)' },
+  { label: '、', value: '、', title: 'Insert enumeration comma "、" (0 beats)' },
+  { label: '；', value: '；', title: 'Insert semicolon "；" (0 beats)' },
+  { label: '：', value: '：', title: 'Insert colon "：" (0 beats)' },
+  { label: '—', value: '—', title: 'Insert dash "—" (0 beats)' },
+  { label: '…', value: '…', title: 'Insert ellipsis "…" (0 beats)' },
+];
+
+export const COMMON_ANNOTATIONS = ['rit.', 'accel.', 'a tempo', 'fine', 'V', 'fermata'];
+
 /**
- * Get clean 1-character display symbol for a zero-time punctuation note
+ * Get clean 1-character display symbol for a zero-time punctuation note or string
  */
-export function getPunctuationDisplayChar(note: NumberedNotationNote | null | undefined): string {
-  if (!note) return '';
-  const hanlo = note.lyric?.hanlo ?? '';
-  const hanji = note.lyric?.hanji ?? '';
-  const custom = note.lyric?.custom ?? '';
-  const poj = note.lyric?.poj ?? '';
-  const raw = hanlo || hanji || custom || poj || '';
+export function getPunctuationDisplayChar(noteOrStr: NumberedNotationNote | string | null | undefined): string {
+  if (!noteOrStr) return '';
+  let raw = '';
+  if (typeof noteOrStr === 'string') {
+    raw = noteOrStr;
+  } else {
+    const hanlo = noteOrStr.lyric?.hanlo ?? '';
+    const hanji = noteOrStr.lyric?.hanji ?? '';
+    const custom = noteOrStr.lyric?.custom ?? '';
+    const poj = noteOrStr.lyric?.poj ?? '';
+    raw = hanlo || hanji || custom || poj || '';
+  }
   if (raw === '\n' || raw === '\r' || raw === '↵') return '↵';
   if (raw === ' ' || raw === '␣') return '␣';
   if (raw.trim()) return raw.trim().slice(-1);
@@ -678,16 +699,15 @@ export function getPunctuationDisplayChar(note: NumberedNotationNote | null | un
 }
 
 /**
- * Check if a character or string is a punctuation mark, newline, or spacer
+ * Check if a character or string is an enhanced delimiter, punctuation mark, newline, or spacer
  */
 export function isPunctuationOrSpacer(str?: string): boolean {
-  if (str === undefined || str === null) return false;
-  if (str === '' || str === ' ' || str === '␣' || str === '\n' || str === '\r' || str === '↵') {
+  if (str === undefined || str === null || str === '') return false;
+  if (str === ' ' || str === '␣' || str === '\n' || str === '\r' || str === '↵') {
     return true;
   }
   const trimmed = str.trim();
   if (
-    trimmed === '' ||
     trimmed === '—' ||
     trimmed === '…' ||
     trimmed === '...' ||
@@ -701,6 +721,7 @@ export function isPunctuationOrSpacer(str?: string): boolean {
   ) {
     return true;
   }
+  if (!trimmed) return false;
   return /^[，。！？、；：""''（）()「」,.!?;:\s—…\n\r↵\-]+$/.test(trimmed);
 }
 
@@ -713,21 +734,23 @@ export function isNewlineBreak(str?: string): boolean {
 }
 
 /**
- * Check if a note is an explicit verse separator.
- * ONLY newlines (\n, \r, ↵) split verses explicitly.
+ * Check if a note is an explicit verse/line separator.
+ * Splits lines / verses at any of the enhanced delimiters (↵, ␣, ，, 。, ！, ？, 、, ；, ：, —, …, \n, \r)
+ * or zero-beat punctuation/spacer notes.
  */
 export function isVerseBreakNote(note: NumberedNotationNote | null | undefined): boolean {
   if (!note) return false;
 
-  const hanlo = note.lyric?.hanlo || note.lyric?.custom || note.lyric?.hanji || '';
-  const poj = note.lyric?.poj || note.lyric?.tl || '';
-  const annot = note.annotation || '';
+  const hanlo = note.lyric?.hanlo || note.lyric?.custom || note.lyric?.hanji;
+  const poj = note.lyric?.poj || note.lyric?.tl;
+  const annot = note.annotation;
 
-  return (
-    isNewlineBreak(hanlo) ||
-    isNewlineBreak(poj) ||
-    isNewlineBreak(annot)
-  );
+  if (isPunctuationZeroNote(note)) return true;
+  if (hanlo && (isNewlineBreak(hanlo) || isPunctuationOrSpacer(hanlo))) return true;
+  if (poj && (isNewlineBreak(poj) || isPunctuationOrSpacer(poj))) return true;
+  if (annot && (isNewlineBreak(annot) || isPunctuationOrSpacer(annot))) return true;
+
+  return false;
 }
 
 /**
@@ -853,7 +876,8 @@ export function groupSongIntoVerses(song: Song): VerseItem[] {
         const hasContent = currentNotes.some(
           n => {
             const h = n.note.lyric.hanlo || n.note.lyric.hanji || n.note.lyric.custom || '';
-            return (typeof n.note.pitch === 'number' && n.note.pitch > 0) || (h && !isPunctuationOrSpacer(h));
+            const p = n.note.lyric.poj || n.note.lyric.tl || '';
+            return (typeof n.note.pitch === 'number' && n.note.pitch > 0) || (h && !isPunctuationOrSpacer(h)) || (p && !isPunctuationOrSpacer(p));
           }
         );
 

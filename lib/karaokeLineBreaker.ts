@@ -1,20 +1,27 @@
 import type { VerseNoteRef } from '../types/song.ts';
 
 export function isPunctuationOrSpacer(str?: string): boolean {
-  if (!str) return false;
+  if (str === undefined || str === null || str === '') return false;
+  if (str === ' ' || str === '␣' || str === '\n' || str === '\r' || str === '↵') {
+    return true;
+  }
   const trimmed = str.trim();
   if (
-    trimmed === '' ||
     trimmed === '—' ||
     trimmed === '…' ||
+    trimmed === '...' ||
+    trimmed === '--' ||
+    trimmed === '-' ||
     trimmed === 'V' ||
     trimmed === '↵' ||
+    trimmed === '␣' ||
     trimmed === '\n' ||
     trimmed === '\r'
   ) {
     return true;
   }
-  return /^[，。！？、；：""''（）()「」,.!?;:\s—…\n\r↵]+$/.test(trimmed);
+  if (!trimmed) return false;
+  return /^[，。！？、；：""''（）()「」,.!?;:\s—…\n\r↵\-]+$/.test(trimmed);
 }
 
 export type SubNoteItem = {
@@ -242,13 +249,13 @@ export function segmentDisplayNotesIntoLines(
       score -= 60;
     }
 
-    // C. Musical Rests and Breathing Spaces
+    // C. Musical Rests, Enhanced Delimiters, and Breathing Spaces
     const isPunctSplit = isPunctuationOrSpacer(prevHan) || isPunctuationOrSpacer(prevRom);
     const isRestSplit =
       (prevNote.pitch === 0 || prevNote.pitch === 'empty') ||
       (nextNote.pitch === 0 || nextNote.pitch === 'empty');
 
-    if (isPunctSplit) score += 160;
+    if (isPunctSplit) score += 500;
     if (isRestSplit) score += 80;
 
     // D. Measure Boundary (conditioned on not breaking words)

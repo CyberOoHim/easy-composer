@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode, VerseDisplayOption, SheetWrapMode, SheetOrientation } from '@/types/song';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
+import { COMMON_PUNCTUATIONS, COMMON_ANNOTATIONS } from '@/lib/taigiUtils';
 
 export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit';
 
@@ -175,20 +176,7 @@ export interface FloatingScoreHudProps {
   futureCount?: number;
 }
 
-export const COMMON_PUNCTUATIONS = [
-  { label: '↵', value: '\n', title: 'Insert newline / verse break "↵" (0 beats)' },
-  { label: '␣', value: ' ', title: 'Insert space / spacer "␣" (0 beats)' },
-  { label: '，', value: '，', title: 'Insert comma "，" (0 beats)' },
-  { label: '。', value: '。', title: 'Insert period "。" (0 beats)' },
-  { label: '！', value: '！', title: 'Insert exclamation mark "！" (0 beats)' },
-  { label: '？', value: '？', title: 'Insert question mark "？" (0 beats)' },
-  { label: '、', value: '、', title: 'Insert enumeration comma "、" (0 beats)' },
-  { label: '；', value: '；', title: 'Insert semicolon "；" (0 beats)' },
-  { label: '：', value: '：', title: 'Insert colon "：" (0 beats)' },
-  { label: '—', value: '—', title: 'Insert dash "—" (0 beats)' },
-  { label: '…', value: '…', title: 'Insert ellipsis "…" (0 beats)' },
-];
-const COMMON_ANNOTATIONS = ['rit.', 'accel.', 'a tempo', 'fine', 'V', 'fermata'];
+export { COMMON_PUNCTUATIONS, COMMON_ANNOTATIONS };
 
 export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   isPlaying,
