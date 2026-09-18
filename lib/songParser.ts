@@ -1,5 +1,32 @@
-import type { NumberedNotationNote, KeySignature, Measure, NoteDuration, PitchNumber, Song, TimeSignature, SheetOrientation, GraceNote, VerseDisplayOption, VerseSettings } from '../types/song.ts';
+import type {
+  ArticulationType,
+  BarlineType,
+  InstrumentType,
+  LyricSyllable,
+  NumberedNotationNote,
+  KeySignature,
+  Measure,
+  NoteDuration,
+  PitchNumber,
+  Song,
+  TimeSignature,
+  GraceNote,
+  VerseDisplayOption,
+} from '../types/song.ts';
 import { isPunctuationOrSpacer, normalizeSongDurations } from './taigiUtils.ts';
+
+const VALID_ARTICULATIONS = new Set<ArticulationType>([
+  'staccato', 'tenuto', 'accent', 'fermata', 'portamento_up', 'portamento_down',
+]);
+const VALID_INSTRUMENTS = new Set<InstrumentType>([
+  'piano', 'flute', 'whistle', 'guitar', 'synth', 'bell', 'cello',
+]);
+const VALID_BARLINES = new Set<BarlineType>([
+  'single', 'double', 'end', 'repeat_start', 'repeat_end',
+]);
+const VALID_VERSE_DISPLAY = new Set<VerseDisplayOption>([
+  'hanlo', 'poj', 'both_poj_top', 'both_hanlo_top', 'both',
+]);
 
 /**
  * Export song to JSON string
@@ -46,13 +73,54 @@ export function normalizeTimeSignature(raw: unknown): TimeSignature {
   return '4/4';
 }
 
+function sanitizeLyric(raw: unknown): LyricSyllable {
+  if (typeof raw === 'string') {
+    return { poj: '', hanlo: raw };
+  }
+  const rawLyric = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
+  const hanlo = String(rawLyric.hanlo || rawLyric.hanji || rawLyric.custom || '');
+  const poj = String(rawLyric.poj || rawLyric.tl || '');
+  // Spread first so existing key order (factory `{ poj, hanlo }`) is preserved.
+  return { ...(rawLyric as LyricSyllable), hanlo, poj };
+}
+
+function sanitizeGraceNotes(raw: unknown): GraceNote[] | undefined {
+  if (!Array.isArray(raw) || raw.length === 0) return undefined;
+  const out: GraceNote[] = [];
+  for (const g of raw) {
+    if (!g || typeof g !== 'object') continue;
+    const go = g as Record<string, unknown>;
+    const pitchNum = parseInt(String(go.pitch), 10);
+    if (pitchNum < 1 || pitchNum > 7) continue;
+    let octave = 0;
+    if (typeof go.octave === 'number' && !Number.isNaN(go.octave)) {
+      octave = Math.max(-2, Math.min(2, go.octave));
+    } else if (typeof go.octave === 'string') {
+      const parsed = parseInt(go.octave, 10);
+      if (!Number.isNaN(parsed)) octave = Math.max(-2, Math.min(2, parsed));
+    }
+    const grace: GraceNote = {
+      pitch: pitchNum as 1 | 2 | 3 | 4 | 5 | 6 | 7,
+      octave,
+    };
+    if (typeof go.id === 'string' && go.id.trim()) grace.id = go.id;
+    if (go.accidental === '#' || go.accidental === 'b' || go.accidental === '') {
+      grace.accidental = go.accidental;
+    }
+    out.push(grace);
+    if (out.length >= 3) break;
+  }
+  return out.length > 0 ? out : undefined;
+}
+
 /**
- * Sanitize a note from arbitrary incoming JSON to guarantee all runtime fields exist
+ * Sanitize a note from arbitrary incoming JSON to guarantee all runtime fields exist.
+ * Optional display flags are copied only when present (or inferred from duration)
+ * so loading an unmodified factory snapshot does not invent false-y fields.
  */
-function sanitizeImportedNote(n: unknown, fallbackId: string): NumberedNotationNote {
+function sanitizeNote(n: unknown, fallbackId: string): NumberedNotationNote {
   const noteObj = (n && typeof n === 'object') ? (n as Record<string, unknown>) : {};
 
-  // Pitch
   let pitch: PitchNumber = 1;
   if (noteObj.pitch === 'empty' || noteObj.pitch === '_' || noteObj.pitch === '') {
     pitch = 'empty';
@@ -60,89 +128,177 @@ function sanitizeImportedNote(n: unknown, fallbackId: string): NumberedNotationN
     pitch = 0;
   } else {
     const num = parseInt(String(noteObj.pitch), 10);
-    if (!isNaN(num) && num >= 1 && num <= 7) {
+    if (!Number.isNaN(num) && num >= 1 && num <= 7) {
       pitch = num as PitchNumber;
     } else if (num === 0) {
       pitch = 0;
     }
   }
 
-  // Duration
   let duration: NoteDuration = 1;
-  if (typeof noteObj.duration === 'number' && !isNaN(noteObj.duration) && noteObj.duration >= 0) {
+  if (typeof noteObj.duration === 'number' && !Number.isNaN(noteObj.duration) && noteObj.duration >= 0) {
     duration = noteObj.duration as NoteDuration;
   } else if (typeof noteObj.duration === 'string') {
     const parsed = parseFloat(noteObj.duration);
-    if (!isNaN(parsed) && parsed >= 0) duration = parsed as NoteDuration;
+    if (!Number.isNaN(parsed) && parsed >= 0) duration = parsed as NoteDuration;
   }
   if (pitch === 'empty') duration = 0 as NoteDuration;
 
-  // Octave
   let octave = 0;
-  if (typeof noteObj.octave === 'number' && !isNaN(noteObj.octave)) {
+  if (typeof noteObj.octave === 'number' && !Number.isNaN(noteObj.octave)) {
     octave = Math.max(-2, Math.min(2, noteObj.octave));
   } else if (typeof noteObj.octave === 'string') {
     const parsed = parseInt(noteObj.octave, 10);
-    if (!isNaN(parsed)) octave = Math.max(-2, Math.min(2, parsed));
+    if (!Number.isNaN(parsed)) octave = Math.max(-2, Math.min(2, parsed));
   }
 
-  // Accidental
-  let accidental: '' | '#' | 'b' = '';
-  if (noteObj.accidental === '#' || noteObj.accidental === 'b') {
-    accidental = noteObj.accidental;
-  }
-
-  // Lyric object (MUST never be null or undefined to prevent rendering crashes)
-  const rawLyric = (noteObj.lyric && typeof noteObj.lyric === 'object') ? (noteObj.lyric as Record<string, unknown>) : {};
-  const hanlo = String(rawLyric.hanlo || rawLyric.hanji || rawLyric.custom || '');
-  const poj = String(rawLyric.poj || rawLyric.tl || '');
-  const lyric = {
-    hanlo,
-    poj,
-    hanji: hanlo,
-    custom: hanlo,
-  };
-
-  // Multi-verse lyrics
-  let lyricsByVerse: { [verseIndex: number]: { hanlo: string; poj: string; hanji: string; custom: string } } | undefined;
-  if (noteObj.lyricsByVerse && typeof noteObj.lyricsByVerse === 'object') {
-    lyricsByVerse = {};
-    for (const [k, v] of Object.entries(noteObj.lyricsByVerse as Record<string, unknown>)) {
-      const vNum = parseInt(k, 10);
-      if (!isNaN(vNum) && v && typeof v === 'object') {
-        const vObj = v as Record<string, unknown>;
-        const vHanlo = String(vObj.hanlo || vObj.hanji || vObj.custom || '');
-        const vPoj = String(vObj.poj || vObj.tl || '');
-        lyricsByVerse[vNum] = {
-          hanlo: vHanlo,
-          poj: vPoj,
-          hanji: vHanlo,
-          custom: vHanlo,
-        };
-      }
-    }
-  }
-
-  return {
+  // Spread first so factory key order is preserved; overlay required fields only.
+  const note: NumberedNotationNote = {
+    ...(n && typeof n === 'object' ? (n as NumberedNotationNote) : {}),
     id: typeof noteObj.id === 'string' && noteObj.id.trim() ? noteObj.id : fallbackId,
     pitch,
     octave,
-    accidental,
     duration,
-    isDotted: Boolean(noteObj.isDotted || duration === 1.5 || duration === 0.75 || duration === 3),
-    isDoubleDotted: Boolean(noteObj.isDoubleDotted || duration === 1.75 || duration === 3.5),
-    isTied: Boolean(noteObj.isTied),
-    tieToNext: Boolean(noteObj.tieToNext || noteObj.isTied),
-    slurToNext: Boolean(noteObj.slurToNext),
-    isTriplet: Boolean(noteObj.isTriplet || duration === 0.333 || duration === 0.667),
-    preGraceNotes: Array.isArray(noteObj.preGraceNotes) && noteObj.preGraceNotes.length > 0 ? (noteObj.preGraceNotes as GraceNote[]) : undefined,
-    postGraceNotes: Array.isArray(noteObj.postGraceNotes) && noteObj.postGraceNotes.length > 0 ? (noteObj.postGraceNotes as GraceNote[]) : undefined,
-    articulation: typeof noteObj.articulation === 'string' && noteObj.articulation !== 'none' ? (noteObj.articulation as NumberedNotationNote['articulation']) : undefined,
-    instrument: typeof noteObj.instrument === 'string' ? (noteObj.instrument as NumberedNotationNote['instrument']) : undefined,
-    annotation: typeof noteObj.annotation === 'string' ? noteObj.annotation : undefined,
-    lyric,
-    lyricsByVerse: lyricsByVerse && Object.keys(lyricsByVerse).length > 0 ? lyricsByVerse : undefined,
+    lyric: sanitizeLyric(noteObj.lyric),
   };
+
+  if (noteObj.accidental === '#' || noteObj.accidental === 'b' || noteObj.accidental === '') {
+    note.accidental = noteObj.accidental;
+  } else if (noteObj.accidental != null && noteObj.accidental !== '') {
+    delete (note as { accidental?: unknown }).accidental;
+  }
+
+  // Do not infer isDotted from duration: a 3-beat note is a dotted half
+  // (`--` / `-.`), not a single-dot quarter, and factory snapshots must
+  // round-trip without invented display flags.
+  if (noteObj.isTied && typeof noteObj.tieToNext !== 'boolean') {
+    note.tieToNext = true;
+  }
+
+  if (Array.isArray(noteObj.preGraceNotes)) {
+    const preGrace = sanitizeGraceNotes(noteObj.preGraceNotes);
+    if (preGrace) note.preGraceNotes = preGrace;
+    else delete note.preGraceNotes;
+  }
+  if (Array.isArray(noteObj.postGraceNotes)) {
+    const postGrace = sanitizeGraceNotes(noteObj.postGraceNotes);
+    if (postGrace) note.postGraceNotes = postGrace;
+    else delete note.postGraceNotes;
+  }
+
+  if (typeof noteObj.articulation === 'string') {
+    if (VALID_ARTICULATIONS.has(noteObj.articulation as ArticulationType)) {
+      note.articulation = noteObj.articulation as ArticulationType;
+    } else if (noteObj.articulation === 'none') {
+      delete note.articulation;
+    }
+  }
+  if (typeof noteObj.instrument === 'string' && !VALID_INSTRUMENTS.has(noteObj.instrument as InstrumentType)) {
+    delete note.instrument;
+  }
+  if (typeof noteObj.annotation !== 'string' && 'annotation' in note && noteObj.annotation != null) {
+    delete note.annotation;
+  }
+
+  if (noteObj.lyricsByVerse && typeof noteObj.lyricsByVerse === 'object') {
+    const lyricsByVerse: { [verseIndex: number]: LyricSyllable } = {};
+    for (const [k, v] of Object.entries(noteObj.lyricsByVerse as Record<string, unknown>)) {
+      const vNum = parseInt(k, 10);
+      if (Number.isNaN(vNum)) continue;
+      lyricsByVerse[vNum] = sanitizeLyric(v);
+    }
+    if (Object.keys(lyricsByVerse).length > 0) note.lyricsByVerse = lyricsByVerse;
+    else delete note.lyricsByVerse;
+  }
+
+  return note;
+}
+
+function lyricHasBreak(note: NumberedNotationNote): boolean {
+  const h = note.lyric?.hanlo || note.lyric?.hanji || note.lyric?.custom || '';
+  const p = note.lyric?.poj || note.lyric?.tl || '';
+  return /[\n\r↵]/.test(h) || /[\n\r↵]/.test(p);
+}
+
+function sanitizeMeasure(m: unknown, idx: number): Measure {
+  const mo = (m && typeof m === 'object') ? (m as Record<string, unknown>) : {};
+  const rawNotes = Array.isArray(mo.notes) ? mo.notes : [];
+  const notes = rawNotes.map((n, nIdx) => sanitizeNote(n, `m-${idx + 1}-n-${nIdx + 1}`));
+  const hasNoteBreak = notes.some(lyricHasBreak);
+
+  const measure: Measure = {
+    ...(m && typeof m === 'object' ? (m as Measure) : {}),
+    id: typeof mo.id === 'string' && mo.id.trim() ? mo.id : `m-${idx + 1}`,
+    measureNumber: typeof mo.measureNumber === 'number' && Number.isFinite(mo.measureNumber) ? mo.measureNumber : idx + 1,
+    notes,
+  };
+
+  if (Array.isArray(mo.chords)) measure.chords = mo.chords.map(c => String(c));
+  if (typeof mo.timeSignature === 'string') measure.timeSignature = normalizeTimeSignature(mo.timeSignature);
+
+  if (Array.isArray(mo.obbligato)) {
+    measure.obbligato = mo.obbligato.map((n, nIdx) => sanitizeNote(n, `m-${idx + 1}-ob-${nIdx + 1}`));
+  }
+
+  const barlineRaw = mo.barlineType || mo.barline;
+  if (typeof barlineRaw === 'string' && VALID_BARLINES.has(barlineRaw as BarlineType)) {
+    measure.barlineType = barlineRaw as BarlineType;
+  } else if (barlineRaw != null && typeof barlineRaw === 'string') {
+    delete measure.barlineType;
+  }
+
+  if (typeof mo.isLineBreak !== 'boolean' && hasNoteBreak) {
+    measure.isLineBreak = true;
+  }
+
+  if (Array.isArray(mo.voltaEnding)) {
+    const volta = mo.voltaEnding.map(Number).filter(v => !Number.isNaN(v));
+    if (volta.length > 0) measure.voltaEnding = volta;
+    else delete measure.voltaEnding;
+  }
+
+  return measure;
+}
+
+/**
+ * Normalize arbitrary JSON into a Song, or return null if it cannot be repaired.
+ * Never mutates the caller’s object; always returns a fresh copy.
+ */
+export function sanitizeSong(raw: unknown): Song | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const parsed = raw as Record<string, unknown>;
+  const id = typeof parsed.id === 'string' ? parsed.id.trim() : '';
+  if (!id) return null;
+  if (!Array.isArray(parsed.measures) || parsed.measures.length === 0) return null;
+
+  const title = typeof parsed.title === 'string' && parsed.title.trim()
+    ? parsed.title.trim()
+    : 'Untitled Song';
+
+  const rawBpm = typeof parsed.bpm === 'string' ? parseInt(parsed.bpm, 10) : Number(parsed.bpm);
+  const bpm = Number.isFinite(rawBpm) && rawBpm > 0 ? rawBpm : 80;
+
+  const song: Song = {
+    ...(parsed as unknown as Song),
+    id,
+    title,
+    key: normalizeKeySignature(parsed.key),
+    timeSignature: normalizeTimeSignature(parsed.timeSignature),
+    bpm,
+    measures: parsed.measures.map((m, idx) => sanitizeMeasure(m, idx)),
+  };
+
+  if (parsed.orientation != null && parsed.orientation !== 'landscape' && parsed.orientation !== 'portrait') {
+    delete song.orientation;
+  }
+  if (typeof parsed.verseDisplayOption === 'string' && !VALID_VERSE_DISPLAY.has(parsed.verseDisplayOption as VerseDisplayOption)) {
+    delete song.verseDisplayOption;
+  }
+  if (typeof parsed.updatedAt === 'number' && !Number.isFinite(parsed.updatedAt)) {
+    delete song.updatedAt;
+  }
+
+  return song;
 }
 
 /**
@@ -151,67 +307,20 @@ function sanitizeImportedNote(n: unknown, fallbackId: string): NumberedNotationN
 export function importSongFromJson(jsonString: string): Song {
   const cleaned = cleanJsonString(jsonString);
   const parsed = JSON.parse(cleaned);
-  if (!parsed.title || !parsed.measures || !Array.isArray(parsed.measures)) {
+  if (!parsed || typeof parsed !== 'object') {
     throw new Error('Invalid song format: missing title or measures.');
   }
 
-  const rawBpm = typeof parsed.bpm === 'string' ? parseInt(parsed.bpm, 10) : Number(parsed.bpm);
-  const bpm = !isNaN(rawBpm) && rawBpm > 0 ? rawBpm : 80;
-
-  const song: Song = {
-    id: typeof parsed.id === 'string' && parsed.id.trim() ? parsed.id : `song-${Date.now()}`,
-    title: typeof parsed.title === 'string' ? parsed.title : 'Untitled Song',
-    subtitle: typeof parsed.subtitle === 'string' ? parsed.subtitle : '',
-    composer: typeof parsed.composer === 'string' ? parsed.composer : '',
-    lyricist: typeof parsed.lyricist === 'string' ? parsed.lyricist : '',
-    notator: typeof parsed.notator === 'string' ? parsed.notator : undefined,
-    catalogNumber: typeof parsed.catalogNumber === 'string' ? parsed.catalogNumber : undefined,
-    footnote: typeof parsed.footnote === 'string' ? parsed.footnote : undefined,
-    key: normalizeKeySignature(parsed.key),
-    timeSignature: normalizeTimeSignature(parsed.timeSignature),
-    bpm,
-    measures: (parsed.measures || []).map((m: Record<string, unknown>, idx: number) => {
-      const rawNotes = Array.isArray(m?.notes) ? m.notes : [];
-      const notes = rawNotes.map((n: unknown, nIdx: number) =>
-        sanitizeImportedNote(n, `m-${idx + 1}-n-${nIdx + 1}-${Date.now()}`)
-      );
-      const rawObbligato = Array.isArray(m?.obbligato) ? m.obbligato : undefined;
-      const obbligato = rawObbligato ? rawObbligato.map((n: unknown, nIdx: number) =>
-        sanitizeImportedNote(n, `m-${idx + 1}-ob-${nIdx + 1}-${Date.now()}`)
-      ) : undefined;
-
-      const hasNoteBreak = notes.some(n => {
-        const h = n.lyric?.hanlo || n.lyric?.hanji || n.lyric?.custom || '';
-        const p = n.lyric?.poj || n.lyric?.tl || '';
-        return /[\n\r↵]/.test(h) || /[\n\r↵]/.test(p);
-      });
-
-      return {
-        id: typeof m?.id === 'string' ? m.id : `m-${idx + 1}-${Date.now()}`,
-        measureNumber: typeof m?.measureNumber === 'number' ? m.measureNumber : idx + 1,
-        chord: typeof m?.chord === 'string' ? m.chord : undefined,
-        chords: Array.isArray(m?.chords) ? m.chords.map(c => String(c)) : undefined,
-        timeSignature: typeof m?.timeSignature === 'string' ? normalizeTimeSignature(m.timeSignature) : undefined,
-        section: typeof m?.section === 'string' ? m.section : undefined,
-        notes,
-        obbligato,
-        obbligatoText: typeof m?.obbligatoText === 'string' ? m.obbligatoText : undefined,
-        barlineType: (m?.barlineType || m?.barline) as Measure['barlineType'],
-        isLineBreak: Boolean(m?.isLineBreak || (m?.isLineBreak !== false && hasNoteBreak)),
-        voltaEnding: Array.isArray(m?.voltaEnding) ? m.voltaEnding.map(Number).filter(v => !isNaN(v)) : undefined,
-        isPrelude: typeof m?.isPrelude === 'boolean' ? m.isPrelude : undefined,
-      };
-    }),
-    notesPerLine: typeof parsed.notesPerLine === 'number' ? parsed.notesPerLine : (parsed.orientation === 'landscape' ? 5 : 4),
-    orientation: (parsed.orientation === 'landscape' ? 'landscape' : 'portrait') as SheetOrientation,
-    description: typeof parsed.description === 'string' ? parsed.description : '',
-    verseCount: typeof parsed.verseCount === 'number' ? parsed.verseCount : undefined,
-    verseDisplayOption: parsed.verseDisplayOption as VerseDisplayOption | undefined,
-    verseSettings: parsed.verseSettings && typeof parsed.verseSettings === 'object' ? (parsed.verseSettings as { [verseIndex: number]: VerseSettings }) : undefined,
-    isPresetModified: typeof parsed.isPresetModified === 'boolean' ? parsed.isPresetModified : undefined,
-    originalPresetId: typeof parsed.originalPresetId === 'string' ? parsed.originalPresetId : undefined,
-    updatedAt: typeof parsed.updatedAt === 'number' ? parsed.updatedAt : undefined,
+  const raw = parsed as Record<string, unknown>;
+  const withId = {
+    ...raw,
+    id: typeof raw.id === 'string' && raw.id.trim() ? raw.id : `song-${Date.now()}`,
   };
+
+  const song = sanitizeSong(withId);
+  if (!song) {
+    throw new Error('Invalid song format: missing title or measures.');
+  }
   return normalizeSongDurations(song);
 }
 
@@ -247,17 +356,23 @@ export function formatNoteToNumberedNotationString(note: NumberedNotationNote): 
     p = `${p}(${postStr})`;
   }
 
-  // Duration representation
-  if (note.duration === 0.5) p = `${p}_`;
+  // Duration representation. Encode longer values (including dotted half = 3)
+  // before the generic single-dot suffix so `duration: 3, isDotted: true`
+  // round-trips as 3 beats (`5--` / `5-.`) rather than a dotted quarter (`5.`).
+  if (note.duration === 0.75 || (note.duration === 0.5 && note.isDotted && !note.isDoubleDotted)) p = `${p}_.`;
+  else if (note.duration === 0.5) p = `${p}_`;
+  else if (note.duration === 0.375) p = `${p}__.`;
   else if (note.duration === 0.25) p = `${p}__`;
   else if (note.duration === 0.125) p = `${p}___`;
   else if (note.duration === 0.333 || (note.isTriplet && note.duration <= 0.34)) p = `${p}/3`;
   else if (note.duration === 0.667 || (note.isTriplet && note.duration > 0.6)) p = `${p}*2/3`;
+  else if (note.duration === 4) p = `${p}---`;
+  else if (note.duration === 3.5 || (note.duration === 2 && note.isDoubleDotted)) p = `${p}-..`;
+  else if (note.duration === 3) p = `${p}--`;
+  else if (note.duration === 2 && note.isDotted) p = `${p}-.`;
+  else if (note.duration === 2) p = `${p}-`;
   else if (note.duration === 1.75 || note.isDoubleDotted) p = `${p}..`;
   else if (note.duration === 1.5 || note.isDotted) p = `${p}.`;
-  else if (note.duration === 2) p = `${p}-`;
-  else if (note.duration === 3) p = `${p}--`;
-  else if (note.duration === 4) p = `${p}---`;
 
   if (note.tieToNext) p = `${p}~`;
   if (note.slurToNext) p = `${p}^`;
@@ -532,7 +647,11 @@ export function importSongFromText(text: string): Song {
     throw new Error('No valid measures found in text file.');
   }
 
-  return normalizeSongDurations(song);
+  const sanitized = sanitizeSong(song);
+  if (!sanitized) {
+    throw new Error('No valid measures found in text file.');
+  }
+  return normalizeSongDurations(sanitized);
 }
 
 export function parseNumberedNotationToken(token: string, id: string): NumberedNotationNote {

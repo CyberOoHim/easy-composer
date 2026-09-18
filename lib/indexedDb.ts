@@ -2,6 +2,7 @@
 
 import type { Song } from '../types/song.ts';
 import { PRESET_SONGS } from './presets.ts';
+import { sanitizeSong } from './songParser.ts';
 
 export const DB_NAME = 'taigi_composer_db';
 export const DB_VERSION = 1;
@@ -25,6 +26,12 @@ export interface StoredSongRecord extends Song {
 
 let dbInstance: IDBDatabase | null = null;
 let dbPromise: Promise<IDBDatabase> | null = null;
+
+/** Test-only: drop the cached connection so specs can install a fresh mock. */
+export function resetDBInstanceForTests(): void {
+  dbInstance = null;
+  dbPromise = null;
+}
 
 /**
  * Check whether IndexedDB is supported in the current environment
@@ -89,8 +96,18 @@ export function initDB(): Promise<IDBDatabase> {
   return dbPromise;
 }
 
+function optionalText(value: string | undefined): string {
+  return value ?? '';
+}
+
+function stableJson(value: unknown): string {
+  return JSON.stringify(value ?? null);
+}
+
 /**
- * Helper to determine whether a given song differs from its original factory preset
+ * Helper to determine whether a given song differs from its original factory preset.
+ * Metadata fields that used to be ignored (notator, catalog, verses, orientation)
+ * must count as modifications so those edits are persisted as overrides.
  */
 export function isSongModifiedFromPreset(song: Song): boolean {
   const preset = PRESET_SONGS.find(p => p.id === song.id);
@@ -99,14 +116,21 @@ export function isSongModifiedFromPreset(song: Song): boolean {
   try {
     if (
       song.title !== preset.title ||
-      song.subtitle !== preset.subtitle ||
-      song.composer !== preset.composer ||
-      song.lyricist !== preset.lyricist ||
+      optionalText(song.subtitle) !== optionalText(preset.subtitle) ||
+      optionalText(song.composer) !== optionalText(preset.composer) ||
+      optionalText(song.lyricist) !== optionalText(preset.lyricist) ||
+      optionalText(song.notator) !== optionalText(preset.notator) ||
+      optionalText(song.catalogNumber) !== optionalText(preset.catalogNumber) ||
+      optionalText(song.description) !== optionalText(preset.description) ||
+      optionalText(song.footnote) !== optionalText(preset.footnote) ||
       song.key !== preset.key ||
       song.timeSignature !== preset.timeSignature ||
       song.bpm !== preset.bpm ||
       song.notesPerLine !== preset.notesPerLine ||
-      song.description !== preset.description
+      song.orientation !== preset.orientation ||
+      song.verseCount !== preset.verseCount ||
+      song.verseDisplayOption !== preset.verseDisplayOption ||
+      stableJson(song.verseSettings) !== stableJson(preset.verseSettings)
     ) {
       return true;
     }
@@ -117,31 +141,95 @@ export function isSongModifiedFromPreset(song: Song): boolean {
   }
 }
 
+export function isFactoryPresetId(id: string): boolean {
+  return PRESET_SONGS.some(p => p.id === id);
+}
+
 /**
- * Validate that a stored record has the minimum required structure of a Song
- * and normalize legacy fields (poj, hanlo).
+ * Factory presets are code, not user data. An unmodified preset snapshot
+ * must resolve back to PRESET_SONGS so app updates are not shadowed.
  */
-export function validateSongRecord(record: unknown): Song | null {
-  if (!record || typeof record !== 'object') return null;
-  const s = record as Record<string, unknown>;
-  if (typeof s.id !== 'string' || !s.id.trim() || !Array.isArray(s.measures) || s.measures.length === 0) {
-    return null;
+export function canonicalizeStoredSong(song: Song | null | undefined): Song | null {
+  if (!song) return null;
+  const factory = PRESET_SONGS.find(p => p.id === song.id);
+  if (factory && !isSongModifiedFromPreset(song)) return factory;
+  return song;
+}
+
+export function shouldPersistSongBody(song: Song): boolean {
+  if (!isFactoryPresetId(song.id)) return true;
+  return isSongModifiedFromPreset(song);
+}
+
+/**
+ * A stored preset row is a user override only when it was saved as modified.
+ * Legacy unmodified snapshots (isPresetModified !== true) must not hide factory
+ * updates even if they now differ from PRESET_SONGS after an app update.
+ */
+export function isStoredPresetOverride(song: Song | null | undefined): boolean {
+  if (!song || !isFactoryPresetId(song.id)) return false;
+  if (song.isPresetModified !== true) return false;
+  return isSongModifiedFromPreset(song);
+}
+
+export function getSongUpdatedAt(song: Song | null | undefined): number {
+  if (!song || typeof song.updatedAt !== 'number' || !Number.isFinite(song.updatedAt)) {
+    return 0;
+  }
+  return song.updatedAt;
+}
+
+/**
+ * Choose the song to restore on bootstrap.
+ * Unmodified factory snapshots in localStorage never beat code presets.
+ * Otherwise the newer `updatedAt` wins so a crash draft can outrank a stale IDB row.
+ */
+export function pickBootstrapSong(
+  idbSong: Song | null,
+  localSong: Song | null,
+): { song: Song; fromLocalDraft: boolean } {
+  const canonIdb = canonicalizeStoredSong(idbSong);
+  const canonLocal = canonicalizeStoredSong(localSong);
+  const localIsUnmodifiedPreset = Boolean(
+    localSong && isFactoryPresetId(localSong.id) && !isSongModifiedFromPreset(localSong)
+  );
+
+  if (localIsUnmodifiedPreset) {
+    return { song: canonIdb ?? canonLocal ?? PRESET_SONGS[0], fromLocalDraft: false };
   }
 
-  const song = record as Song;
-  song.measures.forEach(m => {
-    if (Array.isArray(m?.notes)) {
-      m.notes.forEach(n => {
-        if (n && n.lyric) {
-          if (!n.lyric.poj && n.lyric.tl) n.lyric.poj = n.lyric.tl;
-          if (!n.lyric.hanlo) {
-            n.lyric.hanlo = n.lyric.custom || n.lyric.hanji || '';
-          }
-        }
-      });
-    }
+  if (localSong && (!idbSong || getSongUpdatedAt(localSong) > getSongUpdatedAt(idbSong))) {
+    return { song: canonLocal ?? localSong, fromLocalDraft: true };
+  }
+
+  return { song: canonIdb ?? canonLocal ?? PRESET_SONGS[0], fromLocalDraft: false };
+}
+
+/**
+ * Settle a write only after the transaction commits. IDBRequest.onsuccess is not durable.
+ */
+function requestTransactionComplete(tx: IDBTransaction): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const settle = (fn: () => void) => {
+      if (settled) return;
+      settled = true;
+      fn();
+    };
+    tx.oncomplete = () => settle(() => resolve());
+    tx.onerror = () =>
+      settle(() => reject(tx.error || new Error('IndexedDB transaction failed')));
+    tx.onabort = () =>
+      settle(() => reject(tx.error || new Error('IndexedDB transaction aborted')));
   });
-  return song;
+}
+
+/**
+ * Validate that a stored record has the minimum required structure of a Song
+ * and return a normalized copy (legacy lyric aliases migrated, lyric object guaranteed).
+ */
+export function validateSongRecord(record: unknown): Song | null {
+  return sanitizeSong(record);
 }
 
 /**
@@ -153,10 +241,16 @@ export async function saveSongToDB(
 ): Promise<void> {
   if (!isIndexedDBSupported()) return;
 
-  const db = await initDB();
-  const isPreset = PRESET_SONGS.some(p => p.id === song.id);
+  const isPreset = isFactoryPresetId(song.id);
   const isModified = options?.isPresetModified ?? (isPreset ? isSongModifiedFromPreset(song) : false);
 
+  // Factory scores live in code. Do not shadow them with unmodified snapshots.
+  if (isPreset && !isModified) {
+    await deleteSongFromDB(song.id);
+    return;
+  }
+
+  const db = await initDB();
   const record: StoredSongRecord = {
     ...song,
     updatedAt: Date.now(),
@@ -164,25 +258,15 @@ export async function saveSongToDB(
     originalPresetId: isPreset ? song.id : options?.originalPresetId,
   };
 
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORES.SONGS], 'readwrite');
-    const store = tx.objectStore(STORES.SONGS);
-    const request = store.put(record);
-
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => {
-      console.error('[IndexedDB] Failed to save song:', tx.error || request.error);
-      reject(tx.error || request.error);
-    };
-    tx.onabort = () => {
-      reject(tx.error || new Error('Transaction aborted'));
-    };
-
-    // Safety fallback if mock or environment does not trigger tx.oncomplete
-    request.onsuccess = () => {
-      setTimeout(() => resolve(), 0);
-    };
-  });
+  const tx = db.transaction([STORES.SONGS], 'readwrite');
+  const done = requestTransactionComplete(tx);
+  tx.objectStore(STORES.SONGS).put(record);
+  try {
+    await done;
+  } catch (err) {
+    console.error('[IndexedDB] Failed to save song:', err);
+    throw err;
+  }
 }
 
 /**
@@ -227,7 +311,7 @@ export async function getAllSongsFromDB(): Promise<Song[]> {
       for (const item of rawRecords) {
         const valid = validateSongRecord(item);
         if (valid) {
-          records.push(item as StoredSongRecord);
+          records.push(valid as StoredSongRecord);
         }
       }
       records.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
@@ -255,8 +339,7 @@ export async function getCustomSongsFromDB(): Promise<Song[]> {
  */
 export async function getModifiedPresetsFromDB(): Promise<Song[]> {
   const all = await getAllSongsFromDB();
-  const presetIds = new Set(PRESET_SONGS.map(p => p.id));
-  return all.filter(s => presetIds.has(s.id) && (s as StoredSongRecord).isPresetModified);
+  return all.filter(s => isStoredPresetOverride(s));
 }
 
 /**
@@ -274,24 +357,15 @@ export async function deleteSongFromDB(id: string): Promise<void> {
   if (!isIndexedDBSupported()) return;
 
   const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORES.SONGS], 'readwrite');
-    const store = tx.objectStore(STORES.SONGS);
-    const request = store.delete(id);
-
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => {
-      console.error(`[IndexedDB] Failed to delete song "${id}":`, tx.error);
-      reject(tx.error);
-    };
-    tx.onabort = () => {
-      reject(tx.error || new Error('Transaction aborted'));
-    };
-
-    request.onsuccess = () => {
-      setTimeout(() => resolve(), 0);
-    };
-  });
+  const tx = db.transaction([STORES.SONGS], 'readwrite');
+  const done = requestTransactionComplete(tx);
+  tx.objectStore(STORES.SONGS).delete(id);
+  try {
+    await done;
+  } catch (err) {
+    console.error(`[IndexedDB] Failed to delete song "${id}":`, err);
+    throw err;
+  }
 }
 
 /**
@@ -312,24 +386,18 @@ export async function resetAllPresetsToFactory(): Promise<void> {
   if (!isIndexedDBSupported()) return;
 
   const db = await initDB();
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORES.SONGS], 'readwrite');
-    const store = tx.objectStore(STORES.SONGS);
-    for (const preset of PRESET_SONGS) {
-      store.delete(preset.id);
-    }
-
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => {
-      console.error('[IndexedDB] Failed to reset all presets:', tx.error);
-      reject(tx.error);
-    };
-    tx.onabort = () => {
-      reject(tx.error || new Error('Transaction aborted'));
-    };
-
-    setTimeout(() => resolve(), 0);
-  });
+  const tx = db.transaction([STORES.SONGS], 'readwrite');
+  const done = requestTransactionComplete(tx);
+  const store = tx.objectStore(STORES.SONGS);
+  for (const preset of PRESET_SONGS) {
+    store.delete(preset.id);
+  }
+  try {
+    await done;
+  } catch (err) {
+    console.error('[IndexedDB] Failed to reset all presets:', err);
+    throw err;
+  }
 }
 
 /**
@@ -340,9 +408,9 @@ export async function saveActiveSongToDB(song: Song): Promise<void> {
   if (!isIndexedDBSupported()) return;
 
   const db = await initDB();
-  const isPreset = PRESET_SONGS.some(p => p.id === song.id);
+  const persistBody = shouldPersistSongBody(song);
+  const isPreset = isFactoryPresetId(song.id);
   const isModified = isPreset ? isSongModifiedFromPreset(song) : false;
-
   const record: StoredSongRecord = {
     ...song,
     updatedAt: Date.now(),
@@ -350,28 +418,29 @@ export async function saveActiveSongToDB(song: Song): Promise<void> {
     originalPresetId: isPreset ? song.id : undefined,
   };
 
-  return new Promise((resolve, reject) => {
-    const tx = db.transaction([STORES.SONGS, STORES.META], 'readwrite');
-    const songStore = tx.objectStore(STORES.SONGS);
-    const metaStore = tx.objectStore(STORES.META);
+  const tx = db.transaction([STORES.SONGS, STORES.META], 'readwrite');
+  const done = requestTransactionComplete(tx);
+  const songStore = tx.objectStore(STORES.SONGS);
+  const metaStore = tx.objectStore(STORES.META);
 
+  if (persistBody) {
     songStore.put(record);
-    metaStore.put({ key: META_KEYS.ACTIVE_SONG_ID, value: song.id });
-    const req = metaStore.put({ key: META_KEYS.LAST_ACTIVE_SONG, value: song });
-
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => {
-      console.error('[IndexedDB] Failed to save active song metadata:', tx.error);
-      reject(tx.error);
-    };
-    tx.onabort = () => {
-      reject(tx.error || new Error('Transaction aborted'));
-    };
-
-    req.onsuccess = () => {
-      setTimeout(() => resolve(), 0);
-    };
+  } else {
+    // Drop any legacy unmodified snapshot so factory code wins after updates.
+    songStore.delete(song.id);
+  }
+  metaStore.put({ key: META_KEYS.ACTIVE_SONG_ID, value: song.id });
+  metaStore.put({
+    key: META_KEYS.LAST_ACTIVE_SONG,
+    value: persistBody ? record : { id: song.id },
   });
+
+  try {
+    await done;
+  } catch (err) {
+    console.error('[IndexedDB] Failed to save active song metadata:', err);
+    throw err;
+  }
 }
 
 /**
@@ -386,32 +455,35 @@ export async function getActiveSongFromDB(): Promise<Song | null> {
     const metaStore = tx.objectStore(STORES.META);
     const idReq = metaStore.get(META_KEYS.ACTIVE_SONG_ID);
 
+    const resolveFromSnapshot = () => {
+      const snapshotReq = metaStore.get(META_KEYS.LAST_ACTIVE_SONG);
+      snapshotReq.onsuccess = () => {
+        resolve(canonicalizeStoredSong(validateSongRecord(snapshotReq.result?.value)));
+      };
+      snapshotReq.onerror = () => resolve(null);
+    };
+
     idReq.onsuccess = () => {
       const activeId = idReq.result?.value as string | undefined;
       if (activeId) {
+        const factory = PRESET_SONGS.find(p => p.id === activeId);
         const songStore = tx.objectStore(STORES.SONGS);
         const songReq = songStore.get(activeId);
         songReq.onsuccess = () => {
-          const validated = validateSongRecord(songReq.result);
-          if (validated) {
-            resolve(validated);
+          const stored = validateSongRecord(songReq.result);
+          if (factory) {
+            resolve(isStoredPresetOverride(stored) && stored ? stored : factory);
             return;
           }
-          // Fallback to last_active_song snapshot if not found in songs store
-          const snapshotReq = metaStore.get(META_KEYS.LAST_ACTIVE_SONG);
-          snapshotReq.onsuccess = () => {
-            resolve(validateSongRecord(snapshotReq.result?.value));
-          };
-          snapshotReq.onerror = () => resolve(null);
+          if (stored) {
+            resolve(stored);
+            return;
+          }
+          resolveFromSnapshot();
         };
-        songReq.onerror = () => resolve(null);
+        songReq.onerror = () => resolveFromSnapshot();
       } else {
-        // Try fallback snapshot
-        const snapshotReq = metaStore.get(META_KEYS.LAST_ACTIVE_SONG);
-        snapshotReq.onsuccess = () => {
-          resolve(validateSongRecord(snapshotReq.result?.value));
-        };
-        snapshotReq.onerror = () => resolve(null);
+        resolveFromSnapshot();
       }
     };
 
@@ -420,6 +492,15 @@ export async function getActiveSongFromDB(): Promise<Song | null> {
       reject(idReq.error);
     };
   });
+}
+
+/**
+ * True when the id is a factory preset or already stored in IndexedDB.
+ */
+export async function songIdExists(id: string): Promise<boolean> {
+  if (isFactoryPresetId(id)) return true;
+  const stored = await getSongFromDB(id);
+  return stored != null;
 }
 
 /**
@@ -455,8 +536,9 @@ export async function migrateLocalStorageToDB(): Promise<{ migratedSongs: number
         const parsed = JSON.parse(rawLibrary);
         if (Array.isArray(parsed)) {
           for (const s of parsed) {
-            if (s && s.id && Array.isArray(s.measures)) {
-              await saveSongToDB(s);
+            const valid = sanitizeSong(s);
+            if (valid) {
+              await saveSongToDB(valid);
               count++;
             }
           }
@@ -470,8 +552,8 @@ export async function migrateLocalStorageToDB(): Promise<{ migratedSongs: number
     const rawCurrent = localStorage.getItem('taigi_composer_current_song');
     if (rawCurrent) {
       try {
-        const parsed = JSON.parse(rawCurrent);
-        if (parsed && parsed.id && Array.isArray(parsed.measures)) {
+        const parsed = sanitizeSong(JSON.parse(rawCurrent));
+        if (parsed) {
           await saveSongToDB(parsed);
           await saveActiveSongToDB(parsed);
           count++;
@@ -484,10 +566,13 @@ export async function migrateLocalStorageToDB(): Promise<{ migratedSongs: number
     // 3. Mark migration as complete in meta store
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction([STORES.META], 'readwrite');
-      const store = tx.objectStore(STORES.META);
-      const req = store.put({ key: META_KEYS.LOCALSTORAGE_MIGRATED, value: true, timestamp: Date.now() });
-      req.onsuccess = () => resolve();
-      req.onerror = () => reject(req.error);
+      const done = requestTransactionComplete(tx);
+      tx.objectStore(STORES.META).put({
+        key: META_KEYS.LOCALSTORAGE_MIGRATED,
+        value: true,
+        timestamp: Date.now(),
+      });
+      done.then(resolve).catch(reject);
     });
 
     if (count > 0) {

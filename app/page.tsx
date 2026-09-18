@@ -19,6 +19,7 @@ import {
   getStoredDisplayMode,
   setStoredDisplayMode,
   getStoredCurrentSong,
+  getStoredCurrentSongOrNull,
   setStoredCurrentSong,
   saveSongToCustomLibrary,
   getStoredAutosaveInterval,
@@ -38,8 +39,12 @@ import {
   saveActiveSongToDB,
   getActiveSongFromDB,
   migrateLocalStorageToDB,
+  isSongModifiedFromPreset,
+  isStoredPresetOverride,
+  pickBootstrapSong,
 } from '@/lib/indexedDb';
 import { setUiZoomGlobal } from '@/hooks/useUiZoom';
+import { sanitizeSong } from '@/lib/songParser';
 
 export default function Home() {
   const {
@@ -136,6 +141,7 @@ export default function Home() {
   const isDirty = contentRevision !== savedRevision;
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [autosaveInterval, setAutosaveIntervalState] = useState<number>(0);
   const [customSongs, setCustomSongs] = useState<Song[]>([]);
   const [modifiedPresetIds, setModifiedPresetIds] = useState<Set<string>>(new Set());
@@ -166,13 +172,9 @@ export default function Home() {
         setCustomSongs(customList);
         setModifiedPresetIds(modifiedIds);
 
-        if (activeDbSong && Array.isArray(activeDbSong.measures) && activeDbSong.measures.length > 0) {
-          loadNewSong(activeDbSong);
-        } else {
-          // Fallback to localStorage if IndexedDB had no active song
-          const localSong = getStoredCurrentSong();
-          loadNewSong(localSong);
-        }
+        const localSong = getStoredCurrentSongOrNull();
+        const { song: bootSong, fromLocalDraft } = pickBootstrapSong(activeDbSong, localSong);
+        loadNewSong(bootSong, { unsaved: fromLocalDraft });
       } catch (err) {
         console.warn('[IndexedDB] Bootstrap failed, falling back to localStorage:', err);
         if (isMounted) {
@@ -271,9 +273,11 @@ export default function Home() {
   const handleSaveSong = useCallback(async () => {
     if (!song || isSaving) return;
     setIsSaving(true);
+    setSaveError(null);
+    // Crash draft first: pagehide cannot await IndexedDB, so localStorage stays the recovery source.
+    setStoredCurrentSong(song);
     try {
       await saveActiveSongToDB(song);
-      setStoredCurrentSong(song);
 
       const [customList, modifiedIds] = await Promise.all([
         getCustomSongsFromDB(),
@@ -287,6 +291,9 @@ export default function Home() {
       setTimeout(() => setSaveSuccess(false), 2200);
     } catch (err) {
       console.error('[page] Failed to save song to IndexedDB:', err);
+      setSaveError(
+        'Save failed: IndexedDB could not commit. Your draft is still in this browser. Export a JSON backup if this keeps happening.'
+      );
     } finally {
       setIsSaving(false);
     }
@@ -385,9 +392,11 @@ export default function Home() {
   }, [isEcoMode, toggleEcoMode, song.id, handleResetPreset, handleRestoreDefaultSong, setChordEnabled, setMetronomeEnabled, setMetronomeVolume]);
 
   const handleConfirmFreshSong = useCallback(async (saveCurrentFirst: boolean) => {
-    if (saveCurrentFirst || isDirty) {
+    // Discard means discard: Create Blank Song must not persist dirty work.
+    if (saveCurrentFirst) {
       try {
         await saveActiveSongToDB(song);
+        setStoredCurrentSong(song);
       } catch {
         saveSongToCustomLibrary(song);
       }
@@ -407,9 +416,10 @@ export default function Home() {
 
     loadNewSong(freshSong);
     setSavedRevision(0);
+    setSaveError(null);
     setTargetMeasureIndex(0);
     setIsNewSongConfirmOpen(false);
-  }, [song, isDirty, loadNewSong]);
+  }, [song, loadNewSong]);
 
   // Flush song state to storage immediately when switching tabs or apps (especially critical on iPad)
   useEffect(() => {
@@ -446,8 +456,8 @@ export default function Home() {
     const handleStorageChange = (e: StorageEvent) => {
       if ((e.key === STORAGE_KEYS.CURRENT_SONG || e.key === 'numbered_notation_current_song_v2') && e.newValue) {
         try {
-          const parsed = JSON.parse(e.newValue);
-          if (parsed && parsed.id && parsed.id !== song.id) {
+          const parsed = sanitizeSong(JSON.parse(e.newValue));
+          if (parsed && parsed.id !== song.id) {
             loadNewSong(parsed);
           }
         } catch {
@@ -482,8 +492,9 @@ export default function Home() {
       if (audioEngine) {
         audioEngine.stop();
       }
-      // Safety flush: if current song is dirty, save it to IndexedDB first
-      if (isDirty && song) {
+      // Flush dirty work only when leaving a different song. Same-id loads
+      // (import overwrite, re-select) must not write the in-memory copy over the incoming score.
+      if (isDirty && song && song.id !== targetSong.id) {
         try {
           await saveActiveSongToDB(song);
         } catch (err) {
@@ -491,17 +502,17 @@ export default function Home() {
         }
       }
 
-      // If selecting a preset, check if user has an edited version in IndexedDB
+      // Preset ids load factory code unless a modified override exists.
+      // An incoming song that already differs from factory (import overwrite) is kept as-is.
       let songToLoad = targetSong;
-      const isPreset = PRESET_SONGS.some(p => p.id === targetSong.id);
-      if (isPreset) {
+      const matchingPreset = PRESET_SONGS.find(p => p.id === targetSong.id);
+      if (matchingPreset && !isSongModifiedFromPreset(targetSong)) {
         try {
           const dbVersion = await getSongFromDB(targetSong.id);
-          if (dbVersion) {
-            songToLoad = dbVersion;
-          }
+          songToLoad = isStoredPresetOverride(dbVersion) && dbVersion ? dbVersion : matchingPreset;
         } catch (err) {
           console.warn('[page] Failed to check preset override:', err);
+          songToLoad = matchingPreset;
         }
       }
 
@@ -638,6 +649,7 @@ export default function Home() {
         isSaving={isSaving}
         isDirty={isDirty}
         saveSuccess={saveSuccess}
+        saveError={saveError}
         autosaveInterval={autosaveInterval}
         onSetAutosaveInterval={handleSetAutosaveInterval}
         customSongs={customSongs}
@@ -651,6 +663,18 @@ export default function Home() {
         onRestoreSettingsToDefault={handleRestoreSettingsToDefault}
         onUpdateSong={setSong}
       />
+
+      {saveError && (
+        <div
+          id="header-save-error-banner"
+          role="alert"
+          className="print:hidden mx-2 sm:mx-auto sm:max-w-[1600px] sm:w-full sm:px-3 lg:px-4 mt-1.5"
+        >
+          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-medium">
+            {saveError}
+          </div>
+        </div>
+      )}
 
       {/* Main Studio Canvas - Consolidated WYSIWYG Sheet */}
       <main className="flex-1 max-w-[1600px] w-full mx-auto px-1 sm:px-3 lg:px-4 py-1 sm:py-2 flex flex-col gap-1.5 safe-px print:p-0 print:m-0 print:max-w-none print:w-full print:block">
@@ -716,6 +740,7 @@ export default function Home() {
         isOpen={isNewSongConfirmOpen}
         onClose={() => setIsNewSongConfirmOpen(false)}
         currentSongTitle={song.title}
+        isDirty={isDirty}
         onConfirm={handleConfirmFreshSong}
         onOpenImport={handleOpenImportScore}
       />

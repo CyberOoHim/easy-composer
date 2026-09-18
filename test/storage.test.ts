@@ -19,6 +19,8 @@ import {
   saveSongToCustomLibraryWithResult,
   deleteSongFromCustomLibraryWithResult,
   getStoredCustomLibrary,
+  getStoredCurrentSong,
+  getStoredCurrentSongOrNull,
   resetAllSettingsToDefault,
 } from '../lib/storage.ts';
 
@@ -150,5 +152,45 @@ describe('Local Storage UI Selections Management', () => {
     assert.strictEqual(delRes.success, true);
     assert.strictEqual(delRes.library.some(s => s.id === 'custom-song-abc'), false);
     assert.strictEqual(getStoredCustomLibrary().some(s => s.id === 'custom-song-abc'), false);
+  });
+
+  it('repairs a current-song payload whose notes lack lyric objects', () => {
+    store[STORAGE_KEYS.CURRENT_SONG] = JSON.stringify({
+      id: 'draft-1',
+      title: 'Crash Draft',
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      measures: [{ id: 'm1', notes: [{ id: 'n1', pitch: 3, octave: 0, duration: 1 }] }],
+    });
+    const song = getStoredCurrentSong();
+    assert.equal(song.id, 'draft-1');
+    assert.ok(song.measures[0].notes[0].lyric);
+    assert.equal(song.measures[0].notes[0].lyric.hanlo, '');
+    assert.equal(song.measures[0].notes[0].lyric.poj, '');
+    assert.equal(typeof song.measures[0].notes[0].lyric.hanlo, 'string');
+  });
+
+  it('drops corrupt custom-library entries that have no measures', () => {
+    store[STORAGE_KEYS.CUSTOM_LIBRARY] = JSON.stringify([
+      { id: 'bad', title: 'Broken' },
+      {
+        id: 'good',
+        title: 'Kept',
+        key: 'C',
+        timeSignature: '4/4',
+        bpm: 80,
+        measures: [{ id: 'm1', notes: [{ id: 'n1', pitch: 1, octave: 0, duration: 1, lyric: { poj: 'a', hanlo: 'a' } }] }],
+      },
+    ]);
+    const library = getStoredCustomLibrary();
+    assert.equal(library.length, 1);
+    assert.equal(library[0].id, 'good');
+    assert.ok(library[0].measures[0].notes[0].lyric);
+  });
+
+  it('returns null for an unreadable current-song payload', () => {
+    store[STORAGE_KEYS.CURRENT_SONG] = '{not-json';
+    assert.equal(getStoredCurrentSongOrNull(), null);
   });
 });

@@ -32,7 +32,7 @@ export const CHORD_PROGRESSION_PRESETS: ChordProgressionPreset[] = [
     name: 'Taiwanese Folk Minor (vi - ii - V - vi)',
     category: 'folk',
     degrees: ['vi', 'ii', 'V', 'vi'],
-    description: 'Melancholic Yu-mode (羽調式) folk foundation characteristic of Taiwanese classics.',
+    description: 'Melancholic Yu-mode folk foundation characteristic of Taiwanese classics.',
   },
   {
     id: 'doo_wop',
@@ -60,7 +60,7 @@ export const CHORD_PROGRESSION_PRESETS: ChordProgressionPreset[] = [
     name: 'Royal Road (IV - V - iii - vi)',
     category: 'pop',
     degrees: ['IV', 'V', 'iii', 'vi'],
-    description: '王道進行: widely praised emotive harmonic driver in modern East Asian melodies.',
+    description: 'Royal Road progression: widely praised emotive harmonic driver in modern East Asian melodies.',
   },
 ];
 

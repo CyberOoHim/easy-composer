@@ -2,6 +2,7 @@
 
 import type { Song, LyricDisplayMode, InstrumentType, EditorEditMode, NoteEditSubMode, NoteInputMode, Measure, NumberedNotationNote, SheetWrapMode, SheetOrientation } from '../types/song.ts';
 import { PRESET_SONGS } from './presets.ts';
+import { sanitizeSong } from './songParser.ts';
 
 export const STORAGE_KEYS = {
   ACTIVE_TAB: 'taigi_composer_active_tab',
@@ -165,37 +166,29 @@ export function setStoredDisplayMode(mode: LyricDisplayMode): void {
 // ============================================================================
 // 3. CURRENT ACTIVE SONG (Default: PRESET_SONGS[0])
 // ============================================================================
-export function getStoredCurrentSong(): Song {
-  const raw = safeGetItem(STORAGE_KEYS.CURRENT_SONG);
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && parsed.id && Array.isArray(parsed.measures) && parsed.measures.length > 0) {
-        const song = parsed as Song;
-        song.measures.forEach(m => {
-          if (Array.isArray(m.notes)) {
-            m.notes.forEach(n => {
-              if (n && n.lyric) {
-                if (!n.lyric.poj && n.lyric.tl) n.lyric.poj = n.lyric.tl;
-                if (!n.lyric.hanlo) {
-                  n.lyric.hanlo = n.lyric.custom || n.lyric.hanji || '';
-                }
-              }
-            });
-          }
-        });
-        return song;
-      }
-    } catch {
-      // JSON parse error, fallback
-    }
+function parseStoredCurrentSong(raw: string | null): Song | null {
+  if (!raw) return null;
+  try {
+    return sanitizeSong(JSON.parse(raw));
+  } catch {
+    // JSON parse error
   }
-  return PRESET_SONGS[0];
+  return null;
+}
+
+/** Crash-draft song, or null when localStorage has no current-song payload. */
+export function getStoredCurrentSongOrNull(): Song | null {
+  return parseStoredCurrentSong(safeGetItem(STORAGE_KEYS.CURRENT_SONG));
+}
+
+export function getStoredCurrentSong(): Song {
+  return getStoredCurrentSongOrNull() ?? PRESET_SONGS[0];
 }
 
 export function setStoredCurrentSong(song: Song): boolean {
   try {
-    return safeSetItem(STORAGE_KEYS.CURRENT_SONG, JSON.stringify(song));
+    const stamped: Song = { ...song, updatedAt: Date.now() };
+    return safeSetItem(STORAGE_KEYS.CURRENT_SONG, JSON.stringify(stamped));
   } catch {
     return false;
   }
@@ -210,7 +203,9 @@ export function getStoredCustomLibrary(): Song[] {
     try {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
-        return parsed as Song[];
+        return parsed
+          .map(item => sanitizeSong(item))
+          .filter((song): song is Song => song != null);
       }
     } catch {
       // ignore

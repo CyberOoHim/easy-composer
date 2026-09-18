@@ -16,6 +16,10 @@ import {
   saveActiveSongToDB,
   getActiveSongFromDB,
   migrateLocalStorageToDB,
+  pickBootstrapSong,
+  songIdExists,
+  resetDBInstanceForTests,
+  isStoredPresetOverride,
 } from '../lib/indexedDb.ts';
 import {
   getStoredAutosaveInterval,
@@ -42,17 +46,20 @@ class MockIDBRequest {
 
 class MockIDBTransaction {
   stores: Map<string, MockIDBObjectStore>;
+  ownerDb: MockIDBDatabase | null;
   oncomplete: any = null;
   onerror: any = null;
   onabort: any = null;
   error: any = null;
+  aborted = false;
   private pendingOps = 0;
 
-  constructor(stores: Map<string, MockIDBObjectStore>) {
+  constructor(stores: Map<string, MockIDBObjectStore>, ownerDb: MockIDBDatabase | null = null) {
     this.stores = stores;
+    this.ownerDb = ownerDb;
     // If no operations are performed, complete on next tick
     setTimeout(() => {
-      if (this.pendingOps === 0 && this.oncomplete) {
+      if (this.pendingOps === 0 && !this.aborted && this.oncomplete) {
         this.oncomplete({ target: this });
       }
     }, 0);
@@ -73,11 +80,17 @@ class MockIDBTransaction {
 
   endOp() {
     this.pendingOps--;
-    if (this.pendingOps <= 0) {
+    if (this.pendingOps <= 0 && !this.aborted) {
       setTimeout(() => {
-        if (this.oncomplete) this.oncomplete({ target: this });
+        if (!this.aborted && this.oncomplete) this.oncomplete({ target: this });
       }, 0);
     }
+  }
+
+  abort() {
+    this.aborted = true;
+    this.error = this.error || new Error('Transaction aborted');
+    if (this.onabort) this.onabort({ target: this });
   }
 }
 
@@ -102,12 +115,17 @@ class MockIDBObjectStore {
 
   put(val: any) {
     const key = val.id || val.key;
-    this.data.set(key, JSON.parse(JSON.stringify(val)));
     const tx = this.activeTx;
     if (tx) tx.startOp();
     const req = new MockIDBRequest();
     setTimeout(() => {
       req.triggerSuccess(key);
+      if (tx?.ownerDb?.abortAfterSuccess) {
+        tx.ownerDb.abortAfterSuccess = false;
+        tx.abort();
+        return;
+      }
+      this.data.set(key, JSON.parse(JSON.stringify(val)));
       if (tx) tx.endOp();
     }, 0);
     return req;
@@ -141,6 +159,7 @@ class MockIDBObjectStore {
 
 class MockIDBDatabase {
   stores = new Map<string, MockIDBObjectStore>();
+  abortAfterSuccess = false;
   objectStoreNames = {
     contains: (name: string) => this.stores.has(name),
   };
@@ -158,7 +177,7 @@ class MockIDBDatabase {
         this.stores.set(name, new MockIDBObjectStore());
       }
     }
-    return new MockIDBTransaction(this.stores);
+    return new MockIDBTransaction(this.stores, this);
   }
 }
 
@@ -190,12 +209,54 @@ describe('Preset Modification Detection', () => {
     const fresh = createFreshSong('My Song');
     assert.strictEqual(isSongModifiedFromPreset(fresh), false);
   });
+
+  it('detects notator, catalog, footnote, orientation, and verse metadata edits', () => {
+    const base = JSON.parse(JSON.stringify(PRESET_SONGS[0]));
+    assert.strictEqual(isSongModifiedFromPreset({ ...base, notator: 'Edited Notator' }), true);
+    assert.strictEqual(isSongModifiedFromPreset({ ...base, catalogNumber: 'EDIT-001' }), true);
+    assert.strictEqual(isSongModifiedFromPreset({ ...base, footnote: 'Edited footnote' }), true);
+    assert.strictEqual(isSongModifiedFromPreset({ ...base, orientation: 'landscape' }), true);
+    assert.strictEqual(isSongModifiedFromPreset({ ...base, verseCount: 5 }), true);
+    assert.strictEqual(isSongModifiedFromPreset({ ...base, verseDisplayOption: 'poj' }), true);
+    assert.strictEqual(
+      isSongModifiedFromPreset({ ...base, verseSettings: { 1: { displayOption: 'hanlo' } } }),
+      true,
+    );
+  });
+
+  it('does not treat a legacy unmodified snapshot as an override after factory code changes', () => {
+    const stale = { ...PRESET_SONGS[0], title: 'Stale factory snapshot', isPresetModified: false };
+    assert.strictEqual(isStoredPresetOverride(stale), false);
+    const realOverride = { ...PRESET_SONGS[0], title: 'User edit', isPresetModified: true };
+    assert.strictEqual(isStoredPresetOverride(realOverride), true);
+  });
+});
+
+describe('Bootstrap song selection', () => {
+  it('prefers a newer localStorage draft over IndexedDB', () => {
+    const idb = { ...createFreshSong('IDB Copy'), updatedAt: 100 };
+    const local = { ...createFreshSong('Local Draft'), id: idb.id, updatedAt: 200 };
+    const picked = pickBootstrapSong(idb, local);
+    assert.strictEqual(picked.fromLocalDraft, true);
+    assert.strictEqual(picked.song.title, 'Local Draft');
+  });
+
+  it('does not let an unmodified preset localStorage snapshot shadow factory code', () => {
+    const factory = PRESET_SONGS[0];
+    const stale = JSON.parse(JSON.stringify(factory));
+    stale.updatedAt = Date.now();
+    const picked = pickBootstrapSong(factory, stale);
+    assert.strictEqual(picked.fromLocalDraft, false);
+    assert.strictEqual(picked.song.title, factory.title);
+    assert.strictEqual(isSongModifiedFromPreset(picked.song), false);
+  });
 });
 
 describe('IndexedDB Persistence Operations', () => {
   let mockDb: MockIDBDatabase;
 
   beforeEach(() => {
+    resetDBInstanceForTests();
     mockDb = new MockIDBDatabase();
     mockDb.createObjectStore('songs', {});
     mockDb.createObjectStore('meta', {});
@@ -299,6 +360,25 @@ describe('IndexedDB Persistence Operations', () => {
     const checked = validateSongRecord(valid);
     assert.ok(checked);
     assert.strictEqual(checked?.id, valid.id);
+    assert.notStrictEqual(checked, valid);
+  });
+
+  it('repairs missing lyric objects without mutating the stored record', () => {
+    const raw = {
+      id: 'lyric-gap',
+      title: 'Gap',
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      measures: [{ id: 'm1', measureNumber: 1, notes: [{ id: 'n1', pitch: 1, octave: 0, duration: 1 }] }],
+    };
+    const snapshot = JSON.stringify(raw);
+    const checked = validateSongRecord(raw);
+    assert.ok(checked);
+    assert.ok(checked.measures[0].notes[0].lyric);
+    assert.strictEqual(checked.measures[0].notes[0].lyric.hanlo, '');
+    assert.strictEqual(checked.measures[0].notes[0].lyric.poj, '');
+    assert.strictEqual(JSON.stringify(raw), snapshot);
   });
 
   it('handles corrupt record in getSongFromDB gracefully by returning null', async () => {
@@ -308,6 +388,24 @@ describe('IndexedDB Persistence Operations', () => {
 
     const retrieved = await getSongFromDB('corrupt-1');
     assert.strictEqual(retrieved, null);
+  });
+
+  it('repairs missing lyric objects when reading a song from IndexedDB', async () => {
+    const tx = mockDb.transaction('songs', 'readwrite');
+    tx.objectStore('songs').put({
+      id: 'lyric-gap-db',
+      title: 'Gap DB',
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      measures: [{ id: 'm1', measureNumber: 1, notes: [{ id: 'n1', pitch: 1, octave: 0, duration: 1 }] }],
+    });
+
+    const retrieved = await getSongFromDB('lyric-gap-db');
+    assert.ok(retrieved);
+    assert.ok(retrieved.measures[0].notes[0].lyric);
+    assert.strictEqual(retrieved.measures[0].notes[0].lyric.hanlo, '');
+    assert.strictEqual(retrieved.measures[0].notes[0].lyric.poj, '');
   });
 
   it('resets all modified presets atomically with resetAllPresetsToFactory', async () => {
@@ -326,6 +424,41 @@ describe('IndexedDB Persistence Operations', () => {
 
     modified = await getModifiedPresetIds();
     assert.strictEqual(modified.size, 0);
+  });
+
+  it('rejects a write when the transaction aborts after request success', async () => {
+    mockDb.abortAfterSuccess = true;
+    const song = createFreshSong('Abort Test');
+    await assert.rejects(() => saveSongToDB(song), /abort/i);
+    const retrieved = await getSongFromDB(song.id);
+    assert.strictEqual(retrieved, null);
+  });
+
+  it('does not store an unmodified factory preset in the songs object store', async () => {
+    await saveSongToDB(PRESET_SONGS[0]);
+    const retrieved = await getSongFromDB(PRESET_SONGS[0].id);
+    assert.strictEqual(retrieved, null);
+    const modified = await getModifiedPresetsFromDB();
+    assert.strictEqual(modified.some(s => s.id === PRESET_SONGS[0].id), false);
+  });
+
+  it('saveActiveSongToDB keeps unmodified presets out of the songs store and still restores factory as active', async () => {
+    await saveActiveSongToDB(PRESET_SONGS[0]);
+    const retrieved = await getSongFromDB(PRESET_SONGS[0].id);
+    assert.strictEqual(retrieved, null);
+    const active = await getActiveSongFromDB();
+    assert.ok(active);
+    assert.strictEqual(active?.id, PRESET_SONGS[0].id);
+    assert.strictEqual(active?.title, PRESET_SONGS[0].title);
+    assert.strictEqual(isSongModifiedFromPreset(active!), false);
+  });
+
+  it('reports factory preset ids as already existing', async () => {
+    assert.strictEqual(await songIdExists(PRESET_SONGS[0].id), true);
+    assert.strictEqual(await songIdExists('definitely-missing-song-id'), false);
+    const fresh = createFreshSong('Exists Check');
+    await saveSongToDB(fresh);
+    assert.strictEqual(await songIdExists(fresh.id), true);
   });
 });
 

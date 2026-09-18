@@ -7,6 +7,7 @@ interface NewSongModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentSongTitle: string;
+  isDirty?: boolean;
   onConfirm: (saveCurrentFirst: boolean) => void;
   onOpenImport?: () => void;
 }
@@ -15,6 +16,7 @@ export const NewSongModal: React.FC<NewSongModalProps> = ({
   isOpen,
   onClose,
   currentSongTitle,
+  isDirty = false,
   onConfirm,
   onOpenImport,
 }) => {
@@ -74,14 +76,22 @@ export const NewSongModal: React.FC<NewSongModalProps> = ({
             A blank score canvas will be created (default Key C, 4/4 time, 80 BPM). You can immediately start composing notes and lyrics.
           </p>
 
-          <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200/80 dark:border-amber-800/80 text-amber-900 dark:text-amber-200">
-            <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+          <div className={`flex items-start gap-2.5 p-3 rounded-2xl border ${
+            isDirty
+              ? 'bg-rose-50 dark:bg-rose-950/40 border-rose-200/80 dark:border-rose-800/80 text-rose-900 dark:text-rose-200'
+              : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200/80 dark:border-amber-800/80 text-amber-900 dark:text-amber-200'
+          }`}>
+            <AlertCircle className={`w-4 h-4 shrink-0 mt-0.5 ${
+              isDirty ? 'text-rose-600 dark:text-rose-400' : 'text-amber-600 dark:text-amber-400'
+            }`} />
             <div className="flex flex-col gap-0.5">
               <span className="font-bold text-zinc-900 dark:text-zinc-100">
                 Current song: &ldquo;{currentSongTitle || 'Untitled'}&rdquo;
               </span>
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                If you have unsaved changes, we recommend saving to your Custom Library first so you can reload it anytime.
+                {isDirty
+                  ? 'You have unsaved changes. Save Current & Create New keeps them. Discard Unsaved Changes leaves the last committed save in your library and does not write this draft.'
+                  : 'If you have unsaved changes, we recommend saving to your Custom Library first so you can reload it anytime.'}
               </span>
             </div>
           </div>
@@ -111,10 +121,14 @@ export const NewSongModal: React.FC<NewSongModalProps> = ({
               id="new-song-direct-create-btn"
               type="button"
               onClick={() => onConfirm(false)}
-              className="flex items-center justify-center gap-1.5 px-4 py-2.5 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs rounded-xl border border-zinc-200 dark:border-zinc-700 transition-colors cursor-pointer min-h-[40px]"
+              className={`flex items-center justify-center gap-1.5 px-4 py-2.5 font-bold text-xs rounded-xl border transition-colors cursor-pointer min-h-[40px] ${
+                isDirty
+                  ? 'bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/50 dark:hover:bg-rose-900/60 text-rose-800 dark:text-rose-200 border-rose-200 dark:border-rose-800'
+                  : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 border-zinc-200 dark:border-zinc-700'
+              }`}
             >
-              <FilePlus2 className="w-3.5 h-3.5 text-zinc-500" />
-              <span>Create Blank Song</span>
+              <FilePlus2 className={`w-3.5 h-3.5 ${isDirty ? 'text-rose-500' : 'text-zinc-500'}`} />
+              <span>{isDirty ? 'Discard Unsaved Changes' : 'Create Blank Song'}</span>
             </button>
           </div>
 

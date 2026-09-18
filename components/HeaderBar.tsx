@@ -20,6 +20,7 @@ import {
   FilePlus2,
   Save,
   Check,
+  AlertCircle,
   ChevronDown,
   SlidersHorizontal,
   Download,
@@ -62,6 +63,7 @@ interface HeaderBarProps {
   isSaving?: boolean;
   isDirty?: boolean;
   saveSuccess?: boolean;
+  saveError?: string | null;
   autosaveInterval?: number;
   onSetAutosaveInterval?: (intervalMs: number) => void;
   customSongs?: Song[];
@@ -132,6 +134,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   isSaving = false,
   isDirty = false,
   saveSuccess = false,
+  saveError = null,
   autosaveInterval = 0,
   onSetAutosaveInterval,
   customSongs = [],
@@ -383,6 +386,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               className={`flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg text-xs font-bold transition-all active:scale-95 cursor-pointer touch-manipulation touch-target-expand h-7.5 sm:h-8 shrink-0 border ${
                 isSaving
                   ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-400/40'
+                  : saveError
+                  ? 'bg-rose-500 text-white font-black border-rose-400 shadow-xs'
                   : saveSuccess
                   ? 'bg-emerald-500 text-white font-black border-emerald-400 shadow-xs'
                   : isDirty
@@ -390,20 +395,32 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-200 border-zinc-200/90 dark:border-zinc-750'
               }`}
               title={
-                isDirty
+                saveError
+                  ? saveError
+                  : isDirty
                   ? 'Save changes to IndexedDB [Ctrl+S] (unsaved edits pending)'
                   : 'Changes saved safely in IndexedDB [Ctrl+S]'
               }
             >
-              {saveSuccess ? (
+              {saveError ? (
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+              ) : saveSuccess ? (
                 <Check className="w-3.5 h-3.5 shrink-0" />
               ) : (
                 <Save className={`w-3.5 h-3.5 shrink-0 ${isDirty ? 'text-zinc-950' : 'text-amber-500'}`} />
               )}
               <span className="hidden sm:inline whitespace-nowrap">
-                {isSaving ? 'Saving...' : saveSuccess ? 'Saved' : isDirty ? 'Save*' : 'Save'}
+                {isSaving
+                  ? 'Saving...'
+                  : saveError
+                  ? 'Save failed'
+                  : saveSuccess
+                  ? 'Saved'
+                  : isDirty
+                  ? 'Save*'
+                  : 'Save'}
               </span>
-              {isDirty && !isSaving && !saveSuccess && (
+              {isDirty && !isSaving && !saveSuccess && !saveError && (
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-950 dark:bg-amber-900 animate-ping inline-block shrink-0" />
               )}
             </button>

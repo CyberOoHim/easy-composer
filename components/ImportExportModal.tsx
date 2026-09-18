@@ -60,6 +60,7 @@ import {
   getCustomSongsFromDB,
   saveSongToDB,
   deleteSongFromDB,
+  songIdExists,
 } from '@/lib/indexedDb';
 
 interface ImportExportModalProps {
@@ -236,6 +237,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   // Import states
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
+  const [importConflict, setImportConflict] = useState<Song | null>(null);
 
   // Compute export previews before any conditional early returns
   const currentExportString =
@@ -305,8 +307,20 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
     URL.revokeObjectURL(url);
   };
 
+  const commitImportedSong = async (loadedSong: Song) => {
+    try {
+      await saveSongToDB(loadedSong);
+    } catch (err) {
+      console.warn('[ImportExportModal] IndexedDB save on import fallback:', err);
+    }
+    saveSongToCustomLibrary(loadedSong);
+    onLoadSong(loadedSong);
+    onClose();
+  };
+
   const handleImportSubmit = async () => {
     setImportError(null);
+    setImportConflict(null);
     if (!importText.trim()) {
       setImportError('Please enter JSON or text notation data.');
       return;
@@ -329,18 +343,34 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
         // Text format
         loadedSong = importSongFromText(raw);
       }
-      try {
-        await saveSongToDB(loadedSong);
-      } catch (err) {
-        console.warn('[ImportExportModal] IndexedDB save on import fallback:', err);
+
+      const existsInDb = await songIdExists(loadedSong.id);
+      const existsInLibrary = getStoredCustomLibrary().some(s => s.id === loadedSong.id);
+      const collidesWithCurrent = loadedSong.id === currentSong.id;
+      if (existsInDb || existsInLibrary || collidesWithCurrent) {
+        setImportConflict(loadedSong);
+        return;
       }
-      saveSongToCustomLibrary(loadedSong);
-      onLoadSong(loadedSong);
-      onClose();
+
+      await commitImportedSong(loadedSong);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to parse song format.';
       setImportError(msg);
     }
+  };
+
+  const handleImportOverwrite = async () => {
+    if (!importConflict) return;
+    const incoming = importConflict;
+    setImportConflict(null);
+    await commitImportedSong(incoming);
+  };
+
+  const handleImportAsNew = async () => {
+    if (!importConflict) return;
+    const incoming: Song = { ...importConflict, id: `song-${Date.now()}` };
+    setImportConflict(null);
+    await commitImportedSong(incoming);
   };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -1084,17 +1114,64 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                 id="import-text-textarea"
                 rows={10}
                 value={importText}
-                onChange={e => setImportText(e.target.value)}
+                onChange={e => {
+                  setImportText(e.target.value);
+                  if (importConflict) setImportConflict(null);
+                }}
                 placeholder="Paste JSON string or plain text Numbered Notation (e.g. Title: ..., Key: F, [Measure 1] ...)"
                 className="w-full px-3 py-2 text-xs font-mono bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-800 dark:text-zinc-200 focus:outline-hidden focus:ring-2 focus:ring-amber-500"
               />
+
+              {importConflict && (
+                <div
+                  id="import-conflict-banner"
+                  className="flex flex-col gap-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 text-amber-950 dark:text-amber-100"
+                >
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 shrink-0 text-amber-600 dark:text-amber-400 mt-0.5" />
+                    <p className="text-xs leading-relaxed">
+                      A song with this id already exists
+                      {PRESET_SONGS.some(p => p.id === importConflict.id)
+                        ? ' (including a factory preset)'
+                        : ''}
+                      . Overwrite the existing song, or import it as a new song with a new id?
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row-reverse gap-2">
+                    <button
+                      id="import-overwrite-btn"
+                      type="button"
+                      onClick={() => void handleImportOverwrite()}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-rose-500 hover:bg-rose-400 text-white font-bold text-xs transition-colors cursor-pointer min-h-[40px]"
+                    >
+                      Overwrite Existing
+                    </button>
+                    <button
+                      id="import-as-new-btn"
+                      type="button"
+                      onClick={() => void handleImportAsNew()}
+                      className="flex-1 flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs transition-colors cursor-pointer min-h-[40px]"
+                    >
+                      Import as New Song
+                    </button>
+                    <button
+                      id="import-conflict-cancel-btn"
+                      type="button"
+                      onClick={() => setImportConflict(null)}
+                      className="flex items-center justify-center px-4 py-2.5 rounded-xl bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 font-bold text-xs transition-colors cursor-pointer min-h-[40px]"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
 
               <div className="flex justify-end">
                 <button
                   id="import-submit-btn"
                   type="button"
                   onClick={handleImportSubmit}
-                  disabled={!importText.trim()}
+                  disabled={!importText.trim() || Boolean(importConflict)}
                   className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-sm shadow-md transition-all disabled:opacity-50 cursor-pointer"
                 >
                   <Check className="w-4 h-4" />
