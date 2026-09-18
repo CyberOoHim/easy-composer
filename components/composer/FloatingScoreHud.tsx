@@ -38,6 +38,7 @@ import {
   RotateCw,
   WrapText,
   AlignJustify,
+  AlignLeft,
   RectangleHorizontal,
   RectangleVertical,
   Bookmark,
@@ -145,6 +146,7 @@ export interface FloatingScoreHudProps {
   voltaEnding?: number[];
   onAutoFillRest?: () => void;
   canFillRest?: boolean;
+  onOpenLyricSpreader?: () => void;
 
   // Zoom & Print & Theme
   zoomScale: number;
@@ -251,6 +253,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   voltaEnding,
   onAutoFillRest,
   canFillRest,
+  onOpenLyricSpreader,
   zoomScale,
   onZoomIn,
   onZoomOut,
@@ -1369,6 +1372,18 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 title="Delete current note (Backspace / Delete)"
               >
                 <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            )}
+            {onOpenLyricSpreader && (
+              <button
+                id="floating-hud-paste-lyrics-btn"
+                type="button"
+                onClick={onOpenLyricSpreader}
+                className="flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer"
+                title="Paste Line / Spread Lyrics across consecutive notes (MOD-3/MOD-5)"
+              >
+                <AlignLeft className="w-3.5 h-3.5 text-amber-500" />
+                <span className="hidden lg:inline">Spread Lyrics</span>
               </button>
             )}
           </div>

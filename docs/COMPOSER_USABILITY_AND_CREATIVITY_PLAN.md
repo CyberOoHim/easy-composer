@@ -27,10 +27,10 @@ You can select any module by its ID to implement it in a focused turn, or procee
 | Status | ID | Module Name | Scope Summary | Core Target Files | Dependencies | Turn Trigger Command |
 | :---: | :---: | :--- | :--- | :--- | :--- | :--- |
 | `[ ]` | **MOD-1** | **Strict English UI Standardization** | Purge remaining Chinese UI strings from headers, controls, modals, and canvas labels; maintain song data intact. | `components/composer/*`, `components/*` | None | `Implement Module 1 (MOD-1)` |
-| `[ ]` | **MOD-2** | **Creative Composition Engine** | Pure TypeScript module: chord progression presets, motif transforms (invert, retrograde, shift), pentatonic filter, melody sparks + unit tests. | `lib/creativityEngine.ts`, `test/creativityEngine.test.ts` | None | `Implement Module 2 (MOD-2)` |
-| `[ ]` | **MOD-3** | **Measure Beat Budget & Lyric Spreader** | Rhythm budget math, remaining beat calculation, auto-fill deficit with rests, multi-verse continuous lyric distributor + unit tests. | `lib/taigiUtils.ts`, `test/rhythmAndLyricDistribute.test.ts` | None | `Implement Module 3 (MOD-3)` |
+| `[✓]` | **MOD-2** | **Creative Composition Engine** | Pure TypeScript module: chord progression presets, motif transforms (invert, retrograde, shift), pentatonic filter, melody sparks + unit tests. | `lib/creativityEngine.ts`, `test/creativityEngine.test.ts` | None | `Implement Module 2 (MOD-2)` |
+| `[✓]` | **MOD-3** | **Measure Beat Budget & Lyric Spreader** | Rhythm budget math, remaining beat calculation, auto-fill deficit with rests, multi-verse continuous lyric distributor + unit tests. | `lib/taigiUtils.ts`, `test/rhythmAndLyricDistribute.test.ts` | None | `Implement Module 3 (MOD-3)` |
 | `[ ]` | **MOD-4** | **Accompaniment Arpeggio & Styles** | Web Audio accompaniment grooves (`block`, `arpeggio`, `folk`, `waltz`), eco-mode oscillator budget, preview handlers + unit tests. | `lib/audioEngine.ts`, `test/accompanimentStyles.test.ts` | None | `Implement Module 4 (MOD-4)` |
-| `[ ]` | **MOD-5** | **Measure Beat Budget Bar & Visual Caret** | On-score beat indicator (`● ● ● ○`), one-tap `[Pad Rest]`, and quick "Distribute Lyrics" action on active note/syllable. | `components/composer/RealSheetCanvas.tsx` | MOD-3 | `Implement Module 5 (MOD-5)` |
+| `[✓]` | **MOD-5** | **Measure Beat Budget Bar & Visual Caret** | On-score beat indicator (`● ● ● ○`), one-tap `[Pad Rest]`, and quick "Distribute Lyrics" action on active note/syllable. | `components/composer/RealSheetCanvas.tsx` | MOD-3 | `Implement Module 5 (MOD-5)` |
 | `[ ]` | **MOD-6** | **Tactile Quick-Pad & Creativity Drawer** | iPad-ergonomic thumb pad (≥44px buttons), collapsible Creativity Studio drawer (chords, motif variations, pentatonic guide). | `components/composer/FloatingScoreHud.tsx` | MOD-2, MOD-4 | `Implement Module 6 (MOD-6)` |
 | `[ ]` | **MOD-7** | **End-to-End Integration & Regression** | End-to-end user flows, iPad touch/orientation regression, audio loop stability, full test suite pass. | Workspace & test suite | MOD-1 to MOD-6 | `Implement Module 7 (MOD-7)` |
 
@@ -82,38 +82,38 @@ You can select any module by its ID to implement it in a focused turn, or procee
 ---
 
 ### Module 2: Creative Composition Engine (`MOD-2`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: Provide a pure TypeScript, zero-dependency engine for chord progressions, melodic motif variations, pentatonic scale filtering, and offline melody sparks.
 - **Touchpoint Files**:
   - `lib/creativityEngine.ts` (NEW)
   - `test/creativityEngine.test.ts` (NEW)
 - **Detailed TODO List**:
-  - [ ] **Chord Progression Presets**: Define `CHORD_PROGRESSION_PRESETS` (Pop Ballad `I-V-vi-IV`, Taiwanese Folk Minor `vi-ii-V-vi`, 50s Doo-Wop `I-vi-IV-V`, Pachelbel Canon `I-V-vi-iii-IV-I-IV-V`, Folk Cadence `I-IV-I-V`, Royal Road `IV-V-iii-vi`).
-  - [ ] **Diatonic Degree Resolver**: Implement `getDiatonicChordForDegree(key, degree)` and `applyChordProgression(song, progressionId, startMeasureIdx)`.
-  - [ ] **Motif Inversion**: Implement `invertMotif(notes, key)` (reflects scale degrees diatonically across the initial note's pitch while preserving metric durations, rests, and lyric text).
-  - [ ] **Motif Retrograde**: Implement `retrogradeMotif(notes)` (reverses sequence of pitches while preserving metric note durations and maintaining syllable word order).
-  - [ ] **Scale-Degree Sequence Shift**: Implement `sequenceShiftMotif(notes, stepDelta)` (steps degrees by `+1` or `-1` with proper octave wrapping `7 (+1) -> 1 (octave+1)`).
-  - [ ] **Folk Grace Embellishments**: Implement `embellishWithFolkOrnaments(notes)` (attaches Taiwanese style pre-grace notes without expanding measure beat duration).
-  - [ ] **Pentatonic Mode Filter**: Implement `isPitchInScale(pitch, mode)` supporting Gong-based (`1 2 3 5 6`) and Yu-based (`6 1 2 3 5`) pentatonic scales.
-  - [ ] **Algorithmic Melody Spark**: Implement `generateMelodySpark(chord, key, timeSignature, style)` generating an offline 1-2 measure motif.
-  - [ ] **Unit Tests**: Add thorough unit tests in `test/creativityEngine.test.ts` testing each transformation, edge cases (rests, octave transitions), and metric consistency.
+  - [✓] **Chord Progression Presets**: Define `CHORD_PROGRESSION_PRESETS` (Pop Ballad `I-V-vi-IV`, Taiwanese Folk Minor `vi-ii-V-vi`, 50s Doo-Wop `I-vi-IV-V`, Pachelbel Canon `I-V-vi-iii-IV-I-IV-V`, Folk Cadence `I-IV-I-V`, Royal Road `IV-V-iii-vi`).
+  - [✓] **Diatonic Degree Resolver**: Implement `getDiatonicChordForDegree(key, degree)` and `applyChordProgression(song, progressionId, startMeasureIdx)`.
+  - [✓] **Motif Inversion**: Implement `invertMotif(notes, key)` (reflects scale degrees diatonically across the initial note's pitch while preserving metric durations, rests, and lyric text).
+  - [✓] **Motif Retrograde**: Implement `retrogradeMotif(notes)` (reverses sequence of pitches while preserving metric note durations and maintaining syllable word order).
+  - [✓] **Scale-Degree Sequence Shift**: Implement `sequenceShiftMotif(notes, stepDelta)` (steps degrees by `+1` or `-1` with proper octave wrapping `7 (+1) -> 1 (octave+1)`).
+  - [✓] **Folk Grace Embellishments**: Implement `embellishWithFolkOrnaments(notes)` (attaches Taiwanese style pre-grace notes without expanding measure beat duration).
+  - [✓] **Pentatonic Mode Filter**: Implement `isPitchInScale(pitch, mode)` supporting Gong-based (`1 2 3 5 6`) and Yu-based (`6 1 2 3 5`) pentatonic scales.
+  - [✓] **Algorithmic Melody Spark**: Implement `generateMelodySpark(chord, key, timeSignature, style)` generating an offline 1-2 measure motif.
+  - [✓] **Unit Tests**: Add thorough unit tests in `test/creativityEngine.test.ts` testing each transformation, edge cases (rests, octave transitions), and metric consistency.
 - **Verification Gate**:
-  - `npm run test` executes `test/creativityEngine.test.ts` and passes with 100% success.
+  - `npm run test` executes `test/creativityEngine.test.ts` and passes with 100% success (8/8 tests pass).
   - `npm run typecheck` passes.
 
 ---
 
 ### Module 3: Measure Beat Budget & Smart Lyric Spreader (`MOD-3`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: Implement robust rhythm calculation utilities to compute real-time measure budgets and multi-verse continuous lyric distribution.
 - **Touchpoint Files**:
   - `lib/taigiUtils.ts`
   - `test/rhythmAndLyricDistribute.test.ts` (NEW)
 - **Detailed TODO List**:
-  - [ ] **Measure Beat Budget Helper**: Implement `getMeasureBeatBudget(measure, timeSignature)` returning `currentBeats`, `expectedBeats`, `remainingBeats`, `isFull`, `isDeficit`, `isOverbeat`, `beatProgressPercent`, and `beatIndicators: ('filled' | 'partial' | 'empty')[]`.
-  - [ ] **Auto-Fill Deficit with Rests**: Implement `fillMeasureDeficitWithRests(measure, timeSignature)` to calculate and append the minimal rest notes needed to complete the bar.
-  - [ ] **Smart Inline Lyric Distribute**: Implement `distributeLyricsAcrossNotes(rawText, song, startMeasureIdx, startNoteIdx, verseIndex, field)` to tokenize text into syllables (handling Han-Lo characters, punctuation, and POJ hyphens) and distribute them across subsequent notes.
-  - [ ] **Unit Tests**: Create `test/rhythmAndLyricDistribute.test.ts` covering beat budget across 4/4, 3/4, 2/4, and 6/8 meters, edge cases with tied notes, and multi-measure lyric distribution.
+  - [✓] **Measure Beat Budget Helper**: Implement `getMeasureBeatBudget(measure, timeSignature)` returning `currentBeats`, `expectedBeats`, `remainingBeats`, `isFull`, `isDeficit`, `isOverbeat`, `beatProgressPercent`, and `beatIndicators: ('filled' | 'partial' | 'empty')[]`.
+  - [✓] **Auto-Fill Deficit with Rests**: Implement `fillMeasureDeficitWithRests(measure, timeSignature)` to calculate and append the minimal rest notes needed to complete the bar.
+  - [✓] **Smart Inline Lyric Distribute**: Implement `distributeLyricsAcrossNotes(rawText, song, startMeasureIdx, startNoteIdx, verseIndex, field)` to tokenize text into syllables (handling Han-Lo characters, punctuation, and POJ hyphens) and distribute them across subsequent notes.
+  - [✓] **Unit Tests**: Create `test/rhythmAndLyricDistribute.test.ts` covering beat budget across 4/4, 3/4, 2/4, and 6/8 meters, edge cases with tied notes, and multi-measure lyric distribution (9/9 tests pass).
 - **Verification Gate**:
   - `npm run test` passes for `test/rhythmAndLyricDistribute.test.ts`.
   - `npm run typecheck` passes.
@@ -140,16 +140,19 @@ You can select any module by its ID to implement it in a focused turn, or procee
 ---
 
 ### Module 5: Measure Beat Budget Bar & Visual Caret (`MOD-5`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: Render visual beat indicators directly above the active measure on the virtual score paper with quick action buttons.
 - **Touchpoint Files**:
   - `components/composer/RealSheetCanvas.tsx`
+  - `components/composer/FloatingScoreHud.tsx`
+  - `components/QuickLyricAlignerModal.tsx`
 - **Detailed TODO List**:
-  - [ ] **Beat Budget Header**: In `RealSheetCanvas.tsx`, render a non-intrusive beat budget indicator directly above the active measure: `● ● ● ○` (3 / 4 beats).
-  - [ ] **Color Status Coding**: Use soft neutral styling: green for complete bar, amber for deficit, red badge for overbeat.
-  - [ ] **Quick Action `[Pad Rest]`**: One-tap button next to the deficit indicator to auto-insert rests filling the remaining bar duration.
-  - [ ] **Inline Distribute Lyric Popover**: Clicking on an active note's lyric field displays a subtle "Paste Line" button that opens an inline text box to paste and spread lyrics across consecutive notes.
-  - [ ] **Touch Optimization**: Ensure all clickable chips on the canvas meet iPad touch target sizes.
+  - [✓] **Beat Budget Header**: In `RealSheetCanvas.tsx`, render a non-intrusive beat budget indicator directly above the active measure: `● ● ● ○` (3 / 4 beats).
+  - [✓] **Color Status Coding**: Use soft neutral styling: green for complete bar, amber for deficit, red badge for overbeat.
+  - [✓] **Quick Action `[Pad Rest]`**: One-tap button next to the deficit indicator to auto-insert rests filling the remaining bar duration.
+  - [✓] **Inline Distribute Lyric Popover**: Clicking on an active note's lyric field displays a subtle `[Spread]` button that opens an inline text box to paste and spread lyrics across consecutive notes.
+  - [✓] **Floating HUD & Modal Integration**: Added "Spread Lyrics" button to `FloatingScoreHud.tsx` and updated `QuickLyricAlignerModal.tsx` with scope selection, dual Han-Lo/POJ inputs, and interactive token editing.
+  - [✓] **Touch Optimization**: Ensure all clickable chips on the canvas meet iPad touch target sizes.
 - **Verification Gate**:
   - `npm run build` succeeds.
   - Manual canvas interaction confirms beat indicator updates live on note entry without layout shifts.

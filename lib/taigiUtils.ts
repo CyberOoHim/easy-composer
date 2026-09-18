@@ -2225,3 +2225,191 @@ export function getNoteVerseSyllable(note: NumberedNotationNote, verseIndex: num
   return note.lyricsByVerse?.[verseIndex] || {};
 }
 
+export interface MeasureBeatBudget {
+  currentBeats: number;
+  expectedBeats: number;
+  remainingBeats: number;
+  isFull: boolean;
+  isDeficit: boolean;
+  isOverbeat: boolean;
+  beatProgressPercent: number;
+  beatIndicators: ('filled' | 'partial' | 'empty')[];
+}
+
+/**
+ * Real-time rhythm budget calculator for a measure against its time signature.
+ */
+export function getMeasureBeatBudget(
+  measure: Measure,
+  fallbackTimeSignature: TimeSignature | string = '4/4'
+): MeasureBeatBudget {
+  const currentBeats = calculateMeasureBeats(measure?.notes || []);
+  const timeSig = measure?.timeSignature || fallbackTimeSignature;
+  const expectedBeats = getExpectedMeasureBeats(timeSig);
+  const rawDiff = expectedBeats - currentBeats;
+  const remainingBeats = Math.round(rawDiff * 1000) / 1000;
+  const isFull = Math.abs(remainingBeats) < 0.001;
+  const isDeficit = remainingBeats > 0.001;
+  const isOverbeat = remainingBeats < -0.001;
+  const beatProgressPercent =
+    expectedBeats > 0
+      ? Math.min(200, Math.max(0, Math.round((currentBeats / expectedBeats) * 100)))
+      : 100;
+
+  const numIndicators = Math.max(1, Math.round(expectedBeats));
+  const beatIndicators: ('filled' | 'partial' | 'empty')[] = [];
+  for (let i = 0; i < numIndicators; i++) {
+    if (currentBeats >= i + 1 - 0.001) {
+      beatIndicators.push('filled');
+    } else if (currentBeats > i + 0.001) {
+      beatIndicators.push('partial');
+    } else {
+      beatIndicators.push('empty');
+    }
+  }
+
+  return {
+    currentBeats,
+    expectedBeats,
+    remainingBeats,
+    isFull,
+    isDeficit,
+    isOverbeat,
+    beatProgressPercent,
+    beatIndicators,
+  };
+}
+
+/**
+ * Calculates missing beats in a measure and appends standard rest notes to fill the bar.
+ */
+export function fillMeasureDeficitWithRests(
+  measure: Measure,
+  fallbackTimeSignature: TimeSignature | string = '4/4'
+): Measure {
+  const budget = getMeasureBeatBudget(measure, fallbackTimeSignature);
+  if (!budget.isDeficit || budget.remainingBeats <= 0) {
+    return measure;
+  }
+
+  const restDurations = getRestDurationsForDeficit(budget.remainingBeats);
+  const newNotes = [...(measure.notes || [])];
+
+  for (const duration of restDurations) {
+    newNotes.push({
+      id: `rest-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      pitch: 0,
+      octave: 0,
+      duration,
+      lyric: {},
+    });
+  }
+
+  return {
+    ...measure,
+    notes: newNotes,
+  };
+}
+
+/**
+ * Distributes raw lyric text across subsequent notes starting from a specific measure and note index.
+ * Handles Taiwanese Han-lo, Romanization (POJ/TL), hyphens, and multi-verse slots.
+ */
+export function distributeLyricsAcrossNotes(
+  rawText: string,
+  song: Song,
+  startMeasureIdx: number = 0,
+  startNoteIdx: number = 0,
+  verseIndex: number = 1,
+  field: 'roman' | 'hanlo' | 'auto' = 'auto'
+): Song {
+  if (!rawText || !rawText.trim()) return song;
+  const syllables = splitTaigiLyricSyllables(rawText);
+  if (syllables.length === 0) return song;
+
+  // Deep clone measures
+  const newMeasures = song.measures.map(m => ({
+    ...m,
+    notes: m.notes.map(note => ({
+      ...note,
+      lyric: { ...note.lyric },
+      ...(note.lyricsByVerse
+        ? {
+            lyricsByVerse: Object.fromEntries(
+              Object.entries(note.lyricsByVerse).map(([k, v]) => [k, { ...v }])
+            ),
+          }
+        : {}),
+    })),
+  }));
+
+  let sylIdx = 0;
+  let started = false;
+
+  for (let mIdx = 0; mIdx < newMeasures.length; mIdx++) {
+    const m = newMeasures[mIdx];
+    for (let nIdx = 0; nIdx < m.notes.length; nIdx++) {
+      if (!started) {
+        if (mIdx === startMeasureIdx && nIdx >= startNoteIdx) {
+          started = true;
+        } else if (mIdx > startMeasureIdx) {
+          started = true;
+        } else {
+          continue;
+        }
+      }
+
+      if (sylIdx >= syllables.length) break;
+
+      const note = m.notes[nIdx];
+      const isNonNotation = isNonNotationItem(note);
+      const syl = syllables[sylIdx];
+      const isTokenPunct = isPunctuationOrSpacer(syl);
+
+      // Skip non-notation spacers/rests unless token is punctuation
+      if (isNonNotation && !isTokenPunct) {
+        continue;
+      }
+
+      sylIdx++;
+
+      // Determine whether syllable should go into roman or hanlo
+      let targetType: 'roman' | 'hanlo' = 'roman';
+      if (field === 'roman') {
+        targetType = 'roman';
+      } else if (field === 'hanlo') {
+        targetType = 'hanlo';
+      } else {
+        const hasHan = /[\u4e00-\u9fa5\u3400-\u4dbf]/.test(syl);
+        targetType = hasHan ? 'hanlo' : 'roman';
+      }
+
+      if (verseIndex === 1) {
+        if (targetType === 'roman') {
+          note.lyric.poj = syl;
+        } else {
+          note.lyric.hanlo = syl;
+        }
+      }
+
+      if (!note.lyricsByVerse) {
+        note.lyricsByVerse = {};
+      }
+      if (!note.lyricsByVerse[verseIndex]) {
+        note.lyricsByVerse[verseIndex] = {};
+      }
+      if (targetType === 'roman') {
+        note.lyricsByVerse[verseIndex].poj = syl;
+      } else {
+        note.lyricsByVerse[verseIndex].hanlo = syl;
+      }
+    }
+    if (sylIdx >= syllables.length) break;
+  }
+
+  return normalizeSongDurations({
+    ...song,
+    measures: newMeasures,
+  });
+}
+

@@ -709,6 +709,7 @@ export default function Home() {
         onClose={() => setIsAlignerOpen(false)}
         song={song}
         onApplyLyrics={setSong}
+        activeCoordinate={cursor}
       />
 
       <NewSongModal

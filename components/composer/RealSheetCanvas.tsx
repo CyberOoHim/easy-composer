@@ -50,6 +50,9 @@ import {
   AlertCircle,
   WrapText,
   AlignJustify,
+  AlignLeft,
+  Sparkles,
+  Send,
   RectangleHorizontal,
   RectangleVertical,
 } from 'lucide-react';
@@ -78,6 +81,10 @@ import {
 } from '@/lib/storage';
 import {
   getMeasureRhythmReport,
+  getMeasureBeatBudget,
+  fillMeasureDeficitWithRests,
+  distributeLyricsAcrossNotes,
+  splitTaigiLyricSyllables,
   autoRearrangeSongMeasures,
   autoWrapSongMeasures,
   getSongVerseCount,
@@ -556,6 +563,38 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     Math.min((currentMeasure?.notes.length ?? 1) - 1, selectedNoteIndex ?? 0)
   );
   const currentNote = currentMeasure?.notes[currentNIdx];
+
+  // Inline Lyric Spreader Popover State (MOD-5 / MOD-3)
+  const [isLyricSpreaderOpen, setIsLyricSpreaderOpen] = useState(false);
+  const [lyricSpreaderInput, setLyricSpreaderInput] = useState('');
+  const [lyricSpreaderField, setLyricSpreaderField] = useState<'auto' | 'roman' | 'hanlo'>('auto');
+  const [lyricSpreaderVerse, setLyricSpreaderVerse] = useState<number>(1);
+
+  // Pad measure deficit rests (MOD-5 / MOD-3)
+  const handlePadMeasureRest = useCallback((mIdx: number) => {
+    const targetM = song.measures[mIdx];
+    if (!targetM) return;
+    const filledM = fillMeasureDeficitWithRests(targetM, song.timeSignature || '4/4');
+    const newMeasures = [...song.measures];
+    newMeasures[mIdx] = filledM;
+    onUpdateSong({ ...song, measures: newMeasures });
+  }, [song, onUpdateSong]);
+
+  // Apply inline lyric spread (MOD-5 / MOD-3)
+  const handleApplyInlineLyricSpread = useCallback(() => {
+    if (!lyricSpreaderInput.trim()) return;
+    const updated = distributeLyricsAcrossNotes(
+      lyricSpreaderInput,
+      song,
+      currentMIdx,
+      currentNIdx,
+      lyricSpreaderVerse,
+      lyricSpreaderField
+    );
+    onUpdateSong(updated);
+    setIsLyricSpreaderOpen(false);
+    setLyricSpreaderInput('');
+  }, [lyricSpreaderInput, song, currentMIdx, currentNIdx, lyricSpreaderVerse, lyricSpreaderField, onUpdateSong]);
 
   // Standard realistic physical sheet widths (A4)
   // Portrait: 210mm (~896px / max-w-4xl)
@@ -2574,6 +2613,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 const isFirstInSystem = mInSysIdx === 0;
                 const isLastInSystem = mInSysIdx === system.measures.length - 1;
                 const rhythmReport = getMeasureRhythmReport(engravedM.measure, song.timeSignature || '4/4');
+                const beatBudget = getMeasureBeatBudget(engravedM.measure, song.timeSignature || '4/4');
 
                 return (
                   <div
@@ -2633,8 +2673,49 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         {engravedM.chordText}
                       </div>
 
-                      {/* Right: Rhythm Mismatch Alert and/or Section label */}
-                      <div className="flex items-center gap-1 shrink-0 ml-auto">
+                      {/* Right: Beat Budget & Rhythm Mismatch Alert & Section label */}
+                      <div className="flex items-center gap-1.5 shrink-0 ml-auto">
+                        {/* Measure Beat Budget Bar (MOD-5) */}
+                        <div className="flex items-center gap-1 shrink-0 print:hidden select-none">
+                          <div
+                            className="flex items-center gap-0.5 text-[9px] font-mono"
+                            title={`Measure Beat Budget: ${beatBudget.currentBeats} / ${beatBudget.expectedBeats} beats (${beatBudget.isFull ? 'Complete' : beatBudget.isDeficit ? `${beatBudget.remainingBeats}b deficit` : `${beatBudget.currentBeats - beatBudget.expectedBeats}b over`})`}
+                          >
+                            {beatBudget.beatIndicators.map((ind, bIdx) => (
+                              <span
+                                key={bIdx}
+                                className={`leading-none ${
+                                  ind === 'filled'
+                                    ? beatBudget.isOverbeat
+                                      ? 'text-rose-500 font-bold'
+                                      : 'text-emerald-500 dark:text-emerald-400 font-bold'
+                                    : ind === 'partial'
+                                    ? 'text-amber-500 font-bold'
+                                    : 'text-zinc-300 dark:text-zinc-600'
+                                }`}
+                              >
+                                {ind === 'filled' ? '●' : ind === 'partial' ? '◐' : '○'}
+                              </span>
+                            ))}
+                          </div>
+
+                          {/* Quick 1-tap [Pad Rest] Button when measure has deficit and is selected */}
+                          {beatBudget.isDeficit && isSelectedMeasure && (
+                            <button
+                              id={`measure-${engravedM.measureIndex}-pad-rest-btn`}
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handlePadMeasureRest(engravedM.measureIndex);
+                              }}
+                              className="text-[9px] font-mono font-extrabold px-1.5 py-0.5 rounded bg-amber-500/15 hover:bg-amber-500/30 text-amber-700 dark:text-amber-300 border border-amber-500/40 transition-all cursor-pointer shadow-2xs active:scale-95 whitespace-nowrap"
+                              title={`Measure has deficit of ${beatBudget.remainingBeats} beats. Click to pad rests.`}
+                            >
+                              + Pad Rest ({beatBudget.remainingBeats}b)
+                            </button>
+                          )}
+                        </div>
+
                         {showRhythmWarnings && !rhythmReport.isFull && (
                           <div
                             title={`Time Signature Mismatch: Has ${rhythmReport.currentBeats} beats, expected ${rhythmReport.expectedBeats} beats`}
@@ -3097,6 +3178,21 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                         : 'hover:bg-zinc-100'
                                     }`}
                                   >
+                                    {isSelectedLyric && (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setLyricSpreaderVerse(vNum);
+                                          setIsLyricSpreaderOpen(true);
+                                        }}
+                                        className="print:hidden absolute -top-5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 text-[9px] font-extrabold flex items-center gap-1 shadow-md whitespace-nowrap z-40 transition-all cursor-pointer active:scale-95"
+                                        title="Paste Line / Spread Lyrics across notes (MOD-3/MOD-5)"
+                                      >
+                                        <AlignLeft className="w-2.5 h-2.5" />
+                                        <span>Spread</span>
+                                      </button>
+                                    )}
                                     {/* Option 1: Hàn-lô only */}
                                     {vDisplayOption === 'hanlo' &&
                                       (isSelectedLyric ? (
@@ -3452,6 +3548,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         voltaEnding={currentMeasure?.voltaEnding}
         onAutoFillRest={onAutoFillRest ? () => onAutoFillRest(currentMIdx) : undefined}
         canFillRest={true}
+        onOpenLyricSpreader={() => {
+          setLyricSpreaderVerse(activeVerseRow);
+          setIsLyricSpreaderOpen(true);
+        }}
         zoomScale={zoomScale}
         onZoomIn={() => setZoomScale(s => Math.min(1.6, s + 0.1))}
         onZoomOut={() => setZoomScale(s => Math.max(0.7, s - 0.1))}
@@ -3659,6 +3759,131 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 <span>Clear Badge</span>
               </button>
               <span className="text-zinc-400 font-mono text-[10px]">↵ Save · Esc Close</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Inline Lyric Spreader Modal / Popover (MOD-5 / MOD-3) */}
+      {isLyricSpreaderOpen && (
+        <div
+          id="lyric-spreader-backdrop"
+          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 print:hidden"
+          onClick={() => setIsLyricSpreaderOpen(false)}
+        >
+          <div
+            id="lyric-spreader-card"
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white dark:bg-[#181b24] border border-amber-500/80 rounded-2xl shadow-2xl p-5 max-w-lg w-full text-left animate-in fade-in zoom-in-95 duration-150 select-none z-50"
+          >
+            <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
+              <div className="flex items-center gap-2">
+                <AlignLeft className="w-5 h-5 text-amber-500 shrink-0" />
+                <div>
+                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
+                    Paste Line & Spread Lyrics
+                  </h3>
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    Starting from Measure {currentMIdx + 1}, Note {currentNIdx + 1}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsLyricSpreaderOpen(false)}
+                className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md cursor-pointer transition-colors"
+                title="Close (Esc)"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Target Settings */}
+            <div className="flex items-center gap-3 mb-3 text-xs">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-zinc-600 dark:text-zinc-400">Target Verse:</span>
+                <select
+                  value={lyricSpreaderVerse}
+                  onChange={(e) => setLyricSpreaderVerse(Number(e.target.value))}
+                  className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold"
+                >
+                  {Array.from({ length: Math.max(verseCount, 5) }, (_, i) => i + 1).map((v) => (
+                    <option key={v} value={v}>
+                      Verse {v}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-zinc-600 dark:text-zinc-400">Target Field:</span>
+                <select
+                  value={lyricSpreaderField}
+                  onChange={(e) => setLyricSpreaderField(e.target.value as 'auto' | 'roman' | 'hanlo')}
+                  className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold"
+                >
+                  <option value="auto">Auto-detect</option>
+                  <option value="roman">Romanization (POJ)</option>
+                  <option value="hanlo">Han-Lo</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Input Textarea */}
+            <div className="mb-3">
+              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                Paste or type full phrase / verse line:
+              </label>
+              <textarea
+                autoFocus
+                rows={3}
+                value={lyricSpreaderInput}
+                onChange={(e) => setLyricSpreaderInput(e.target.value)}
+                placeholder="e.g. To̍k-iā bô-phōaⁿ siú teng-ē, chheng-hong tùi bīn chhoe... or 獨夜無伴守燈下 清風對面吹"
+                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-serif text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
+              />
+            </div>
+
+            {/* Syllable Tokens Preview */}
+            {lyricSpreaderInput.trim() && (
+              <div className="mb-4 p-2.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <div className="flex items-center justify-between text-xs mb-1.5 text-zinc-500 dark:text-zinc-400">
+                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                    Parsed Syllables ({splitTaigiLyricSyllables(lyricSpreaderInput).length})
+                  </span>
+                  <span className="font-mono text-[10px]">Each syllable assigns to one note</span>
+                </div>
+                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                  {splitTaigiLyricSyllables(lyricSpreaderInput).map((syl, sIdx) => (
+                    <span
+                      key={sIdx}
+                      className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-amber-700 dark:text-amber-300 shadow-2xs"
+                    >
+                      {syl}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Footer Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-800 text-xs">
+              <button
+                type="button"
+                onClick={() => setIsLyricSpreaderOpen(false)}
+                className="px-3 py-1.5 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={!lyricSpreaderInput.trim()}
+                onClick={handleApplyInlineLyricSpread}
+                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs shadow-md transition-all disabled:opacity-50 cursor-pointer active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Distribute Across Notes</span>
+              </button>
             </div>
           </div>
         </div>
