@@ -8,6 +8,8 @@ import {
   HORIZONTAL_READING_ANCHOR_RATIO,
   VERTICAL_JITTER_TOLERANCE_PX,
   HORIZONTAL_JITTER_TOLERANCE_PX,
+  smoothScrollWindowTo,
+  smoothScrollElementTo,
 } from '../lib/playbackScroll.ts';
 
 describe('Playback Auto-Scroll Engine (playbackScroll)', () => {
@@ -66,6 +68,42 @@ describe('Playback Auto-Scroll Engine (playbackScroll)', () => {
       assert.equal(result.targetScrollY, 0);
     });
 
+    it('resets viewport to 0 on initial system if user was scrolled down (replay from top)', () => {
+      // User was scrolled down at scrollY 400 when restarting from measure 0
+      const scrolledViewport = {
+        ...defaultViewport,
+        currentScrollY: 400,
+      };
+      // Active system 0 is now way above viewport top
+      const activeRect = { top: -320, bottom: -200, height: 120 };
+
+      const result = calculateVerticalPlaybackScroll(
+        scrolledViewport,
+        activeRect,
+        null,
+        { isInitialOrTopSystem: true }
+      );
+
+      assert.equal(result.shouldScroll, true);
+      assert.equal(result.targetScrollY, 0);
+      assert.equal(result.reason, 'out_of_safe_zone');
+    });
+
+    it('handles short single-system song (no nextSystemRect) safely', () => {
+      // Short 1-measure song where nextSystemRect is null
+      const activeRect = { top: 80, bottom: 200, height: 120 };
+
+      const result = calculateVerticalPlaybackScroll(
+        defaultViewport,
+        activeRect,
+        null,
+        { isInitialOrTopSystem: true }
+      );
+
+      assert.equal(result.shouldScroll, false);
+      assert.equal(result.targetScrollY, 0);
+    });
+
     it('smoothly scrolls active line into golden reading band when it overflows safe bottom', () => {
       // System playing down at bottom near HUD (top: 550, bottom: 670 > safeBottom 604)
       const activeRect = { top: 550, bottom: 670, height: 120 };
@@ -105,6 +143,72 @@ describe('Playback Auto-Scroll Engine (playbackScroll)', () => {
       assert.ok(result.targetScrollY > 0);
     });
 
+    it('strictly tests lookahead boundary precision (safeBottom - 24)', () => {
+      // safeBottom = 604; safeBottom - 24 = 580
+      // Place activeRect at top: 350 so its safe zone is fine, but targetScroll differs from 0
+      const activeRect = { top: 350, bottom: 470, height: 120 };
+
+      // Exactly at boundary (580) -> should NOT trigger
+      const exactBoundaryRect = { top: 460, bottom: 580, height: 120 };
+      const resExact = calculateVerticalPlaybackScroll(
+        defaultViewport,
+        activeRect,
+        exactBoundaryRect,
+        { isInitialOrTopSystem: false }
+      );
+      assert.equal(resExact.shouldScroll, false);
+
+      // 1px past boundary (581) -> SHOULD trigger
+      const pastBoundaryRect = { top: 461, bottom: 581, height: 120 };
+      const resPast = calculateVerticalPlaybackScroll(
+        defaultViewport,
+        activeRect,
+        pastBoundaryRect,
+        { isInitialOrTopSystem: false }
+      );
+      assert.equal(resPast.shouldScroll, true);
+      assert.equal(resPast.reason, 'lookahead_next_system');
+    });
+
+    it('handles extreme compact iPad viewports without negative or NaN heights', () => {
+      const compactViewport = {
+        viewportHeight: 350,
+        currentScrollY: 0,
+        headerHeight: 44,
+        hudHeight: 160,
+      };
+      const activeRect = { top: 250, bottom: 340, height: 90 };
+
+      const result = calculateVerticalPlaybackScroll(
+        compactViewport,
+        activeRect,
+        null,
+        { isInitialOrTopSystem: false }
+      );
+
+      assert.equal(result.shouldScroll, true);
+      assert.ok(!Number.isNaN(result.targetScrollY));
+      assert.ok(result.targetScrollY >= 0);
+    });
+
+    it('respects custom reading anchor ratio and custom jitter tolerance', () => {
+      const activeRect = { top: 500, bottom: 620, height: 120 };
+      const result = calculateVerticalPlaybackScroll(
+        defaultViewport,
+        activeRect,
+        null,
+        {
+          isInitialOrTopSystem: false,
+          readingAnchorRatio: 0.5, // center safe zone (50%)
+          tolerance: 50,
+        }
+      );
+
+      assert.equal(result.shouldScroll, true);
+      // center anchor = 64 + 540 * 0.5 = 334. target = 0 + 500 - 334 = 166
+      assert.equal(result.targetScrollY, 166);
+    });
+
     it('does not scroll when current position is within jitter tolerance', () => {
       const activeRect = { top: 215, bottom: 335, height: 120 };
       const nextRect = { top: 350, bottom: 470, height: 120 };
@@ -141,6 +245,23 @@ describe('Playback Auto-Scroll Engine (playbackScroll)', () => {
       assert.equal(result.targetScrollLeft, 270);
     });
 
+    it('clamps horizontal scroll to 0 when active measure is near left boundary (no negative scroll)', () => {
+      const bounds = {
+        wrapperWidth: 1000,
+        currentScrollLeft: 0,
+        containerLeft: 0,
+      };
+
+      // Measure 1 is at left: 50 (to the left of anchor 330)
+      const measureRect = { left: 50, right: 200, width: 150 };
+
+      const result = calculateHorizontalPlaybackScroll(bounds, measureRect);
+
+      // 0 + (50 - 330) = -280 -> clamped to 0. Since currentScrollLeft is 0, difference is 0 <= 12 tolerance
+      assert.equal(result.shouldScroll, false);
+      assert.equal(result.targetScrollLeft, 0);
+    });
+
     it('does not scroll if active measure is already positioned near anchor within tolerance', () => {
       const bounds = {
         wrapperWidth: 1000,
@@ -154,6 +275,24 @@ describe('Playback Auto-Scroll Engine (playbackScroll)', () => {
       const result = calculateHorizontalPlaybackScroll(bounds, measureRect);
 
       assert.equal(result.shouldScroll, false);
+    });
+  });
+
+  describe('Smooth Scroll Animation Utilities', () => {
+    it('smoothScrollWindowTo returns a cancelable handle with requested target', () => {
+      const handle = smoothScrollWindowTo(350, { duration: 280 });
+      assert.equal(handle.target, 350);
+      assert.equal(typeof handle.cancel, 'function');
+      // Calling cancel should be safe
+      handle.cancel();
+    });
+
+    it('smoothScrollElementTo handles target and cancellation cleanly', () => {
+      const mockElement = { scrollLeft: 50 } as unknown as HTMLElement;
+      const handle = smoothScrollElementTo(mockElement, 250, { duration: 280 });
+      assert.equal(handle.target, 250);
+      assert.equal(typeof handle.cancel, 'function');
+      handle.cancel();
     });
   });
 });
