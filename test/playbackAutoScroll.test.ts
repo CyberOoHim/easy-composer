@@ -295,4 +295,60 @@ describe('Playback Auto-Scroll Engine (playbackScroll)', () => {
       handle.cancel();
     });
   });
+
+  describe('Universal Multi-System Playback Scroll Across Wrap Modes', () => {
+    const viewport = {
+      viewportHeight: 800,
+      currentScrollY: 0,
+      headerHeight: 52,
+      hudHeight: 180,
+    };
+
+    it('produces identical vertical scroll targets for systems in no_wrap, auto_wrap, and auto_fit', () => {
+      // Simulate System 2 at vertical position 650 (past safeBottom 604)
+      const systemRect = { top: 650, bottom: 770, height: 120 };
+      const nextSystemRect = { top: 790, bottom: 910, height: 120 };
+
+      // In all wrap modes (no_wrap, auto_wrap, auto_fit), the system vertical layout uses the same engine
+      const wrapModes = ['no_wrap', 'auto_wrap', 'auto_fit'] as const;
+      const results = wrapModes.map(() =>
+        calculateVerticalPlaybackScroll(viewport, systemRect, nextSystemRect, {
+          isInitialOrTopSystem: false,
+        })
+      );
+
+      // All wrap modes should agree on shouldScroll = true and identical targetScrollY
+      assert.ok(results.every(r => r.shouldScroll === true));
+      const firstTarget = results[0].targetScrollY;
+      assert.ok(firstTarget > 400);
+      assert.ok(results.every(r => r.targetScrollY === firstTarget));
+    });
+
+    it('correctly coordinates dual-axis scrolling when advancing from system 0 to system 1 in no_wrap mode', () => {
+      // System 0 ends at measure 4, which had scrolled horizontally to scrollLeft 300
+      const horizontalBounds = {
+        wrapperWidth: 1000,
+        currentScrollLeft: 300,
+        containerLeft: 0,
+      };
+
+      // Transition to Measure 5 (first measure of System 1), located near left edge (left: 40px)
+      // and vertically located at top: 580px (approaching safe bottom)
+      const measure5HorizontalRect = { left: 40, right: 190, width: 150 };
+      const system1VerticalRect = { top: 580, bottom: 700, height: 120 };
+
+      // 1. Vertical calculation scrolls down to reveal System 1
+      const verticalRes = calculateVerticalPlaybackScroll(viewport, system1VerticalRect, null, {
+        isInitialOrTopSystem: false,
+      });
+      assert.equal(verticalRes.shouldScroll, true);
+      assert.ok(verticalRes.targetScrollY > 300);
+
+      // 2. Horizontal calculation scrolls wrapper back to left (from 300 down to 10) for Measure 5
+      const horizontalRes = calculateHorizontalPlaybackScroll(horizontalBounds, measure5HorizontalRect);
+      assert.equal(horizontalRes.shouldScroll, true);
+      assert.equal(horizontalRes.targetScrollLeft, 10); // 300 + (40 - 330) = 10
+    });
+  });
 });
+

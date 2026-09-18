@@ -1032,10 +1032,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   );
 
   // Ensure the sheet scroll starts display from the left-most edge (scrollLeft = 0)
+  // and reset playback scroll tracking caches on layout change
   useEffect(() => {
     if (canvasWrapperRef.current) {
       canvasWrapperRef.current.scrollLeft = 0;
     }
+    lastScrolledSysIdxRef.current = null;
+    lastScrolledMIdxRef.current = null;
+    lastLookaheadSysIdxRef.current = null;
   }, [sheetWrapMode, sheetOrientation]);
 
   // Scroll active note / line into view smoothly when navigating
@@ -1119,16 +1123,19 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           currentSystemObj.measures.length > 0 &&
           currentSystemObj.measures[currentSystemObj.measures.length - 1].measureIndex === currentPlayMIdx;
 
-        // In vertical mode, only re-query and adjust when the system changes or on the first lookahead tick
-        if (sheetWrapMode !== 'no_wrap') {
-          const isNewSystem = currentPlaySysIdx !== lastScrolledSysIdxRef.current;
-          const isNewLookahead = isLastMeasureInSystem && lastLookaheadSysIdxRef.current !== currentPlaySysIdx;
+        const isNewSystem = currentPlaySysIdx !== lastScrolledSysIdxRef.current;
+        const isNewLookahead = isLastMeasureInSystem && lastLookaheadSysIdxRef.current !== currentPlaySysIdx;
+        const isNewMeasure = currentPlayMIdx !== lastScrolledMIdxRef.current;
 
-          // Zero-DOM fast exit for the vast majority of notes within a system!
-          if (!isNewSystem && !isNewLookahead) {
-            return;
-          }
+        // Zero-DOM fast exit for the vast majority of notes within the same measure/system
+        if (!isNewSystem && !isNewLookahead && (!isNewMeasure || sheetWrapMode !== 'no_wrap')) {
+          return;
+        }
 
+        // 1. Universal Vertical Playback Auto-Scroll (no_wrap, auto_wrap, auto_fit)
+        // Keeps the active system anchored in the Golden Reading Band (~28% down safe zone)
+        // and anticipates upcoming lines with lookahead pre-rolling.
+        if (isNewSystem || isNewLookahead) {
           if (isNewLookahead) {
             lastLookaheadSysIdxRef.current = currentPlaySysIdx;
           }
@@ -1174,10 +1181,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             }
             lastScrolledSysIdxRef.current = currentPlaySysIdx;
           }
-        } else {
-          // Horizontal continuous (no_wrap) mode: smoothly track active measure at ~33% width
-          if (currentPlayMIdx !== lastScrolledMIdxRef.current && canvasWrapperRef.current) {
-            const wrapper = canvasWrapperRef.current;
+        }
+
+        // 2. Horizontal Measure Auto-Scroll (No Wrap mode or wide overflowing sheets)
+        // When measures extend horizontally beyond viewport width, smoothly tracks active measure at ~33% width
+        if (sheetWrapMode === 'no_wrap' && isNewMeasure && canvasWrapperRef.current) {
+          const wrapper = canvasWrapperRef.current;
+          if (wrapper.scrollWidth > wrapper.clientWidth + 8) {
             const measureEl = document.getElementById(`sheet-measure-${currentPlayMIdx + 1}`);
             if (measureEl) {
               const wrapperRect = wrapper.getBoundingClientRect();
@@ -1194,9 +1204,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 }
                 activeHorizontalAnimRef.current = smoothScrollElementTo(wrapper, hResult.targetScrollLeft, { duration: 280 });
               }
-              lastScrolledMIdxRef.current = currentPlayMIdx;
             }
           }
+          lastScrolledMIdxRef.current = currentPlayMIdx;
         }
         return;
       }
