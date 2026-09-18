@@ -241,7 +241,10 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   }, [isStudioOpen, isScoreMenuOpen]);
 
   return (
-    <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#10121a]/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800/80 shadow-xs transition-colors select-none pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] print:hidden">
+    <header
+      id="header-bar"
+      className="sticky top-0 z-40 w-full bg-white/95 dark:bg-[#10121a]/95 backdrop-blur-md border-b border-zinc-200/90 dark:border-zinc-800/80 shadow-xs transition-colors select-none pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] print:hidden"
+    >
       <div className="w-full max-w-[1680px] mx-auto px-2 sm:px-3 h-11 sm:h-12 flex items-center justify-between gap-1 sm:gap-2 overflow-x-auto no-scrollbar touch-pan-x touch-momentum">
         {/* Left: Studio Brand & Active Song Selector */}
         <div className="flex items-center gap-1 sm:gap-1.5 min-w-0 shrink">

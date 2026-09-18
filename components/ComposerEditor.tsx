@@ -174,27 +174,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     [onUpdateSong, selectedCoord]
   );
 
-  // Smoothly bring note into view when cursor changes via undo/redo or navigation
-  const prevCoordRef = useRef<[number, number] | null>(null);
-  useEffect(() => {
-    if (!selectedCoord) {
-      prevCoordRef.current = null;
-      return;
-    }
-    const [mIdx, nIdx] = selectedCoord;
-    const prev = prevCoordRef.current;
-    prevCoordRef.current = selectedCoord;
 
-    if (!prev || prev[0] !== mIdx || prev[1] !== nIdx) {
-      const note = song.measures[mIdx]?.notes[nIdx];
-      if (note) {
-        const el = document.getElementById(`sheet-note-${note.id}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-      }
-    }
-  }, [selectedCoord, song.measures]);
   const [autoStepAdvance, setAutoStepAdvanceState] = useState<boolean>(() => {
     if (typeof window !== 'undefined') return getStoredAutoStepAdvance(false);
     return false;
@@ -255,10 +235,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const note = song.measures[validMeasureIdx]?.notes[0];
       if (note) {
         audioEngine.previewNote(song.key, note);
-        const el = document.getElementById(`sheet-note-${note.id}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
       }
     },
     [song.measures, song.key, audioEngine, setSelectedCoord]
@@ -272,10 +248,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const note = song.measures[validMeasureIdx]?.notes[0];
       if (note) {
         audioEngine.previewNote(song.key, note);
-        const el = document.getElementById(`sheet-note-${note.id}`);
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
       }
     },
     [song.measures, song.key, audioEngine, setSelectedCoord]
@@ -333,10 +305,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         const note = song.measures[validMeasureIdx]?.notes[targetNoteIdx] || song.measures[validMeasureIdx]?.notes[0];
         if (note) {
           audioEngine.previewNote(song.key, note);
-          const el = document.getElementById(`sheet-note-${note.id}`);
-          if (el) {
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
         }
 
         const secName = song.measures[validMeasureIdx]?.section || `Measure ${validMeasureIdx + 1}`;
@@ -2042,14 +2010,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     const note = song.measures[mIdx]?.notes[targetNoteIdx] || song.measures[mIdx]?.notes[0];
     if (note) {
       audioEngine.previewNote(song.key, note);
-      const el = document.getElementById(`sheet-note-${note.id}`);
-      if (el && typeof el.scrollIntoView === 'function') {
-        try {
-          el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'nearest' });
-        } catch {
-          // Ignore iframe scroll errors
-        }
-      }
     }
   }, [song, audioEngine, setSelectedCoord]);
 

@@ -635,12 +635,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
 
     window.addEventListener('resize', updateHudHeight, { passive: true });
+    const vv = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (vv) {
+      vv.addEventListener('resize', updateHudHeight);
+    }
+
     const t1 = setTimeout(updateHudHeight, 60);
     const t2 = setTimeout(updateHudHeight, 200);
 
     return () => {
       if (resizeObs) resizeObs.disconnect();
       window.removeEventListener('resize', updateHudHeight);
+      if (vv) {
+        vv.removeEventListener('resize', updateHudHeight);
+      }
       clearTimeout(t1);
       clearTimeout(t2);
     };
@@ -815,10 +823,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
       const hudEl = document.getElementById('floating-score-hud-container');
       const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : hudStackHeight;
-      const headerEl = document.querySelector('header');
+      const headerEl = document.getElementById('header-bar') || document.querySelector('header');
       const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
       const safeTop = headerHeight + 12;
-      const safeBottom = window.innerHeight - currentHudHeight - 20;
+
+      const hudRect = hudEl?.getBoundingClientRect();
+      const hudTop = hudRect && hudRect.top > 0 ? hudRect.top : window.innerHeight - currentHudHeight;
+      const safeBottom = hudTop - 20;
 
       const lineRect = lineEl.getBoundingClientRect();
       const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
@@ -838,10 +849,25 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           });
         }
       }
+
+      // In no-wrap horizontal scrolling mode, ensure the active measure is visible horizontally
+      if (sheetWrapMode === 'no_wrap' && canvasWrapperRef.current && (measureEl || targetEl)) {
+        const targetH = measureEl || targetEl;
+        const wrapper = canvasWrapperRef.current;
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const tRect = targetH.getBoundingClientRect();
+        if (tRect.left < wrapperRect.left + 40 || tRect.right > wrapperRect.right - 40) {
+          const scrollLeftTarget = wrapper.scrollLeft + (tRect.left - wrapperRect.left) - 80;
+          wrapper.scrollTo({
+            left: Math.max(0, scrollLeftTarget),
+            behavior: 'smooth',
+          });
+        }
+      }
     } catch {
       // Gracefully ignore scroll exceptions
     }
-  }, [currentMIdx, currentNIdx, hudStackHeight]);
+  }, [currentMIdx, currentNIdx, hudStackHeight, sheetWrapMode]);
 
   // Helper to update current selected note
   const updateCurrentNote = useCallback(
@@ -902,10 +928,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       const hudEl = document.getElementById('floating-score-hud-container');
       const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : hudStackHeight;
 
-      const headerEl = document.querySelector('header');
+      const headerEl = document.getElementById('header-bar') || document.querySelector('header');
       const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
       const safeTop = headerHeight + 12; // safe distance below sticky top bar
-      const safeBottom = window.innerHeight - currentHudHeight - 20; // safe clearance above HUD stack
+
+      const hudRect = hudEl?.getBoundingClientRect();
+      const hudTop = hudRect && hudRect.top > 0 ? hudRect.top : window.innerHeight - currentHudHeight;
+      const safeBottom = hudTop - 20; // safe clearance above HUD stack
 
       const lineRect = lineEl.getBoundingClientRect();
       const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
