@@ -236,8 +236,8 @@ export function searchSongLyrics(
       : subMatch
       ? song.subtitle || ''
       : composerMatch
-      ? `曲: ${song.composer}`
-      : `詞: ${song.lyricist}`;
+      ? `Music: ${song.composer}`
+      : `Lyrics: ${song.lyricist}`;
 
     const firstMeasure = song.measures?.[0];
     const firstHanlo = firstMeasure?.notes

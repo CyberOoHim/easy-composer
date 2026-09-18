@@ -122,20 +122,20 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
 
   const handleRestorePreset = useCallback(() => {
     if (!matchingPreset) return;
-    if (window.confirm(`確定要將《${matchingPreset.title}》恢復為原廠預設嗎？這將會清除您在此曲上的所有修改與設定。(Restore《${matchingPreset.title}》to factory default?)`)) {
+    if (window.confirm(`Are you sure you want to revert "${matchingPreset.title}" to factory defaults? This will clear all your custom edits and settings on this song.`)) {
       if (onResetPresetSong) {
         onResetPresetSong(matchingPreset.id);
       } else {
         onUpdateSong(matchingPreset);
       }
-      setRestoreSuccessNotice(`已將《${matchingPreset.title}》恢復為原廠預設！`);
+      setRestoreSuccessNotice(`Restored "${matchingPreset.title}" to factory defaults!`);
       setTimeout(() => setRestoreSuccessNotice(null), 3500);
     }
   }, [matchingPreset, onResetPresetSong, onUpdateSong]);
 
   const handleRestoreDefaultSong = useCallback(() => {
     const defaultPreset = PRESET_SONGS[0];
-    if (window.confirm(`確定要載入出廠預設歌曲《${defaultPreset.title}》嗎？(Restore default preset song《${defaultPreset.title}》?)`)) {
+    if (window.confirm(`Are you sure you want to load factory default song "${defaultPreset.title}"?`)) {
       if (onRestoreDefaultSong) {
         onRestoreDefaultSong();
       } else if (onResetPresetSong) {
@@ -143,7 +143,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
       } else {
         onUpdateSong(defaultPreset);
       }
-      setRestoreSuccessNotice(`已恢復為出廠預設曲目《${defaultPreset.title}》！`);
+      setRestoreSuccessNotice(`Restored factory default song "${defaultPreset.title}"!`);
       setTimeout(() => setRestoreSuccessNotice(null), 3500);
     }
   }, [onRestoreDefaultSong, onResetPresetSong, onUpdateSong]);
@@ -158,7 +158,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
     }
     setAutoTransposeChords(true);
     setSyncAllMeasures(true);
-    setRestoreSuccessNotice('已重設版面與音色設定為預設值！');
+    setRestoreSuccessNotice('Reset layout and tone settings to defaults!');
     setTimeout(() => setRestoreSuccessNotice(null), 3500);
   }, [song, onUpdateSong, onSetInstrument, setAutoTransposeChords, setSyncAllMeasures]);
 
@@ -1127,7 +1127,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
               <div className="flex flex-col gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
                 <div className="flex items-center justify-between">
                   <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                    Melody Instrument Tone / 音色選擇
+                    Melody Instrument Tone
                   </label>
                   <span className="text-xs text-amber-600 dark:text-amber-400 font-mono font-bold">
                     {INSTRUMENT_OPTIONS.find(o => o.value === instrument)?.labelEn}
@@ -1178,7 +1178,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
             <div className="flex flex-col gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
               <div className="flex items-center justify-between">
                 <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                  Defaults & Factory Reset / 恢復預設
+                  Defaults & Factory Reset
                 </label>
                 {restoreSuccessNotice && (
                   <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 animate-in fade-in">
@@ -1223,7 +1223,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                       type="button"
                       onClick={handleRestoreDefaultSong}
                       className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[44px] bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700 active:scale-98"
-                      title="Load factory default preset song (望春風)"
+                      title="Load factory default preset song (Bāng Chhun-hong)"
                     >
                       <RotateCcw className="w-3.5 h-3.5 shrink-0" />
                       <span>Restore Default Song</span>

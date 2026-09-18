@@ -153,7 +153,7 @@ export const KeyboardShortcutsModal: React.FC<KeyboardShortcutsModalProps> = ({
             onClick={onClose}
             className="px-4 py-1.5 rounded-xl bg-amber-500 text-zinc-950 font-bold text-xs hover:bg-amber-400 transition-colors cursor-pointer shadow-xs ml-auto"
           >
-            Got It (知道了)
+            Got It
           </button>
         </div>
       </div>

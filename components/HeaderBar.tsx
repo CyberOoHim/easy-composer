@@ -267,23 +267,23 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   }
                 }}
                 className="w-full text-xs font-bold bg-zinc-100 hover:bg-zinc-200/80 dark:bg-[#151822] dark:hover:bg-[#1a1e2b] border border-zinc-200/90 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 rounded-lg pl-2 pr-5 py-1 focus:outline-hidden focus:ring-1.5 focus:ring-amber-500 truncate cursor-pointer h-7.5 sm:h-8 transition-colors"
-                title="選擇樂譜 (預設曲目與自訂庫存)"
+                title="Select Score (Presets and Custom Library)"
               >
-                <optgroup label="預設曲目 (Presets)">
+                <optgroup label="Preset Songs">
                   {PRESET_SONGS.map(p => {
                     const isModified = modifiedPresetIds.has(p.id);
                     return (
                       <option key={p.id} value={p.id}>
-                        {p.title} {isModified ? '★ (已修改)' : ''}
+                        {p.title} {isModified ? '★ (Modified)' : ''}
                       </option>
                     );
                   })}
                 </optgroup>
                 {customSongs.length > 0 && (
-                  <optgroup label={`自訂樂譜 (${customSongs.length})`}>
+                  <optgroup label={`Custom Scores (${customSongs.length})`}>
                     {customSongs.map(c => (
                       <option key={c.id} value={c.id}>
-                        {c.title || '未命名樂曲'}
+                        {c.title || 'Untitled Song'}
                       </option>
                     ))}
                   </optgroup>
@@ -309,7 +309,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     ? 'bg-amber-500 text-zinc-950 border-amber-400 shadow-xs'
                     : 'bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750'
                 }`}
-                title="Score Actions: Create New Blank Song or Import Score (樂譜建立與匯入)"
+                title="Score Actions: Create New Blank Song or Import Score"
                 aria-expanded={isScoreMenuOpen}
               >
                 <FilePlus2 className={`w-3.5 h-3.5 shrink-0 ${isScoreMenuOpen ? 'text-zinc-950' : 'text-amber-500'}`} />
@@ -858,7 +858,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
-                System & Defaults / 系統與預設
+                System & Defaults
               </span>
               {defaultRestoreNotice && (
                 <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 animate-in fade-in">
@@ -874,7 +874,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 id="header-restore-settings-btn"
                 type="button"
                 onClick={() => {
-                  if (window.confirm('確定要將所有工作台設定（樂器音色、音量、節拍器、版面縮放、編輯偏好）重設為原廠預設值嗎？(Restore all studio settings to default?)')) {
+                  if (window.confirm('Are you sure you want to restore all studio settings (instruments, volume, metronome, zoom, and editing preferences) to factory defaults?')) {
                     if (onRestoreSettingsToDefault) {
                       onRestoreSettingsToDefault();
                     } else {
@@ -904,20 +904,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 onClick={() => {
                   const matchingPreset = PRESET_SONGS.find(p => p.id === song.id || p.id === song.originalPresetId);
                   if (matchingPreset) {
-                    if (window.confirm(`確定要將《${matchingPreset.title}》恢復為原廠預設嗎？這將會清除您在此曲上的所有修改。(Restore《${matchingPreset.title}》to factory preset?)`)) {
+                    if (window.confirm(`Are you sure you want to restore "${matchingPreset.title}" to factory preset? This will clear all your modifications on this song.`)) {
                       if (onResetPreset) {
                         onResetPreset(matchingPreset.id);
                       }
-                      showNotice(`Restored《${matchingPreset.title}》to default!`);
+                      showNotice(`Restored "${matchingPreset.title}" to default!`);
                     }
                   } else {
-                    if (window.confirm(`確定要載入出廠預設歌曲《望春風》嗎？(Load default preset song《Bāng Chhun-hong》?)`)) {
+                    if (window.confirm('Are you sure you want to load factory default song "Bāng Chhun-hong"?')) {
                       if (onRestoreDefaultSong) {
                         onRestoreDefaultSong();
                       } else if (onResetPreset) {
                         onResetPreset(PRESET_SONGS[0].id);
                       }
-                      showNotice('Restored default song《望春風》!');
+                      showNotice('Restored default song "Bāng Chhun-hong"!');
                     }
                   }
                 }}
@@ -928,7 +928,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
                   <div className="flex flex-col text-left">
                     <span className="font-bold">
-                      {PRESET_SONGS.some(p => p.id === song.id) ? `Restore Preset Song (${song.title})` : 'Restore Default Song (望春風)'}
+                      {PRESET_SONGS.some(p => p.id === song.id) ? `Restore Preset Song (${song.title})` : 'Restore Default Song (Bāng Chhun-hong)'}
                     </span>
                     <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
                       {PRESET_SONGS.some(p => p.id === song.id)
@@ -945,7 +945,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   id="header-restore-all-presets-btn"
                   type="button"
                   onClick={() => {
-                    if (window.confirm(`確定要將全部 ${modifiedPresetIds.size} 首已修改的預設曲目皆恢復為原廠設定嗎？(Restore all ${modifiedPresetIds.size} modified preset songs to factory defaults?)`)) {
+                    if (window.confirm(`Are you sure you want to restore all ${modifiedPresetIds.size} modified preset songs to factory defaults?`)) {
                       onResetAllPresets();
                       showNotice(`Restored all ${modifiedPresetIds.size} preset songs!`);
                     }
@@ -984,7 +984,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         >
           <div className="px-2.5 py-1.5 border-b border-zinc-200 dark:border-zinc-800 flex items-center justify-between">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-              Score Actions / 樂譜操作
+              Score Actions
             </span>
             <button
               type="button"
@@ -1014,7 +1014,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </div>
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
-                Import Score (匯入樂譜)
+                Import Score
               </span>
               <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
                 Load JSON or Text notation file

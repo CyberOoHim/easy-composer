@@ -39,8 +39,8 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
           onClick={zoomOut}
           disabled={!canZoomOut}
           className="p-1 sm:px-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[36px] flex items-center justify-center"
-          title="縮小介面字級 Zoom Out Text [Alt + -]"
-          aria-label="縮小介面字級 Zoom Out Text"
+          title="Zoom Out Text [Alt + -]"
+          aria-label="Zoom Out Text"
         >
           <Minus className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
         </button>
@@ -54,7 +54,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
               ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25'
               : 'text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400'
           }`}
-          title={`介面字級 UI Text Zoom: ${zoomPercent}% (點擊${isCustom ? '重設為 100%' : '放大至 110%'}) [Alt + 0]`}
+          title={`UI Text Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'}) [Alt + 0]`}
           aria-label={`Current UI text zoom ${zoomPercent}%`}
         >
           <Type className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -67,8 +67,8 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
           onClick={zoomIn}
           disabled={!canZoomIn}
           className="p-1 sm:px-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[36px] flex items-center justify-center"
-          title="放大介面字級 Zoom In Text [Alt + +]"
-          aria-label="放大介面字級 Zoom In Text"
+          title="Zoom In Text [Alt + +]"
+          aria-label="Zoom In Text"
         >
           <Plus className="w-3.5 h-3.5 text-amber-500" />
         </button>
@@ -87,7 +87,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
         onClick={zoomOut}
         disabled={!canZoomOut}
         className="flex items-center justify-center p-1.5 sm:px-2.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[40px] shrink-0"
-        title="縮小介面字級 Zoom Out UI Text [Alt + -]"
+        title="Zoom Out UI Text [Alt + -]"
         aria-label="Zoom out UI text"
       >
         <Minus className="w-3.5 h-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
@@ -102,7 +102,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
             ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25'
             : 'text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400'
         }`}
-        title={`介面字級 UI Text Zoom: ${zoomPercent}% (點擊${isCustom ? '重設為 100%' : '放大至 110%'}) [Alt + 0]`}
+        title={`UI Text Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'}) [Alt + 0]`}
         aria-label={`Current UI text zoom ${zoomPercent}%`}
       >
         <Type className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -115,7 +115,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
         onClick={zoomIn}
         disabled={!canZoomIn}
         className="flex items-center justify-center p-1.5 sm:px-2.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[40px] shrink-0"
-        title="放大介面字級 Zoom In UI Text [Alt + +]"
+        title="Zoom In UI Text [Alt + +]"
         aria-label="Zoom in UI text"
       >
         <Plus className="w-3.5 h-3.5 text-amber-500 shrink-0" />

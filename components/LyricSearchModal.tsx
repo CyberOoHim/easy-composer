@@ -223,7 +223,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                 value={query}
                 onChange={e => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="搜尋歌詞 (支援漢字、白話字 POJ、無調符羅馬字、歌名)..."
+                placeholder="Search lyrics (supports Hanji, POJ, tone-free Romanization, song title)..."
                 className="w-full bg-white dark:bg-[#181b26] border border-zinc-300 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 pl-11 pr-10 py-2.5 rounded-xl text-sm font-medium focus:outline-hidden focus:ring-2 focus:ring-amber-500/80 focus:border-amber-500 shadow-inner placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
                 autoComplete="off"
                 spellCheck={false}
@@ -236,7 +236,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                     inputRef.current?.focus();
                   }}
                   className="absolute right-3 p-1 rounded-md text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 cursor-pointer"
-                  title="清除搜尋"
+                  title="Clear search"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -248,7 +248,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
               type="button"
               onClick={onClose}
               className="p-2 rounded-xl text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-colors cursor-pointer shrink-0"
-              title="關閉 (Esc)"
+              title="Close (Esc)"
             >
               <X className="w-5 h-5" />
             </button>
@@ -268,7 +268,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                   }`}
                 >
                   <Layers className="w-3.5 h-3.5" />
-                  <span>全部樂曲 ({allSongs.length})</span>
+                  <span>All Songs ({allSongs.length})</span>
                 </button>
 
                 <button
@@ -279,10 +279,10 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                       ? 'bg-amber-500 text-zinc-950 shadow-xs'
                       : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                   }`}
-                  title={`目前曲目: ${currentSong.title}`}
+                  title={`Current Song: ${currentSong.title}`}
                 >
                   <ListMusic className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">目前曲目: {currentSong.title}</span>
+                  <span className="truncate">Current Song: {currentSong.title}</span>
                 </button>
               </div>
 
@@ -298,7 +298,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                     }`}
                   >
-                    全部 ({results.length})
+                    All ({results.length})
                   </button>
                   <button
                     type="button"
@@ -309,7 +309,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                     }`}
                   >
-                    小節 ({measureCount})
+                    Measures ({measureCount})
                   </button>
                   <button
                     type="button"
@@ -320,7 +320,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                         : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
                     }`}
                   >
-                    樂句 ({verseCount})
+                    Verses ({verseCount})
                   </button>
                 </div>
               )}
@@ -328,7 +328,7 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
 
             {query.trim() && (
               <span className="text-zinc-500 dark:text-zinc-400 font-medium whitespace-nowrap">
-                找到 <strong className="text-amber-600 dark:text-amber-400 font-bold">{filteredResults.length}</strong> 處符合
+                Found <strong className="text-amber-600 dark:text-amber-400 font-bold">{filteredResults.length}</strong> matches
               </span>
             )}
           </div>
@@ -349,16 +349,16 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
 
               <div>
                 <h3 id="lyric-search-modal-title" className="font-bold text-sm sm:text-base text-zinc-900 dark:text-zinc-100">
-                  即時搜尋台語歌詞、白話字與歌名
+                  Instant Search across Taiwanese Lyrics, POJ & Titles
                 </h3>
                 <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-1 max-w-md leading-relaxed">
-                  支援免輸入調符（如輸入 <code className="px-1 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 font-mono text-[11px]">u-ia-hoe</code> 可搜尋 <span className="font-medium text-amber-600 dark:text-amber-400">Ú-iā-hoe</span>）、漢字詞彙跨音符比對，點擊即可直達該小節！
+                  Supports tone-free search (e.g. enter <code className="px-1 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 font-mono text-[11px]">u-ia-hoe</code> to find <span className="font-medium text-amber-600 dark:text-amber-400">Ú-iā-hoe</span>), Hanji phrase matching across notes, and click to jump directly!
                 </p>
               </div>
 
               {/* Quick Search Chips */}
               <div className="flex flex-wrap items-center justify-center gap-1.5 max-w-lg mt-1">
-                <span className="text-[11px] text-zinc-400 font-medium mr-1">推薦關鍵字:</span>
+                <span className="text-[11px] text-zinc-400 font-medium mr-1">Suggested searches:</span>
                 {POPULAR_SEARCH_CHIPS.map(chip => (
                   <button
                     key={chip}
@@ -381,10 +381,10 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
             <div className="py-12 px-4 flex flex-col items-center text-center gap-3 animate-in fade-in duration-150">
               <Sparkles className="w-10 h-10 text-zinc-400/80" />
               <h4 className="font-bold text-sm text-zinc-800 dark:text-zinc-200">
-                找不到與 &ldquo;{query}&rdquo; 相符的歌詞
+                No lyrics found matching &ldquo;{query}&rdquo;
               </h4>
               <p className="text-xs text-zinc-500 max-w-sm leading-relaxed">
-                請嘗試搜尋其他漢字、無聲調羅馬拼音、曲調或歌名，例如「雨夜花」、「受風雨」或「寶貝」。
+                Try searching with different Hanji characters, tone-free romanization, or song titles.
               </p>
             </div>
           )}
@@ -418,11 +418,11 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
 
                         {result.isCurrentSong ? (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 border border-emerald-400/40 shrink-0">
-                            目前曲目
+                            Current Song
                           </span>
                         ) : (
                           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700 shrink-0">
-                            樂庫曲目
+                            Library Song
                           </span>
                         )}
                       </div>
@@ -435,11 +435,11 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                         )}
                         {result.matchType === 'verse' ? (
                           <span className="px-1.5 py-0.5 rounded bg-indigo-500/15 text-indigo-700 dark:text-indigo-300 font-bold border border-indigo-400/40">
-                            樂句 {result.verseNumber ?? (result.verseIndex !== undefined ? result.verseIndex + 1 : 1)} (M{result.startMeasureNumber ?? result.measureNumber}-M{result.endMeasureNumber ?? result.measureNumber})
+                            Verse {result.verseNumber ?? (result.verseIndex !== undefined ? result.verseIndex + 1 : 1)} (M{result.startMeasureNumber ?? result.measureNumber}-M{result.endMeasureNumber ?? result.measureNumber})
                           </span>
                         ) : (
                           <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 font-bold border border-zinc-200/80 dark:border-zinc-700/80">
-                            第 {result.measureNumber} 小節 (M{result.measureNumber})
+                            Measure {result.measureNumber} (M{result.measureNumber})
                           </span>
                         )}
                         {result.chord && (
@@ -503,10 +503,10 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                             handleExecuteJump(result, 'karaoke');
                           }}
                           className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-900 dark:text-amber-200 font-bold text-[11px] transition-colors cursor-pointer border border-amber-400/40"
-                          title="前往 Karaoke 模式並跳至該小節"
+                          title="Open Karaoke mode and jump to this measure"
                         >
                           <Mic2 className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
-                          <span>Karaoke 練唱</span>
+                          <span>Sing in Karaoke</span>
                         </button>
 
                         {result.matchType === 'verse' ? (
@@ -517,10 +517,10 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                               handleExecuteJump(result, 'editor', 'verse');
                             }}
                             className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-900 dark:text-indigo-200 font-bold text-[11px] transition-colors cursor-pointer border border-indigo-400/40"
-                            title="前往樂句檢視 (Verse Edit)"
+                            title="Jump to Verse Edit"
                           >
                             <Music className="w-3.5 h-3.5 text-indigo-600 dark:text-indigo-400" />
-                            <span>前往樂句</span>
+                            <span>Go to Verse</span>
                           </button>
                         ) : (
                           <button
@@ -530,10 +530,10 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
                               handleExecuteJump(result, 'editor', 'measure');
                             }}
                             className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-800 dark:text-zinc-200 font-bold text-[11px] transition-colors cursor-pointer border border-zinc-200/80 dark:border-zinc-700"
-                            title="前往小節檢視 (Measure Edit)"
+                            title="Jump to Measure Edit"
                           >
                             <Music className="w-3.5 h-3.5 text-emerald-500" />
-                            <span>前往小節</span>
+                            <span>Go to Measure</span>
                           </button>
                         )}
                       </div>
@@ -551,17 +551,17 @@ export const LyricSearchModal: React.FC<LyricSearchModalProps> = ({
             <span className="inline-flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 font-mono font-bold text-[10px] text-zinc-800 dark:text-zinc-200">↑</kbd>
               <kbd className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 font-mono font-bold text-[10px] text-zinc-800 dark:text-zinc-200">↓</kbd>
-              <span>選擇</span>
+              <span>Select</span>
             </span>
 
             <span className="inline-flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 font-mono font-bold text-[10px] text-zinc-800 dark:text-zinc-200">Enter</kbd>
-              <span>前往小節</span>
+              <span>Jump to Measure</span>
             </span>
 
             <span className="inline-flex items-center gap-1 hidden sm:inline-flex">
               <kbd className="px-1.5 py-0.5 rounded bg-zinc-200 dark:bg-zinc-800 font-mono font-bold text-[10px] text-zinc-800 dark:text-zinc-200">Esc</kbd>
-              <span>關閉</span>
+              <span>Close</span>
             </span>
           </div>
 

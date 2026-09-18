@@ -96,7 +96,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           verseIndex: idx,
           verseTitle: matchedVerse
             ? `Verse ${idx + 1}${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
-            : `Verse ${idx + 1} (超出歌曲段落數)`,
+            : `Verse ${idx + 1} (Exceeds song section count)`,
           section: matchedVerse?.section,
           measureRange: matchedVerse
             ? `Measures ${matchedVerse.startMeasureNumber}-${matchedVerse.endMeasureNumber}`
@@ -141,7 +141,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
         verseIndex: idx,
         verseTitle: matchedVerse
           ? `Verse ${idx + 1}${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
-          : `Verse ${idx + 1} (超出歌曲段落數)`,
+          : `Verse ${idx + 1} (Exceeds song section count)`,
         section: matchedVerse?.section,
         measureRange: matchedVerse
           ? `Measures ${matchedVerse.startMeasureNumber}-${matchedVerse.endMeasureNumber}`
@@ -258,7 +258,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/60">
           <div className="flex items-center gap-2 text-zinc-900 dark:text-zinc-100 font-bold text-lg">
             <AlignLeft className="w-5 h-5 text-amber-500" />
-            <span>臺語歌詞對齊台 (Lyric Aligner Deck)</span>
+            <span>Lyric Aligner Deck</span>
           </div>
           <button
             id="quick-aligner-close-btn"
@@ -275,10 +275,10 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           <div className="flex flex-col gap-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                對齊目標模式 (Alignment Mode)
+                Alignment Mode
               </label>
               <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                支援 羅馬字 (POJ) 與 漢羅 (Han-lô)
+                Supports Romanization (POJ) and Han-Lo
               </span>
             </div>
             <div className="grid grid-cols-3 gap-2 text-xs">
@@ -292,7 +292,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                 }`}
               >
-                填入 羅馬字
+                Romanization (POJ)
               </button>
 
               <button
@@ -305,7 +305,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                 }`}
               >
-                填入 漢羅
+                Han-Lo
               </button>
 
               <button
@@ -321,7 +321,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                 }`}
               >
-                雙欄同步 (羅馬字 + 漢羅)
+                Dual Sync (POJ + Han-Lo)
               </button>
             </div>
           </div>
@@ -332,32 +332,32 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label htmlFor="aligner-roman-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                    1. 羅馬字 歌詞 (POJ)
+                    1. Romanization Lyrics (POJ)
                   </label>
-                  <span className="text-[11px] text-zinc-400">換行代表分句</span>
+                  <span className="text-[11px] text-zinc-400">Newline creates new verse</span>
                 </div>
                 <textarea
                   id="aligner-roman-text"
                   rows={5}
                   value={romanText}
                   onChange={e => setRomanText(e.target.value)}
-                  placeholder={`例：\nTo̍k iā bô phōaⁿ siú teng-ē\nChheng-hong tùi bīn chhoe\n\nKhuànn-tio̍h thâu-tsîng thinn tō beh kng`}
+                  placeholder={`e.g.:\nTo̍k iā bô phōaⁿ siú teng-ē\nChheng-hong tùi bīn chhoe\n\nKhuànn-tio̍h thâu-tsîng thinn tō beh kng`}
                   className="w-full px-3 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 font-serif"
                 />
               </div>
               <div>
                 <div className="flex items-center justify-between mb-1">
                   <label htmlFor="aligner-hanlo-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
-                    2. 漢羅 歌詞 (Han-lô)
+                    2. Han-Lo Lyrics (Han-lô)
                   </label>
-                  <span className="text-[11px] text-zinc-400">音節數對齊羅馬字</span>
+                  <span className="text-[11px] text-zinc-400">Match syllables with POJ</span>
                 </div>
                 <textarea
                   id="aligner-hanlo-text"
                   rows={5}
                   value={hanloText}
                   onChange={e => setHanloText(e.target.value)}
-                  placeholder={`例：\n獨夜無伴守燈下\n清風對面吹\n\n看著頭前天著欲光`}
+                  placeholder={`e.g.:\n獨夜無伴守燈下\n清風對面吹\n\n看著頭前天著欲光`}
                   className="w-full px-3 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 font-serif"
                 />
               </div>
@@ -368,12 +368,12 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               <div className="flex items-center justify-between mb-1">
                 <label htmlFor="aligner-input-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
                   {targetField === 'roman' || targetField === 'poj' || targetField === 'tl'
-                    ? '貼上 羅馬字 歌詞 (POJ)'
-                    : '貼上 漢羅 歌詞 (Han-lô)'}
+                    ? 'Paste Romanization Lyrics (POJ)'
+                    : 'Paste Han-Lo Lyrics (Han-lô)'}
                 </label>
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
-                    💡 換行代表分句/分段
+                    💡 Newline creates new line/verse
                   </span>
                 </div>
               </div>
@@ -384,8 +384,8 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 onChange={e => setInputText(e.target.value)}
                 placeholder={
                   targetField === 'roman' || targetField === 'poj' || targetField === 'tl'
-                    ? `例：\nTo̍k iā bô phōaⁿ siú teng-ē\nChheng-hong tùi bīn chhoe`
-                    : `例：\n獨夜無伴守燈下\n清風對面吹`
+                    ? `e.g.:\nTo̍k iā bô phōaⁿ siú teng-ē\nChheng-hong tùi bīn chhoe`
+                    : `e.g.:\n獨夜無伴守燈下\n清風對面吹`
                 }
                 className="w-full px-3 py-2.5 text-sm bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700 rounded-xl focus:outline-hidden focus:ring-2 focus:ring-amber-500 text-zinc-900 dark:text-zinc-100 font-serif"
               />
@@ -405,7 +405,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 font-bold text-sm transition-all disabled:opacity-50 cursor-pointer"
           >
             <AlignLeft className="w-4 h-4 text-amber-400" />
-            <span>分詞並預覽對齊 (Parse Syllables & Preview)</span>
+            <span>Parse Syllables & Preview</span>
           </button>
 
           {/* Preview Tokens Grid Grouped by Verse */}

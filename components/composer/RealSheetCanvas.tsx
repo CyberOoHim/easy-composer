@@ -2698,7 +2698,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         <div className={`flex items-center justify-between w-full text-[9px] font-mono font-bold px-1 ${
                           sheetTheme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
                         }`}>
-                          <span>{engravedM.obbligatoText || 'Obbligato (和音)'}</span>
+                          <span>{engravedM.obbligatoText || 'Obbligato (Counter-Melody)'}</span>
                         </div>
                         <div className="flex items-center justify-around w-full">
                           {engravedM.obbligatoNotes.map((obNote, obIdx) => (
@@ -3600,9 +3600,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 </div>
                 <div className="grid grid-cols-3 gap-1.5">
                   {[
-                    { label: 'Intro', tip: 'Intro (前奏)' },
-                    { label: 'Interlude', tip: 'Interlude (間奏)' },
-                    { label: 'Outro', tip: 'Outro (尾奏)' },
+                    { label: 'Intro', tip: 'Intro Section' },
+                    { label: 'Interlude', tip: 'Interlude Section' },
+                    { label: 'Outro', tip: 'Outro Section' },
                   ].map((item) => (
                     <button
                       key={item.label}

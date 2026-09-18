@@ -92,7 +92,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
     if (!hasText) {
       if (isMelismaContinuation(note, prevNote)) {
         return (
-          <span className="text-purple-600 dark:text-purple-400 font-mono text-sm font-bold tracking-widest select-none" title="Melisma (一字多音連音)">
+          <span className="text-purple-600 dark:text-purple-400 font-mono text-sm font-bold tracking-widest select-none" title="Melisma">
             ──
           </span>
         );
@@ -144,13 +144,13 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
       case 'hanlo_major_roman':
         return (
           <div className="flex flex-col items-center leading-tight gap-0">
-            {/* 羅馬字 sub-line on top */}
+            {/* Romanization sub-line on top */}
             {poj && (
               <span className="text-[13px] sm:text-sm font-serif italic text-emerald-600 dark:text-emerald-400 font-semibold leading-tight">
                 {poj}
               </span>
             )}
-            {/* 漢羅 major text below */}
+            {/* Han-Lo major text below */}
             <span
               className={cn(
                 'font-bold text-base tracking-wide leading-tight',
@@ -167,13 +167,13 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
       default:
         return (
           <div className="flex flex-col items-center leading-tight gap-0">
-            {/* 漢羅 sub-line on top */}
+            {/* Han-Lo sub-line on top */}
             {hanlo && (
               <span className="text-[13px] sm:text-sm font-sans text-zinc-700 dark:text-zinc-300 font-semibold leading-tight">
                 {hanlo}
               </span>
             )}
-            {/* 羅馬字 major text below */}
+            {/* Romanization major text below */}
             <span
               className={cn(
                 'font-serif italic text-base font-bold leading-tight',
@@ -289,12 +289,12 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
         {!isNonNotation && (
           <div className="absolute -top-2.5 flex items-center gap-0.5 text-xs font-bold pointer-events-none">
             {(note.tieToNext || (note.isTied && !note.slurToNext)) && (
-              <span className="text-amber-500 dark:text-amber-400 text-sm font-black leading-none" title="Tie (連結音 - 音色融合)">
+              <span className="text-amber-500 dark:text-amber-400 text-sm font-black leading-none" title="Tie (Sustained)">
                 ⌒
               </span>
             )}
             {note.slurToNext && (
-              <span className="text-purple-600 dark:text-purple-400 text-sm font-black leading-none" title="Slur (圓滑音 - 一字多音)">
+              <span className="text-purple-600 dark:text-purple-400 text-sm font-black leading-none" title="Slur (Melisma)">
                 ⌢
               </span>
             )}
@@ -336,7 +336,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
 
           {/* Main Pitch Row with Pre-Grace Notes, Pitch Number, and Post-Grace Notes */}
           <div className="flex items-center">
-            {/* Pre-Grace Notes (前裝飾音 / 前倚音) */}
+            {/* Pre-Grace Notes */}
             {isPitched && note.preGraceNotes && note.preGraceNotes.length > 0 && (
               <div className="flex items-end gap-0.5 mr-1 mb-1 text-[10px] text-zinc-600 dark:text-zinc-400 font-mono font-bold leading-none select-none">
                 <span className="text-[9px] text-purple-600 dark:text-purple-400 font-black -mr-0.5">⌒</span>
@@ -397,7 +397,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
               )}
             </div>
 
-            {/* Post-Grace Notes (後裝飾音 / 尾裝飾音) */}
+            {/* Post-Grace Notes */}
             {isPitched && note.postGraceNotes && note.postGraceNotes.length > 0 && (
               <div className="flex items-end gap-0.5 ml-1 mb-1 text-[10px] text-zinc-600 dark:text-zinc-400 font-mono font-bold leading-none select-none">
                 {note.postGraceNotes.map((g, idx) => (

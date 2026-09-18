@@ -50,7 +50,7 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
               ? 'bg-amber-500 text-zinc-950 font-black shadow-xs'
               : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
           }`}
-          title={chordEnabled ? '關閉和弦伴奏 (Turn Chord OFF)' : '開啟和弦伴奏 (Turn Chord ON)'}
+          title={chordEnabled ? 'Turn Chords OFF' : 'Turn Chords ON'}
         >
           {chordEnabled ? (
             <Volume2 className="w-3.5 h-3.5 shrink-0" />
@@ -58,7 +58,7 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
             <VolumeX className="w-3.5 h-3.5 shrink-0" />
           )}
           <span className="text-[11px] whitespace-nowrap">
-            {chordEnabled ? '和弦 ON' : '和弦 OFF'}
+            {chordEnabled ? 'Chords ON' : 'Chords OFF'}
           </span>
         </button>
 
@@ -76,7 +76,7 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
             className={`w-16 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500 transition-opacity ${
               !chordEnabled ? 'opacity-30 cursor-not-allowed' : 'opacity-100'
             }`}
-            title={`和弦伴奏音量: ${Math.round(chordVolume * 100)}%`}
+            title={`Chord Volume: ${Math.round(chordVolume * 100)}%`}
           />
           <span className={`text-[10px] font-mono w-7 text-right ${chordEnabled ? 'text-zinc-700 dark:text-zinc-300 font-bold' : 'text-zinc-400'}`}>
             {Math.round(chordVolume * 100)}%
@@ -92,7 +92,7 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-800 dark:text-zinc-200">
             <Layers className="w-3.5 h-3.5 text-amber-500" />
-            <span>和弦伴奏 (Chord Backing)</span>
+            <span>Chord Backing</span>
           </div>
           <button
             id={`${idPrefix}-card-toggle`}
@@ -104,7 +104,7 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
                 ? 'bg-amber-500 text-zinc-950 font-black shadow-xs'
                 : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
             }`}
-            title={chordEnabled ? '關閉和弦伴奏' : '開啟和弦伴奏'}
+            title={chordEnabled ? 'Turn Chords OFF' : 'Turn Chords ON'}
           >
             {chordEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
             <span>{chordEnabled ? 'ON' : 'OFF'}</span>
@@ -151,7 +151,7 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
             ? 'bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black shadow-xs'
             : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-750 text-zinc-500 dark:text-zinc-400 font-semibold'
         }`}
-        title={chordEnabled ? '關閉和弦伴奏 (Mute Chords)' : '開啟和弦伴奏 (Enable Chords)'}
+        title={chordEnabled ? 'Mute Chords' : 'Enable Chords'}
       >
         {chordEnabled ? (
           <Volume2 className="w-3.5 sm:w-4 h-3.5 sm:h-4 shrink-0" />
@@ -159,7 +159,7 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
           <VolumeX className="w-3.5 sm:w-4 h-3.5 sm:h-4 shrink-0" />
         )}
         <span className="whitespace-nowrap">
-          {chordEnabled ? '和弦 ON' : '和弦 OFF'}
+          {chordEnabled ? 'Chords ON' : 'Chords OFF'}
         </span>
       </button>
 
@@ -178,13 +178,13 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
           className={`w-14 sm:w-20 md:w-24 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500 transition-opacity ${
             !chordEnabled ? 'opacity-30 cursor-not-allowed' : 'opacity-100'
           }`}
-          title={`和弦伴奏音量: ${Math.round(chordVolume * 100)}%`}
+          title={`Chord Volume: ${Math.round(chordVolume * 100)}%`}
         />
         <span
           className={`text-[11px] sm:text-xs font-mono w-8 text-right select-none ${
             chordEnabled ? 'text-zinc-800 dark:text-zinc-200 font-bold' : 'text-zinc-400'
           }`}
-          title={`和弦音量 ${Math.round(chordVolume * 100)}%`}
+          title={`Chord Volume: ${Math.round(chordVolume * 100)}%`}
         >
           {Math.round(chordVolume * 100)}%
         </span>

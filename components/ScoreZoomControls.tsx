@@ -42,8 +42,8 @@ export const NoteZoomControl: React.FC<ZoomControlProps> = ({
           onClick={zoomOut}
           disabled={!canZoomOut}
           className="p-1 sm:px-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[36px] flex items-center justify-center"
-          title="縮小音符大小 Zoom Out Notes (-)"
-          aria-label="縮小音符大小 Zoom Out Notes"
+          title="Zoom Out Notes (-)"
+          aria-label="Zoom Out Notes"
         >
           <Minus className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
         </button>
@@ -57,7 +57,7 @@ export const NoteZoomControl: React.FC<ZoomControlProps> = ({
               ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25'
               : 'text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400'
           }`}
-          title={`音符大小 Note Zoom: ${zoomPercent}% (點擊${isCustom ? '重設為 100%' : '放大至 110%'})`}
+          title={`Note Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'})`}
           aria-label={`Current Note Zoom ${zoomPercent}%`}
         >
           <Music className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -70,8 +70,8 @@ export const NoteZoomControl: React.FC<ZoomControlProps> = ({
           onClick={zoomIn}
           disabled={!canZoomIn}
           className="p-1 sm:px-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[36px] flex items-center justify-center"
-          title="放大音符大小 Zoom In Notes (+)"
-          aria-label="放大音符大小 Zoom In Notes"
+          title="Zoom In Notes (+)"
+          aria-label="Zoom In Notes"
         >
           <Plus className="w-3.5 h-3.5 text-amber-500" />
         </button>
@@ -90,7 +90,7 @@ export const NoteZoomControl: React.FC<ZoomControlProps> = ({
         onClick={zoomOut}
         disabled={!canZoomOut}
         className="flex items-center justify-center p-1.5 sm:px-2.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[40px] shrink-0"
-        title="縮小音符大小 Zoom Out Notes (-)"
+        title="Zoom Out Notes (-)"
         aria-label="Zoom out notes"
       >
         <Minus className="w-3.5 h-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
@@ -105,7 +105,7 @@ export const NoteZoomControl: React.FC<ZoomControlProps> = ({
             ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25'
             : 'text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400'
         }`}
-        title={`音符大小 Note Zoom: ${zoomPercent}% (點擊${isCustom ? '重設為 100%' : '放大至 110%'})`}
+        title={`Note Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'})`}
         aria-label={`Note zoom level ${zoomPercent}%`}
       >
         <Music className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -118,7 +118,7 @@ export const NoteZoomControl: React.FC<ZoomControlProps> = ({
         onClick={zoomIn}
         disabled={!canZoomIn}
         className="flex items-center justify-center p-1.5 sm:px-2.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[40px] shrink-0"
-        title="放大音符大小 Zoom In Notes (+)"
+        title="Zoom In Notes (+)"
         aria-label="Zoom in notes"
       >
         <Plus className="w-3.5 h-3.5 shrink-0 text-amber-500" />
@@ -159,8 +159,8 @@ export const LyricZoomControl: React.FC<ZoomControlProps> = ({
           onClick={zoomOut}
           disabled={!canZoomOut}
           className="p-1 sm:px-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[36px] flex items-center justify-center"
-          title="縮小歌詞字級 Zoom Out Lyrics (-)"
-          aria-label="縮小歌詞字級 Zoom Out Lyrics"
+          title="Zoom Out Lyrics (-)"
+          aria-label="Zoom Out Lyrics"
         >
           <Minus className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-300" />
         </button>
@@ -174,7 +174,7 @@ export const LyricZoomControl: React.FC<ZoomControlProps> = ({
               ? 'text-teal-700 dark:text-teal-300 bg-teal-500/15 hover:bg-teal-500/25'
               : 'text-zinc-700 dark:text-zinc-300 hover:text-teal-600 dark:hover:text-teal-400'
           }`}
-          title={`歌詞字級 Lyric Zoom: ${zoomPercent}% (點擊${isCustom ? '重設為 100%' : '放大至 110%'})`}
+          title={`Lyric Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'})`}
           aria-label={`Current Lyric Zoom ${zoomPercent}%`}
         >
           <Type className="w-3.5 h-3.5 text-teal-500 shrink-0" />
@@ -187,8 +187,8 @@ export const LyricZoomControl: React.FC<ZoomControlProps> = ({
           onClick={zoomIn}
           disabled={!canZoomIn}
           className="p-1 sm:px-2 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[36px] flex items-center justify-center"
-          title="放大歌詞字級 Zoom In Lyrics (+)"
-          aria-label="放大歌詞字級 Zoom In Lyrics"
+          title="Zoom In Lyrics (+)"
+          aria-label="Zoom In Lyrics"
         >
           <Plus className="w-3.5 h-3.5 text-teal-500" />
         </button>
@@ -207,7 +207,7 @@ export const LyricZoomControl: React.FC<ZoomControlProps> = ({
         onClick={zoomOut}
         disabled={!canZoomOut}
         className="flex items-center justify-center p-1.5 sm:px-2.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[40px] shrink-0"
-        title="縮小歌詞字級 Zoom Out Lyrics (-)"
+        title="Zoom Out Lyrics (-)"
         aria-label="Zoom out lyrics"
       >
         <Minus className="w-3.5 h-3.5 shrink-0 text-zinc-600 dark:text-zinc-300" />
@@ -222,7 +222,7 @@ export const LyricZoomControl: React.FC<ZoomControlProps> = ({
             ? 'text-teal-700 dark:text-teal-300 bg-teal-500/15 hover:bg-teal-500/25'
             : 'text-zinc-700 dark:text-zinc-300 hover:text-teal-600 dark:hover:text-teal-400'
         }`}
-        title={`歌詞字級 Lyric Zoom: ${zoomPercent}% (點擊${isCustom ? '重設為 100%' : '放大至 110%'})`}
+        title={`Lyric Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'})`}
         aria-label={`Lyric zoom level ${zoomPercent}%`}
       >
         <Type className="w-3.5 h-3.5 text-teal-500 shrink-0" />
@@ -235,7 +235,7 @@ export const LyricZoomControl: React.FC<ZoomControlProps> = ({
         onClick={zoomIn}
         disabled={!canZoomIn}
         className="flex items-center justify-center p-1.5 sm:px-2.5 rounded-lg text-zinc-700 dark:text-zinc-200 hover:bg-white dark:hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] min-w-[40px] shrink-0"
-        title="放大歌詞字級 Zoom In Lyrics (+)"
+        title="Zoom In Lyrics (+)"
         aria-label="Zoom in lyrics"
       >
         <Plus className="w-3.5 h-3.5 shrink-0 text-teal-500" />

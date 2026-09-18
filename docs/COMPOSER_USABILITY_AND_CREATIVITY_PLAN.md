@@ -1,4 +1,5 @@
-# Architecture & Implementation Plan: Usability & Creativity Enhancements
+# Architecture & Multi-Turn Implementation Roadmap
+## Easy Composer: Usability & Creativity Enhancements
 
 | Field | Specification |
 | --- | --- |
@@ -8,323 +9,214 @@
 | **Target Scope** | 1. **Usability & Ergonomics**: Measure Beat Budget Visualizer, Inline Lyric Distribute Tool, Tactile Quick-Pad (≥44px touch targets), and 100% Strict English UI Localization.<br>2. **Musical Creativity**: Chord Progression Presets, Melodic Motif Variations (Inversion, Retrograde, Sequence Shift, Folk Embellishment), Pentatonic Scale Filter, Accompaniment Styles (Ballad Arpeggios, Folk Pluck, Waltz), and Offline Melody Sparks. |
 | **Language Policy** | **100% English UI text across all buttons, dialogs, menus, tooltips, and prompts. Song titles, lyrics, Han-Lo, and Pe̍h-ōe-jī (POJ) remain preserved in their authentic native language.** |
 | **Backend Dependency** | **Zero Backend API Dependencies (100% Client-Side SPA / PWA execution).** |
-| **Status** | Approved Architectural Plan |
+| **Status** | **Refined for Modular Multi-Turn Execution** |
 
 ---
 
-## 1. Executive Summary & Philosophy
+## 1. Multi-Turn Module Selection & Progress Dashboard
 
-Easy Composer is designed as a physical-feeling, direct-on-sheet music score creation tool for numbered musical notation. Following the successful foundation of the Real-Sheet Canvas and continuous engraving engine, this plan addresses the two most critical drivers of user satisfaction and artistic productivity:
+You can select any module by its ID to implement it in a focused turn, or proceed sequentially from Module 1 to Module 7. Each module is self-contained with explicit verification gates.
 
-1. **Frictionless Usability & Rhythm Intuition**:
-   - Eliminating the metric calculation burden by providing visual, real-time **Measure Beat Budget** feedback (`[●●●○] 3/4 beats`).
-   - Removing tedious syllable-by-syllable lyric typing with a smart **Inline Lyric Distribute Tool** (pasting a line of text automatically parses and assigns Han-Lo or POJ syllables across consecutive notes).
-   - Optimizing for iPad touch ergonomics with an accessible **Tactile Quick Touch Pad** featuring full Apple HIG ≥44×44px hit areas.
-   - Standardizing every interface element to **100% English UI**.
+### Status Legend
+- `[ ] Pending`: Not yet started
+- `[🔄] In Progress`: Active module in current turn
+- `[✓] Completed`: Implemented, tested, and verified
 
-2. **Inspiring Musical Creativity & Songwriting Assistance**:
-   - Unlocking harmonic flow with a **Chord Progression Preset Library** (Pop Ballad, Taiwanese Folk Minor, 50s Doo-Wop, Pachelbel Canon, Blues/Folk cadences) that populates measure chords in one tap.
-   - Breaking writer's block with **Melodic Motif Transformations** (**Inversion**, **Retrograde**, **Scale-Degree Sequence Shift**, and **Folk Grace-Note Embellishments**).
-   - Guaranteeing harmonious melodies with a **Pentatonic & Folk Mode Filter** (`1 2 3 5 6` / `6 1 2 3 5`), eliminating "wrong notes" for novice composers.
-   - Energizing playback with multiple **Accompaniment Styles** (**Ballad Arpeggios**, **Folk Guitar Plucking**, and **Waltz 3/4 Patterns**).
-   - Providing an offline, client-side **Melody Spark Generator** for instant phrase inspiration.
+### Module Execution Matrix
 
----
-
-## 2. User Review Required
-
-> [!IMPORTANT]
-> - **Strictly Sheet-Centric Architecture**: All composition, editing, playback, and creative features must strictly be built directly around the realistic sheet score canvas (WYSIWYG on-paper experience; no detached DAW windowing or fragmented card deck chrome).
-> - **Pure Client-Side Execution**: All melodic variation and chord generation algorithms run 100% locally in the browser with zero backend API or network dependency, maintaining full offline PWA support on iPad.
-> - **Strict 100% English UI Policy**: UI labels, dialogs, and tooltips will be standardized to English. Songs themselves (lyrics, titles, Han-Lo, POJ) remain preserved in their authentic native language.
-> - **Full Backward Compatibility**: No breaking changes to existing songs, presets, or IndexedDB storage formats.
+| Status | ID | Module Name | Scope Summary | Core Target Files | Dependencies | Turn Trigger Command |
+| :---: | :---: | :--- | :--- | :--- | :--- | :--- |
+| `[ ]` | **MOD-1** | **Strict English UI Standardization** | Purge remaining Chinese UI strings from headers, controls, modals, and canvas labels; maintain song data intact. | `components/composer/*`, `components/*` | None | `Implement Module 1 (MOD-1)` |
+| `[ ]` | **MOD-2** | **Creative Composition Engine** | Pure TypeScript module: chord progression presets, motif transforms (invert, retrograde, shift), pentatonic filter, melody sparks + unit tests. | `lib/creativityEngine.ts`, `test/creativityEngine.test.ts` | None | `Implement Module 2 (MOD-2)` |
+| `[ ]` | **MOD-3** | **Measure Beat Budget & Lyric Spreader** | Rhythm budget math, remaining beat calculation, auto-fill deficit with rests, multi-verse continuous lyric distributor + unit tests. | `lib/taigiUtils.ts`, `test/rhythmAndLyricDistribute.test.ts` | None | `Implement Module 3 (MOD-3)` |
+| `[ ]` | **MOD-4** | **Accompaniment Arpeggio & Styles** | Web Audio accompaniment grooves (`block`, `arpeggio`, `folk`, `waltz`), eco-mode oscillator budget, preview handlers + unit tests. | `lib/audioEngine.ts`, `test/accompanimentStyles.test.ts` | None | `Implement Module 4 (MOD-4)` |
+| `[ ]` | **MOD-5** | **Measure Beat Budget Bar & Visual Caret** | On-score beat indicator (`● ● ● ○`), one-tap `[Pad Rest]`, and quick "Distribute Lyrics" action on active note/syllable. | `components/composer/RealSheetCanvas.tsx` | MOD-3 | `Implement Module 5 (MOD-5)` |
+| `[ ]` | **MOD-6** | **Tactile Quick-Pad & Creativity Drawer** | iPad-ergonomic thumb pad (≥44px buttons), collapsible Creativity Studio drawer (chords, motif variations, pentatonic guide). | `components/composer/FloatingScoreHud.tsx` | MOD-2, MOD-4 | `Implement Module 6 (MOD-6)` |
+| `[ ]` | **MOD-7** | **End-to-End Integration & Regression** | End-to-end user flows, iPad touch/orientation regression, audio loop stability, full test suite pass. | Workspace & test suite | MOD-1 to MOD-6 | `Implement Module 7 (MOD-7)` |
 
 ---
 
-## 3. System Architecture
+## 2. Architectural Principles & Invariants
 
-```mermaid
-graph TD
-    subgraph UI & Score Workspace
-        RSC[RealSheetCanvas] --> BeatBudget[Measure Beat Budget Visualizer]
-        RSC --> LyricSpreader[Inline Lyric Distribute Tool]
-        FSH[FloatingScoreHud] --> QuickPad[Tactile Touch Quick-Pad >=44px]
-        FSH --> CreatDrawer[Creativity Studio Drawer]
-    end
+1. **Strictly Sheet-Centric Architecture**: All composition, editing, playback, and creative features are anchored directly to the virtual score paper (WYSIWYG numbered musical notation). No detached floating windows or fragmented cards.
+2. **Pure Client-Side Execution**: All creative algorithms, motif inversions, and accompaniment synthesizers execute 100% locally in the browser with zero network or backend API dependencies, ensuring complete offline PWA reliability on iPad.
+3. **Strict 100% English UI Policy**: All buttons, dialogs, labels, and tooltips are strictly in English. Song titles, lyrics, Han-Lo, and Pe̍h-ōe-jī (POJ) remain preserved in their authentic native language.
+4. **Zero Breaking Changes**: Fully backward-compatible with existing songs, presets, JSON schemas, and IndexedDB storage.
+5. **Apple HIG Touch Target Compliance**: All touch buttons in the new tactile ribbon and canvas HUD strictly maintain $\ge 44 \times 44\text{px}$ hit areas.
 
-    subgraph Creativity Engine (lib/creativityEngine.ts)
-        CreatDrawer --> ChProg[Chord Progression Presets]
-        CreatDrawer --> MotifVar[Motif Variations: Inversion / Retrograde / Shift]
-        CreatDrawer --> PentaMode[Pentatonic & Folk Mode Filter]
-        CreatDrawer --> MelGen[Algorithmic Melody Spark Generator]
-    end
+---
 
-    subgraph Audio & Rhythm Engines
-        AudioEng[lib/audioEngine.ts] --> AccompStyles[Accompaniment: Arpeggio / Folk Pluck / Waltz]
-        TaigiUtils[lib/taigiUtils.ts] --> BeatHelper[Rhythm Budget & Syllable Tokenizer]
-    end
+## 3. Detailed Module Specifications
+
+---
+
+### Module 1: Strict English UI Standardization (`MOD-1`)
+- **Status**: `[ ] Pending`
+- **Objective**: Eliminate all remaining untranslated Chinese UI text from the user interface while preserving Taiwanese Han-Lo and POJ in song content.
+- **Touchpoint Files**:
+  - `components/composer/FloatingScoreHud.tsx`
+  - `components/composer/RealSheetCanvas.tsx`
+  - `components/composer/SongMetadataHeader.tsx`
+  - `components/HeaderBar.tsx`
+  - `components/UiZoomControl.tsx`
+  - `components/ScoreZoomControls.tsx`
+  - `components/PwaManager.tsx`
+  - `components/MetronomePlaybackControl.tsx`
+  - `components/ChordPlaybackControl.tsx`
+  - `components/QuickLyricAlignerModal.tsx`
+  - `components/LyricSearchModal.tsx`
+- **Detailed TODO List**:
+  - [ ] Replace `Replace (覆蓋)` $\rightarrow$ `Replace` in `FloatingScoreHud.tsx`
+  - [ ] Replace `Prog Replace (遞進覆蓋)` $\rightarrow$ `Prog Replace` in `FloatingScoreHud.tsx`
+  - [ ] Replace `Prog Insert (遞進插入)` $\rightarrow$ `Prog Insert` in `FloatingScoreHud.tsx`
+  - [ ] Replace `(前倚音)` $\rightarrow$ `(Pre-Grace)` and `(後倚音)` $\rightarrow$ `(Post-Grace)` in `FloatingScoreHud.tsx`
+  - [ ] Replace `(快捷鍵指南)` $\rightarrow$ `(Keyboard Shortcuts)` in `FloatingScoreHud.tsx`
+  - [ ] Replace `Obbligato (和音)` $\rightarrow$ `Obbligato (Counter-Melody)` in `RealSheetCanvas.tsx`
+  - [ ] Replace remaining Chinese confirm dialogs and prompt messages in `HeaderBar.tsx` and `SongMetadataHeader.tsx`
+  - [ ] Standardize tooltips in `UiZoomControl.tsx`, `ScoreZoomControls.tsx`, `MetronomePlaybackControl.tsx`, and `ChordPlaybackControl.tsx`
+  - [ ] Ensure offline banners in `PwaManager.tsx` and search placeholders in `LyricSearchModal.tsx` are in English
+- **Verification Gate**:
+  - `npm run typecheck` passes with zero errors.
+  - Full text search confirms no untranslated Chinese UI strings in `components/`.
+
+---
+
+### Module 2: Creative Composition Engine (`MOD-2`)
+- **Status**: `[ ] Pending`
+- **Objective**: Provide a pure TypeScript, zero-dependency engine for chord progressions, melodic motif variations, pentatonic scale filtering, and offline melody sparks.
+- **Touchpoint Files**:
+  - `lib/creativityEngine.ts` (NEW)
+  - `test/creativityEngine.test.ts` (NEW)
+- **Detailed TODO List**:
+  - [ ] **Chord Progression Presets**: Define `CHORD_PROGRESSION_PRESETS` (Pop Ballad `I-V-vi-IV`, Taiwanese Folk Minor `vi-ii-V-vi`, 50s Doo-Wop `I-vi-IV-V`, Pachelbel Canon `I-V-vi-iii-IV-I-IV-V`, Folk Cadence `I-IV-I-V`, Royal Road `IV-V-iii-vi`).
+  - [ ] **Diatonic Degree Resolver**: Implement `getDiatonicChordForDegree(key, degree)` and `applyChordProgression(song, progressionId, startMeasureIdx)`.
+  - [ ] **Motif Inversion**: Implement `invertMotif(notes, key)` (reflects scale degrees diatonically across the initial note's pitch while preserving metric durations, rests, and lyric text).
+  - [ ] **Motif Retrograde**: Implement `retrogradeMotif(notes)` (reverses sequence of pitches while preserving metric note durations and maintaining syllable word order).
+  - [ ] **Scale-Degree Sequence Shift**: Implement `sequenceShiftMotif(notes, stepDelta)` (steps degrees by `+1` or `-1` with proper octave wrapping `7 (+1) -> 1 (octave+1)`).
+  - [ ] **Folk Grace Embellishments**: Implement `embellishWithFolkOrnaments(notes)` (attaches Taiwanese style pre-grace notes without expanding measure beat duration).
+  - [ ] **Pentatonic Mode Filter**: Implement `isPitchInScale(pitch, mode)` supporting Gong-based (`1 2 3 5 6`) and Yu-based (`6 1 2 3 5`) pentatonic scales.
+  - [ ] **Algorithmic Melody Spark**: Implement `generateMelodySpark(chord, key, timeSignature, style)` generating an offline 1-2 measure motif.
+  - [ ] **Unit Tests**: Add thorough unit tests in `test/creativityEngine.test.ts` testing each transformation, edge cases (rests, octave transitions), and metric consistency.
+- **Verification Gate**:
+  - `npm run test` executes `test/creativityEngine.test.ts` and passes with 100% success.
+  - `npm run typecheck` passes.
+
+---
+
+### Module 3: Measure Beat Budget & Smart Lyric Spreader (`MOD-3`)
+- **Status**: `[ ] Pending`
+- **Objective**: Implement robust rhythm calculation utilities to compute real-time measure budgets and multi-verse continuous lyric distribution.
+- **Touchpoint Files**:
+  - `lib/taigiUtils.ts`
+  - `test/rhythmAndLyricDistribute.test.ts` (NEW)
+- **Detailed TODO List**:
+  - [ ] **Measure Beat Budget Helper**: Implement `getMeasureBeatBudget(measure, timeSignature)` returning `currentBeats`, `expectedBeats`, `remainingBeats`, `isFull`, `isDeficit`, `isOverbeat`, `beatProgressPercent`, and `beatIndicators: ('filled' | 'partial' | 'empty')[]`.
+  - [ ] **Auto-Fill Deficit with Rests**: Implement `fillMeasureDeficitWithRests(measure, timeSignature)` to calculate and append the minimal rest notes needed to complete the bar.
+  - [ ] **Smart Inline Lyric Distribute**: Implement `distributeLyricsAcrossNotes(rawText, song, startMeasureIdx, startNoteIdx, verseIndex, field)` to tokenize text into syllables (handling Han-Lo characters, punctuation, and POJ hyphens) and distribute them across subsequent notes.
+  - [ ] **Unit Tests**: Create `test/rhythmAndLyricDistribute.test.ts` covering beat budget across 4/4, 3/4, 2/4, and 6/8 meters, edge cases with tied notes, and multi-measure lyric distribution.
+- **Verification Gate**:
+  - `npm run test` passes for `test/rhythmAndLyricDistribute.test.ts`.
+  - `npm run typecheck` passes.
+
+---
+
+### Module 4: Accompaniment Arpeggio & Stylistic Grooves (`MOD-4`)
+- **Status**: `[ ] Pending`
+- **Objective**: Extend the Web Audio engine with selectable chord accompaniment grooves without increasing battery drain on iPad.
+- **Touchpoint Files**:
+  - `lib/audioEngine.ts`
+  - `test/accompanimentStyles.test.ts` (NEW)
+- **Detailed TODO List**:
+  - [ ] **Extend Accompaniment Types**: Add `AccompanimentStyle = 'block' | 'arpeggio' | 'folk' | 'waltz'` to `AudioEngineOptions`.
+  - [ ] **Arpeggio Pattern Generator**: In `playChordBeat`, cascade chord triad frequencies (Root on beat 1, 5th on beat 2, Octave on beat 3, 10th/3rd on beat 4) with voice-leading bounds.
+  - [ ] **Folk Pluck Pattern**: Implement alternating bass root on beats 1 and 3 with syncopated chord plucks on beats 2 and 4.
+  - [ ] **Waltz 3/4 Pattern**: In 3/4 time, synthesize a deep bass root on beat 1 followed by crisp chord hits on beats 2 and 3.
+  - [ ] **Eco-Mode Optimization**: Ensure iPad battery-saving mode limits simultaneous chord oscillators to $\le 2$.
+  - [ ] **Unit Tests**: Create `test/accompanimentStyles.test.ts` to verify scheduling timestamps, pattern beat divisions, and fallback safety when chords are empty.
+- **Verification Gate**:
+  - `npm run test` passes.
+  - `npm run typecheck` passes.
+
+---
+
+### Module 5: Measure Beat Budget Bar & Visual Caret (`MOD-5`)
+- **Status**: `[ ] Pending`
+- **Objective**: Render visual beat indicators directly above the active measure on the virtual score paper with quick action buttons.
+- **Touchpoint Files**:
+  - `components/composer/RealSheetCanvas.tsx`
+- **Detailed TODO List**:
+  - [ ] **Beat Budget Header**: In `RealSheetCanvas.tsx`, render a non-intrusive beat budget indicator directly above the active measure: `● ● ● ○` (3 / 4 beats).
+  - [ ] **Color Status Coding**: Use soft neutral styling: green for complete bar, amber for deficit, red badge for overbeat.
+  - [ ] **Quick Action `[Pad Rest]`**: One-tap button next to the deficit indicator to auto-insert rests filling the remaining bar duration.
+  - [ ] **Inline Distribute Lyric Popover**: Clicking on an active note's lyric field displays a subtle "Paste Line" button that opens an inline text box to paste and spread lyrics across consecutive notes.
+  - [ ] **Touch Optimization**: Ensure all clickable chips on the canvas meet iPad touch target sizes.
+- **Verification Gate**:
+  - `npm run build` succeeds.
+  - Manual canvas interaction confirms beat indicator updates live on note entry without layout shifts.
+
+---
+
+### Module 6: Tactile Quick-Pad & Creativity Studio Drawer (`MOD-6`)
+- **Status**: `[ ] Pending`
+- **Objective**: Build the iPad-ergonomic thumb quick-pad and the comprehensive Creativity Studio drawer into the floating HUD.
+- **Touchpoint Files**:
+  - `components/composer/FloatingScoreHud.tsx`
+- **Detailed TODO List**:
+  - [ ] **Tactile Quick-Pad**: Implement a collapsible bottom ribbon with $\ge 44 \times 44\text{px}$ touch targets:
+    - Pitch digits: `1`, `2`, `3`, `4`, `5`, `6`, `7`, `0 (Rest)`, `- (Dash)`
+    - Octave shift: `+8va` and `-8vb`
+    - Duration adjustments: `x2 (Double)`, `/2 (Halve)`, `• (Dot)`
+    - Step controls: Backspace, Prev Note, Next Note
+  - [ ] **Creativity Studio Drawer**: Add an active drawer tab `activeDrawer === 'creativity'`:
+    - **Chord Progression Presets**: Visual grid of presets (`Pop Ballad`, `Taiwanese Folk Minor`, etc.) with one-tap apply.
+    - **Motif Tools**: Buttons for `Invert Motif`, `Retrograde (Reverse)`, `Sequence +1`, `Sequence -1`, `Folk Ornaments`.
+    - **Pentatonic Mode Toggle**: Switch to highlight or guide pentatonic notes on the quick-pad and virtual keyboard.
+    - **Offline Melody Spark Button**: Instant 1-measure motif suggestion for the current measure's chord.
+    - **Accompaniment Style Switcher**: Segmented toggle for `Block`, `Arpeggio`, `Folk`, `Waltz`.
+- **Verification Gate**:
+  - `npm run build` succeeds.
+  - HUD drawer opens smoothly and all controls dispatch actions cleanly to state.
+
+---
+
+### Module 7: End-to-End Integration & Regression (`MOD-7`)
+- **Status**: `[ ] Pending`
+- **Objective**: Perform end-to-end verification across the entire composition workflow, verify iPad responsive layouts, and run full test suites.
+- **Touchpoint Files**:
+  - Full application workspace
+- **Detailed TODO List**:
+  - [ ] Run full test suite: `npm run test` (all unit tests green).
+  - [ ] Run type checker: `npm run typecheck` (zero TypeScript errors).
+  - [ ] Run linter: `npm run lint` (clean code style).
+  - [ ] Verify complete song creation flow:
+    1. Create a new 4/4 song.
+    2. Use Creativity Studio to apply "Taiwanese Folk Minor" progression.
+    3. Enter melody via Tactile Quick-Pad observing live Measure Beat Budget.
+    4. Apply `[Pad Rest]` on incomplete measures.
+    5. Invert or shift a motif and preview.
+    6. Paste Han-Lo lyrics using "Distribute Lyrics" and verify alignment.
+    7. Play back with "Arpeggio Ballad" and "Folk Pluck" accompaniment styles.
+  - [ ] Verify PWA offline playback and storage persistence.
+- **Verification Gate**:
+  - Full build pass (`npm run build`).
+  - Production readiness verified.
+
+---
+
+## 4. How to Select & Execute Modules
+
+To execute any module, simply provide the module command in your next turn:
+
+```text
+Implement Module 1 (MOD-1)
+```
+or
+```text
+Implement Module 2 (MOD-2)
 ```
 
----
-
-## 3. Detailed Component Specifications
-
-### 3.1 Component 1: Creative Composition Engine (`lib/creativityEngine.ts`) [NEW]
-
-A pure TypeScript, zero-dependency module handling harmonic theory and melodic transformations:
-
-#### 1. Chord Progression Presets
-```typescript
-export interface ChordProgressionPreset {
-  id: string;
-  name: string;
-  category: 'pop' | 'folk' | 'ballad' | 'classical';
-  degrees: string[]; // e.g. ['I', 'V', 'vi', 'IV']
-  description: string;
-}
-
-export const CHORD_PROGRESSION_PRESETS: ChordProgressionPreset[] = [
-  {
-    id: 'pop_ballad',
-    name: 'Pop Ballad (I - V - vi - IV)',
-    category: 'pop',
-    degrees: ['I', 'V', 'vi', 'IV'],
-    description: 'The iconic emotional progression used in countless hit songs.',
-  },
-  {
-    id: 'taiwanese_folk_minor',
-    name: 'Taiwanese Folk Minor (vi - ii - V - vi)',
-    category: 'folk',
-    degrees: ['vi', 'ii', 'V', 'vi'],
-    description: 'Soulful, nostalgic minor cadence characteristic of Taiwanese folk melodies.',
-  },
-  {
-    id: 'doo_wop',
-    name: 'Classic 50s Doo-Wop (I - vi - IV - V)',
-    category: 'ballad',
-    degrees: ['I', 'vi', 'IV', 'V'],
-    description: 'Timeless romantic chord sequence with smooth voice leading.',
-  },
-  {
-    id: 'canon',
-    name: 'Pachelbel Canon (I - V - vi - iii - IV - I - IV - V)',
-    category: 'classical',
-    degrees: ['I', 'V', 'vi', 'iii', 'IV', 'I', 'IV', 'V'],
-    description: 'Majestic classical sequence offering rich melodic variety.',
-  },
-  {
-    id: 'pentatonic_blues',
-    name: 'Folk Cadence (I - IV - I - V)',
-    category: 'folk',
-    degrees: ['I', 'IV', 'I', 'V'],
-    description: 'Clean, open harmony ideal for pentatonic folk singing.',
-  },
-  {
-    id: 'royal_road',
-    name: 'Royal Road (IV - V - iii - vi)',
-    category: 'pop',
-    degrees: ['IV', 'V', 'iii', 'vi'],
-    description: 'Modern lyrical progression with forward momentum.',
-  },
-];
-```
-
-#### 2. Degree-to-Chord Calculation
-- `getDiatonicChordForDegree(key: KeySignature, degree: string): string`: Computes the exact chord name (e.g. key `G`, degree `vi` → `Em`; key `F`, degree `IV` → `Bb`).
-- `applyChordProgression(song: Song, progressionId: string, startMeasureIdx: number): Song`: Maps the progression across consecutive measures.
-
-#### 3. Melodic Motif Variations
-- **`invertMotif(notes: NumberedNotationNote[], key: KeySignature): NumberedNotationNote[]`**:
-  Calculates the pivot pitch from the first note and reflects subsequent scale degrees upside down (rising steps become falling steps).
-- **`retrogradeMotif(notes: NumberedNotationNote[]): NumberedNotationNote[]`**:
-  Reverses the sequence of pitches while preserving the rhythmic durations and metric structure.
-- **`sequenceShiftMotif(notes: NumberedNotationNote[], stepDelta: number): NumberedNotationNote[]`**:
-  Shifts scale degrees by `+1` or `-1` diatonic step (wrapping appropriately within octave boundaries), enabling call-and-response sequences.
-- **`embellishWithFolkOrnaments(notes: NumberedNotationNote[]): NumberedNotationNote[]`**:
-  Detects long held notes (duration ≥ 1 beat) and adorns them with authentic Taiwanese pentatonic grace notes (前倚音 / 後倚音) and smooth melisma slurs.
-
-#### 4. Pentatonic & Folk Scale Modes
-- Major Pentatonic: `{ 1: true, 2: true, 3: true, 5: true, 6: true }` (Scale degrees: Gong, Shang, Jiao, Zhi, Yu).
-- Minor Pentatonic: `{ 6: true, 1: true, 2: true, 3: true, 5: true }` (La-based pentatonic).
-- Filter helper: `isPitchInScale(pitch: PitchNumber, mode: 'pentatonic_major' | 'pentatonic_minor' | 'all'): boolean`.
-
-#### 5. Offline Algorithmic Melody Spark
-- `generateMelodySpark(chord: string, key: KeySignature, timeSignature: TimeSignature, style: 'folk' | 'ballad' | 'march'): NumberedNotationNote[]`:
-  Places chord tones on downbeats and passing pentatonic tones on weak beats, generating a musically coherent 1-measure or 2-measure phrase with zero latency and zero network dependencies.
-
----
-
-### 3.2 Component 2: Accompaniment Arpeggio & Styles (`lib/audioEngine.ts`) [MODIFY]
-
-Enhance the Web Audio synthesis engine with selectable accompaniment grooves:
-- Extend `AudioEngineOptions`:
-  ```typescript
-  export type AccompanimentStyle = 'block' | 'arpeggio' | 'folk' | 'waltz';
-  ```
-- **`block`**: Classic sustained triad chords on downbeats with gentle decay.
-- **`arpeggio`**: Cascades triad frequencies across the measure (Root on beat 1, 5th on beat 2, Octave on beat 3, 10th/3rd on beat 4), creating a lush piano backing track.
-- **`folk`**: Alternates deep bass root on beats 1 and 3 with light syncopated harmonic plucks on beats 2 and 4.
-- **`waltz`**: In 3/4 meter, plays a deep bass root on beat 1 followed by crisp chord hits on beats 2 and 3.
-
----
-
-### 3.3 Component 3: Measure Beat Budget & Lyric Spreader (`lib/taigiUtils.ts`) [MODIFY]
-
-#### 1. Measure Beat Budget Calculation
-```typescript
-export interface MeasureBeatBudget {
-  currentBeats: number;
-  expectedBeats: number;
-  remainingBeats: number;
-  isFull: boolean;
-  isDeficit: boolean;
-  isOverbeat: boolean;
-  beatProgressPercent: number;
-  beatIndicators: ('filled' | 'empty' | 'partial')[];
-}
-
-export function getMeasureBeatBudget(measure: Measure, timeSignature: TimeSignature = '4/4'): MeasureBeatBudget {
-  const expected = getExpectedBeatsPerMeasure(timeSignature);
-  let current = 0;
-  for (const n of measure.notes) {
-    if (!isNonNotationItem(n) && n.duration > 0 && n.pitch !== 'empty') {
-      current += n.duration;
-    }
-  }
-  const remaining = Math.max(0, expected - current);
-  // Beat-by-beat indicator array for visual UI
-  const indicators: ('filled' | 'empty' | 'partial')[] = [];
-  for (let i = 0; i < expected; i++) {
-    if (current >= i + 1) indicators.push('filled');
-    else if (current > i) indicators.push('partial');
-    else indicators.push('empty');
-  }
-  return {
-    currentBeats: Math.round(current * 1000) / 1000,
-    expectedBeats: expected,
-    remainingBeats: Math.round(remaining * 1000) / 1000,
-    isFull: Math.abs(current - expected) < 0.001,
-    isDeficit: current < expected - 0.001,
-    isOverbeat: current > expected + 0.001,
-    beatProgressPercent: Math.min(100, Math.round((current / expected) * 100)),
-    beatIndicators: indicators,
-  };
-}
-```
-
-#### 2. Smart Inline Lyric Distribute Tool
-```typescript
-export function distributeLyricsAcrossNotes(
-  rawText: string,
-  song: Song,
-  startMeasureIdx: number,
-  startNoteIdx: number,
-  verseIndex: number,
-  field: 'hanlo' | 'poj' = 'hanlo'
-): Song {
-  // Tokenize text into words/syllables:
-  // For Han-lo: character-by-character while grouping punctuation and hyphens
-  // For POJ: whitespace and hyphen tokenization
-  const tokens = tokenizeLyricText(rawText, field);
-  // Iterate through notes starting at [startMeasureIdx, startNoteIdx],
-  // applying each token to consecutive pitched/rest notes (skipping empty spacers).
-  ...
-}
-```
-
----
-
-### 3.4 Component 4: Creativity Studio & Tactile Touch Pad (`components/composer/FloatingScoreHud.tsx`) [MODIFY]
-
-#### 1. Creativity Studio Drawer (`activeDrawer === 'creativity'`)
-- Dedicated, sleek drawer accessible directly from the floating HUD:
-  - **Chord Progressions**: Grid of one-tap progression presets with preview tags.
-  - **Motif Tools**: Quick buttons for `Invert`, `Reverse (Retrograde)`, `Sequence +1`, `Sequence -1`, and `Folk Grace Notes`.
-  - **Scale Filter**: Toggle button for `Pentatonic Guide (1 2 3 5 6)`.
-  - **Melody Spark**: One-tap button to populate the current measure with an algorithmic motif based on its chord.
-  - **Accompaniment Style Selector**: Toggle between `Block`, `Arpeggio`, `Folk Pluck`, and `Waltz`.
-
-#### 2. Tactile Touch Quick-Pad (iPad Ergonomics)
-- Collapsible, thumb-friendly numeric ribbon anchored at the bottom:
-  - Large (≥44×44px hit areas) buttons: `1`, `2`, `3`, `4`, `5`, `6`, `7`, `0 (Rest)`, `- (Dash)`.
-  - Octave buttons: `+8va` and `-8vb`.
-  - Duration buttons: `x2 (Double)`, `/2 (Halve)`, `• (Dot)`.
-  - Fast backspace and next/prev step buttons.
-
-#### 3. Strict English UI Cleanup
-- Purge all remaining Chinese terms from `FloatingScoreHud.tsx`:
-  - `Replace (覆蓋)` → `Replace`
-  - `Prog Replace (遞進覆蓋)` → `Prog Replace`
-  - `Prog Insert (遞進插入)` → `Prog Insert`
-  - `(前倚音)` → `(Pre-Grace)`
-  - `(後倚音)` → `(Post-Grace)`
-  - `(快捷鍵指南)` → `(Keyboard Shortcuts)`
-
----
-
-### 3.5 Component 5: Measure Beat Budget Bar & Visual Caret (`components/composer/RealSheetCanvas.tsx`) [MODIFY]
-
-- **Measure Beat Budget Visualizer**:
-  - Renders directly above the active measure on the virtual score paper:
-    - Visual dots representing beats: `● ● ● ○` (3 / 4 beats, 1 beat remaining).
-    - Quick actions: `[Pad Rest]` (one-tap auto-fill deficit with rest note) and `[Split Evenly]`.
-- **Inline "Distribute Lyrics" Action**:
-  - Clicking on an active lyric syllable renders a quick "Paste Line" button to paste and distribute an entire lyric line across subsequent measures.
-- **English UI Cleanup**:
-  - Replace `Obbligato (和音)` with `Obbligato (Counter-Melody)`.
-
----
-
-### 3.6 Component 6: English UI Standardization across All Dialogs (`components/*`) [MODIFY]
-
-Update all auxiliary components to strictly use English UI text:
-- `components/UiZoomControl.tsx`: Replace Chinese tooltips with English.
-- `components/ScoreZoomControls.tsx`: Replace Chinese tooltips with English.
-- `components/PwaManager.tsx`: Replace offline notices and installation prompts with English.
-- `components/MetronomePlaybackControl.tsx`: Replace Chinese tooltips with English.
-- `components/ChordPlaybackControl.tsx`: Replace Chinese tooltips with English.
-- `components/HeaderBar.tsx`: Replace `window.confirm` dialogs with English.
-- `components/composer/SongMetadataHeader.tsx`: Replace `window.confirm` dialogs and notices with English.
-- `components/QuickLyricAlignerModal.tsx`: Replace button labels with English.
-- `components/LyricSearchModal.tsx`: Replace search placeholders and action buttons with English.
-
----
-
-## 4. Verification Plan
-
-### Automated Tests
-Run full automated test suite and type check:
-```bash
-npm run typecheck
-npm run test
-```
-
-#### Test Suite: `test/creativityEngine.test.ts` [NEW]
-1. **Chord Progressions**:
-   - Diatonic chords match theoretical standards across all 12 key signatures (e.g. C, G, D, A, E, F, Bb, Eb, etc.).
-   - Applying `pop_ballad` correctly sets chords on measures.
-2. **Motif Variations**:
-   - `invertMotif`: Inversion preserves metric duration sum and inverts direction of intervals.
-   - `retrogradeMotif`: Notes are reversed accurately while maintaining duration consistency.
-   - `sequenceShiftMotif`: Scale degrees step up/down by specified delta without pitch drift.
-   - `embellishWithFolkOrnaments`: Adds valid pre-grace notes to sustained notes without altering beat budget.
-3. **Measure Beat Budget**:
-   - Correctly calculates remaining beats for 4/4, 3/4, 2/4, and 6/8 meters.
-4. **Lyric Distribute**:
-   - Distributes multiple syllables across measures and skips non-pitched tokens.
-5. **Melody Spark**:
-   - Generates notes with total duration exactly matching time signature.
-
-### Manual Verification
-1. **Touchpad & Usability**:
-   - Verify on-screen Quick-Pad touch targets (≥44×44px) respond instantly to taps.
-   - Verify Measure Beat Budget bar updates live as notes are entered, showing remaining beats.
-   - Paste a sentence of lyrics using "Distribute Lyrics" and verify smooth mapping across notes.
-2. **Creativity Studio**:
-   - Open Creativity Studio, apply "Taiwanese Folk Minor" to a song, and verify chords populate cleanly.
-   - Select a measure, click "Invert Motif", and listen to preview playback.
-   - Toggle Accompaniment Style to "Arpeggio Ballad" and verify broken chord synthesis during playback.
-   - Activate "Pentatonic Guide" and verify non-pentatonic scale degrees are dimmed or guided.
-3. **Language Standards**:
-   - Confirm 100% of UI buttons, dialogs, tooltips, and prompts are in English.
-   - Confirm original Taiwanese Han-Lo and POJ lyrics remain 100% authentic and preserved.
+During each turn:
+1. The assistant marks the module as `[🔄] In Progress`.
+2. The code edits and automated tests for that module are executed.
+3. The automated test suite is run to verify zero regressions.
+4. The module status is updated to `[✓] Completed`, and the next ready module is suggested.

@@ -90,13 +90,13 @@ export const PwaManager: React.FC = () => {
           id="pwa-update-indicator"
           className="fixed top-4 right-4 z-50 flex items-center gap-3 px-4 py-2.5 rounded-2xl bg-amber-500 text-zinc-950 text-xs font-bold shadow-xl border border-amber-400 animate-in fade-in duration-200 print:hidden"
         >
-          <span>發現新版本更新！</span>
+          <span>New version update available!</span>
           <button
             type="button"
             onClick={() => window.location.reload()}
             className="min-h-[44px] px-3 py-1 rounded-xl bg-zinc-950 text-amber-400 text-xs font-black hover:bg-zinc-900 transition-all cursor-pointer touch-manipulation flex items-center justify-center"
           >
-            立即重新載入
+            Reload Now
           </button>
         </div>
       )}
@@ -108,7 +108,7 @@ export const PwaManager: React.FC = () => {
           className="fixed bottom-[max(5rem,calc(env(safe-area-inset-bottom,0px)+4.5rem))] left-4 z-40 flex items-center gap-2 px-3 py-2 rounded-full bg-zinc-900/90 text-amber-400 border border-amber-500/30 text-xs font-semibold shadow-lg backdrop-blur-md animate-in fade-in duration-200 print:hidden"
         >
           <WifiOff className="w-3.5 h-3.5 shrink-0" />
-          <span>iPad 離線模式：樂譜編輯與鋼琴音源皆可在無網路下完整運作</span>
+          <span>iPad Offline Mode: Score editing and piano audio work fully without internet.</span>
         </div>
       )}
 
@@ -126,20 +126,20 @@ export const PwaManager: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-sm font-bold text-zinc-100 flex items-center gap-1.5">
-                  <span>安裝至 iPad 主畫面</span>
+                  <span>Install to iPad Home Screen</span>
                   <span className="text-[10px] px-1.5 py-0.2 bg-amber-500/20 text-amber-300 rounded-full font-mono">
                     iPadOS PWA
                   </span>
                 </h2>
                 <p className="text-xs text-zinc-300 mt-1 leading-relaxed">
-                  點擊 Safari 工具列的分享按鈕 <strong className="text-amber-400 font-bold">⎋</strong> 並選擇「<strong className="text-amber-400 font-bold">加入主畫面</strong>」，即可享有免網址列全螢幕與低耗電琴鍵！
+                  Tap the Safari Share button <strong className="text-amber-400 font-bold">⎋</strong> and select &ldquo;<strong className="text-amber-400 font-bold">Add to Home Screen</strong>&rdquo; for fullscreen experience and instant performance.
                 </p>
               </div>
             </div>
             <button
               onClick={handleDismiss}
               className="text-zinc-400 hover:text-zinc-200 p-2 rounded-xl transition-colors shrink-0 cursor-pointer touch-manipulation min-h-[44px] min-w-[44px] flex items-center justify-center"
-              title="關閉提示 Dismiss prompt"
+              title="Dismiss prompt"
               aria-label="Dismiss prompt"
             >
               <X className="w-4 h-4" />
@@ -151,7 +151,7 @@ export const PwaManager: React.FC = () => {
               onClick={handleDismiss}
               className="min-h-[44px] px-3 py-1.5 text-xs text-zinc-400 hover:text-zinc-200 font-medium transition-colors cursor-pointer touch-manipulation flex items-center justify-center"
             >
-              知道了 (Got it)
+              Got it
             </button>
           </div>
         </aside>

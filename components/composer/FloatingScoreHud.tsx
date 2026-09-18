@@ -468,7 +468,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                     type="button"
                     onClick={() => onAddGraceNote('pre', 5, 0)}
                     className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all"
-                    title="Add Pre-Grace Note (前倚音)"
+                    title="Add Pre-Grace Note (Pre-Grace)"
                   >
                     + Pre
                   </button>
@@ -476,7 +476,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                     type="button"
                     onClick={() => onAddGraceNote('post', 6, 0)}
                     className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all"
-                    title="Add Post-Grace Note (後倚音)"
+                    title="Add Post-Grace Note (Post-Grace)"
                   >
                     + Post
                   </button>
@@ -671,7 +671,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                   }`}
                   title="Replace Current Note: Modifies current note pitch without advancing cursor"
                 >
-                  Replace (覆蓋)
+                  Replace
                 </button>
                 <button
                   type="button"
@@ -683,7 +683,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                   }`}
                   title="Progressive Replace: Modifies current note pitch and auto-steps to next note"
                 >
-                  Prog Replace (遞進覆蓋)
+                  Prog Replace
                 </button>
                 <button
                   type="button"
@@ -695,7 +695,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                   }`}
                   title="Progressive Insertion: Inserts a new note after current note and advances cursor"
                 >
-                  Prog Insert (遞進插入)
+                  Prog Insert
                 </button>
               </div>
             )}
@@ -1602,7 +1602,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               type="button"
               onClick={() => setShowShortcutsModal(true)}
               className="p-1 h-7 sm:h-8 w-7 sm:w-8 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-amber-500 hover:text-zinc-950 flex items-center justify-center transition-all cursor-pointer"
-              title="Keyboard Shortcuts Guide (快捷鍵指南)"
+              title="Keyboard Shortcuts Guide (Keyboard Shortcuts)"
             >
               <Command className="w-3.5 h-3.5 text-amber-500" />
             </button>

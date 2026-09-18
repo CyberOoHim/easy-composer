@@ -48,11 +48,11 @@ export const MetronomePlaybackControl: React.FC<MetronomePlaybackControlProps> =
               ? 'bg-amber-500 text-zinc-950 font-black shadow-xs'
               : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
           }`}
-          title={metronomeEnabled ? '關閉節拍器 (Turn Metronome OFF)' : '開啟節拍器 (Turn Metronome ON)'}
+          title={metronomeEnabled ? 'Turn Metronome OFF' : 'Turn Metronome ON'}
         >
           <Timer className="w-3.5 h-3.5 shrink-0" />
           <span className="text-[11px] whitespace-nowrap">
-            {metronomeEnabled ? '節拍 ON' : '節拍 OFF'}
+            {metronomeEnabled ? 'Metro ON' : 'Metro OFF'}
           </span>
         </button>
 
@@ -70,7 +70,7 @@ export const MetronomePlaybackControl: React.FC<MetronomePlaybackControlProps> =
             className={`w-16 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500 transition-opacity ${
               !metronomeEnabled ? 'opacity-30 cursor-not-allowed' : 'opacity-100'
             }`}
-            title={`節拍器音量: ${Math.round(metronomeVolume * 100)}%`}
+            title={`Metronome Volume: ${Math.round(metronomeVolume * 100)}%`}
           />
           <span className={`text-[10px] font-mono w-7 text-right ${metronomeEnabled ? 'text-zinc-700 dark:text-zinc-300 font-bold' : 'text-zinc-400'}`}>
             {Math.round(metronomeVolume * 100)}%
@@ -86,7 +86,7 @@ export const MetronomePlaybackControl: React.FC<MetronomePlaybackControlProps> =
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 text-xs font-bold text-zinc-800 dark:text-zinc-200">
             <Timer className="w-3.5 h-3.5 text-amber-500" />
-            <span>節拍器 (Metronome)</span>
+            <span>Metronome</span>
           </div>
           <button
             id={`${idPrefix}-card-toggle`}
@@ -98,7 +98,7 @@ export const MetronomePlaybackControl: React.FC<MetronomePlaybackControlProps> =
                 ? 'bg-amber-500 text-zinc-950 font-black shadow-xs'
                 : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-500 dark:text-zinc-400'
             }`}
-            title={metronomeEnabled ? '關閉節拍器' : '開啟節拍器'}
+            title={metronomeEnabled ? 'Turn Metronome OFF' : 'Turn Metronome ON'}
           >
             {metronomeEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
             <span>{metronomeEnabled ? 'ON' : 'OFF'}</span>
@@ -145,11 +145,11 @@ export const MetronomePlaybackControl: React.FC<MetronomePlaybackControlProps> =
             ? 'bg-amber-500 hover:bg-amber-400 text-zinc-950 font-black shadow-xs'
             : 'bg-zinc-200 dark:bg-zinc-800 hover:bg-zinc-300 dark:hover:bg-zinc-750 text-zinc-500 dark:text-zinc-400 font-semibold'
         }`}
-        title={metronomeEnabled ? '關閉節拍器 (Mute Metronome)' : '開啟節拍器 (Enable Metronome)'}
+        title={metronomeEnabled ? 'Mute Metronome' : 'Enable Metronome'}
       >
         <Timer className="w-3.5 sm:w-4 h-3.5 sm:h-4 shrink-0" />
         <span className="whitespace-nowrap">
-          {metronomeEnabled ? '節拍器 ON' : '節拍器 OFF'}
+          {metronomeEnabled ? 'Metronome ON' : 'Metronome OFF'}
         </span>
       </button>
 
@@ -168,13 +168,13 @@ export const MetronomePlaybackControl: React.FC<MetronomePlaybackControlProps> =
           className={`w-14 sm:w-20 md:w-24 h-1.5 bg-zinc-300 dark:bg-zinc-700 rounded-lg appearance-none cursor-pointer accent-amber-500 transition-opacity ${
             !metronomeEnabled ? 'opacity-30 cursor-not-allowed' : 'opacity-100'
           }`}
-          title={`節拍器音量: ${Math.round(metronomeVolume * 100)}%`}
+          title={`Metronome Volume: ${Math.round(metronomeVolume * 100)}%`}
         />
         <span
           className={`text-[11px] sm:text-xs font-mono w-8 text-right select-none ${
             metronomeEnabled ? 'text-zinc-800 dark:text-zinc-200 font-bold' : 'text-zinc-400'
           }`}
-          title={`節拍器音量 ${Math.round(metronomeVolume * 100)}%`}
+          title={`Metronome Volume: ${Math.round(metronomeVolume * 100)}%`}
         >
           {Math.round(metronomeVolume * 100)}%
         </span>

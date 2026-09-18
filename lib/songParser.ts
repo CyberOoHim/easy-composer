@@ -293,7 +293,7 @@ export function exportSongToText(song: Song): string {
   song.measures.forEach((m, idx) => {
     const metaParts = [`[Measure ${idx + 1}]`];
     if (m.section) metaParts.push(`(${m.section})`);
-    else if (m.isPrelude) metaParts.push(`(前奏)`);
+    else if (m.isPrelude) metaParts.push(`(Prelude)`);
 
     if (m.chord) metaParts.push(`Chord: ${m.chord}`);
     else if (m.chords && m.chords.length > 0) metaParts.push(`Chord: ${m.chords.join(' ')}`);
@@ -316,8 +316,8 @@ export function exportSongToText(song: Song): string {
     const hanloTokens = m.notes.map(n => cleanToken(n.lyric?.hanlo || n.lyric?.hanji || n.lyric?.custom || '') || '—');
 
     lines.push(`Numbered Notation:  ${numberedNotationTokens.join('  ')}`);
-    lines.push(`羅馬字:  ${romanTokens.join('  ')}`);
-    lines.push(`漢羅:    ${hanloTokens.join('  ')}`);
+    lines.push(`POJ:                ${romanTokens.join('  ')}`);
+    lines.push(`Hanlo:              ${hanloTokens.join('  ')}`);
 
     if (hasMultiVerses) {
       const vIndices = [2, 3, 4, 5];
@@ -326,8 +326,8 @@ export function exportSongToText(song: Song): string {
         if (hasVerseLyrics) {
           const vRomanTokens = m.notes.map(n => cleanToken(n.lyricsByVerse?.[v]?.poj || n.lyricsByVerse?.[v]?.tl || '') || '—');
           const vHanloTokens = m.notes.map(n => cleanToken(n.lyricsByVerse?.[v]?.hanlo || n.lyricsByVerse?.[v]?.hanji || n.lyricsByVerse?.[v]?.custom || '') || '—');
-          lines.push(`羅馬字 ${v}:  ${vRomanTokens.join('  ')}`);
-          lines.push(`漢羅 ${v}:    ${vHanloTokens.join('  ')}`);
+          lines.push(`POJ ${v}:              ${vRomanTokens.join('  ')}`);
+          lines.push(`Hanlo ${v}:            ${vHanloTokens.join('  ')}`);
         }
       }
     }
@@ -495,8 +495,8 @@ export function importSongFromText(text: string): Song {
       } else if (line.startsWith('Obbligato:')) {
         currentMeasure.obbligatoText = line.replace(/^Obbligato:/, '').trim();
       } else {
-        const vRomanMatch = line.match(/^(羅馬字|Roman|POJ|TL)\s*([2-5])?:/i);
-        const vHanloMatch = line.match(/^(漢羅|Hanlo|Hanji|Custom)\s*([2-5])?:/i);
+        const vRomanMatch = line.match(/^(POJ|Roman|TL|羅馬字)\s*([2-5])?:/i);
+        const vHanloMatch = line.match(/^(Han-?lo|Hanji|Custom|漢羅)\s*([2-5])?:/i);
 
         if (vRomanMatch) {
           const verseNum = vRomanMatch[2] ? parseInt(vRomanMatch[2], 10) : 1;

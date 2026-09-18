@@ -1495,25 +1495,25 @@ export function getDiatonicChords(key: KeySignature): DiatonicChordOption[] {
   ];
 }
 
-// Instrument labels and options with bilingual Chinese / English descriptions
+// Instrument labels and options
 export const INSTRUMENT_LABELS: Record<InstrumentType, { en: string; zh: string }> = {
-  piano: { en: 'Grand Piano', zh: '鋼琴' },
-  flute: { en: 'Bamboo Flute', zh: '竹笛' },
-  whistle: { en: 'Whistle', zh: '口笛' },
-  guitar: { en: 'Acoustic Guitar', zh: '吉他' },
-  synth: { en: '80s Synth', zh: '合成器' },
-  bell: { en: 'Glockenspiel', zh: '鐘琴' },
-  cello: { en: 'Cello', zh: '大提琴' },
+  piano: { en: 'Grand Piano', zh: 'Piano' },
+  flute: { en: 'Bamboo Flute', zh: 'Flute' },
+  whistle: { en: 'Whistle', zh: 'Whistle' },
+  guitar: { en: 'Acoustic Guitar', zh: 'Guitar' },
+  synth: { en: '80s Synth', zh: 'Synth' },
+  bell: { en: 'Glockenspiel', zh: 'Bell' },
+  cello: { en: 'Cello', zh: 'Cello' },
 };
 
 export const INSTRUMENT_OPTIONS: { value: InstrumentType; labelZh: string; labelEn: string }[] = [
-  { value: 'piano', labelZh: '鋼琴', labelEn: 'Grand Piano (鋼琴)' },
-  { value: 'flute', labelZh: '竹笛', labelEn: 'Traditional Flute (竹笛)' },
-  { value: 'whistle', labelZh: '口笛', labelEn: 'Whistle (口笛)' },
-  { value: 'guitar', labelZh: '吉他', labelEn: 'Acoustic Guitar (吉他)' },
-  { value: 'synth', labelZh: '合成器', labelEn: '80s Synth (合成器)' },
-  { value: 'bell', labelZh: '鐘琴', labelEn: 'Glockenspiel (鐘琴)' },
-  { value: 'cello', labelZh: '大提琴', labelEn: 'Cello (大提琴)' },
+  { value: 'piano', labelZh: 'Piano', labelEn: 'Grand Piano' },
+  { value: 'flute', labelZh: 'Flute', labelEn: 'Traditional Flute' },
+  { value: 'whistle', labelZh: 'Whistle', labelEn: 'Whistle' },
+  { value: 'guitar', labelZh: 'Guitar', labelEn: 'Acoustic Guitar' },
+  { value: 'synth', labelZh: 'Synth', labelEn: '80s Synth' },
+  { value: 'bell', labelZh: 'Bell', labelEn: 'Glockenspiel' },
+  { value: 'cello', labelZh: 'Cello', labelEn: 'Cello' },
 ];
 
 /**
@@ -1755,19 +1755,19 @@ export const STANDARD_TIME_SIGNATURES: {
   sublabel: string;
   beatsPerMeasure: number;
 }[] = [
-  { value: '4/4', label: '4/4', sublabel: '四四拍 (Common Time · 4 拍/小節)', beatsPerMeasure: 4 },
-  { value: '3/4', label: '3/4', sublabel: '三四拍 (Waltz · 3 拍/小節)', beatsPerMeasure: 3 },
-  { value: '2/4', label: '2/4', sublabel: '二四拍 (March · 2 拍/小節)', beatsPerMeasure: 2 },
-  { value: '6/8', label: '6/8', sublabel: '八六拍 (Compound Duple · 3 拍/小節)', beatsPerMeasure: 3 },
+  { value: '4/4', label: '4/4', sublabel: 'Common Time (4 beats/measure)', beatsPerMeasure: 4 },
+  { value: '3/4', label: '3/4', sublabel: 'Waltz (3 beats/measure)', beatsPerMeasure: 3 },
+  { value: '2/4', label: '2/4', sublabel: 'March (2 beats/measure)', beatsPerMeasure: 2 },
+  { value: '6/8', label: '6/8', sublabel: 'Compound Duple (3 beats/measure)', beatsPerMeasure: 3 },
 ];
 
 export const TEMPO_PRESETS = [
-  { bpm: 60, label: 'Lento (慢板 60)' },
-  { bpm: 72, label: 'Andante (行板 72)' },
-  { bpm: 88, label: 'Andantino (小行板 88)' },
-  { bpm: 108, label: 'Moderato (中板 108)' },
-  { bpm: 120, label: 'Allegro (快板 120)' },
-  { bpm: 144, label: 'Vivace (活潑快板 144)' },
+  { bpm: 60, label: 'Lento (60 BPM)' },
+  { bpm: 72, label: 'Andante (72 BPM)' },
+  { bpm: 88, label: 'Andantino (88 BPM)' },
+  { bpm: 108, label: 'Moderato (108 BPM)' },
+  { bpm: 120, label: 'Allegro (120 BPM)' },
+  { bpm: 144, label: 'Vivace (144 BPM)' },
 ];
 
 /**

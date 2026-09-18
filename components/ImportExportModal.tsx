@@ -473,7 +473,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                   type="text"
                   value={librarySearchQuery}
                   onChange={e => setLibrarySearchQuery(e.target.value)}
-                  placeholder="搜尋預設曲目歌名、歌詞、白話字..."
+                  placeholder="Search preset songs by title, lyrics, POJ..."
                   className="w-full bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 pl-8.5 pr-8 py-1.5 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/80 placeholder:text-zinc-400"
                 />
                 {librarySearchQuery && (
@@ -490,7 +490,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
               {filteredPresets.length === 0 ? (
                 <div className="p-8 text-center border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center gap-2">
                   <Search className="w-8 h-8 text-zinc-400" />
-                  <p className="text-xs text-zinc-500">找不到與「{librarySearchQuery}」相符的預設曲目或歌詞</p>
+                  <p className="text-xs text-zinc-500">No preset songs or lyrics found matching &ldquo;{librarySearchQuery}&rdquo;</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -518,7 +518,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                             </h4>
                             {isModified && (
                               <span className="px-1.5 py-0.5 text-[10px] font-extrabold rounded-md bg-amber-500/20 text-amber-800 dark:text-amber-300 border border-amber-400/50">
-                                已儲存修改
+                                Saved Edits
                               </span>
                             )}
                           </div>
@@ -539,19 +539,19 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                if (window.confirm(`確定要將《${preset.title}》恢復為原曲預設嗎？這將會清除您在此曲上的個人修改。`)) {
+                                if (window.confirm(`Are you sure you want to reset "${preset.title}" to its original preset? This will clear your custom edits for this song.`)) {
                                   onResetPreset(preset.id);
                                 }
                               }}
                               className="flex items-center gap-1 px-2 py-0.5 rounded text-zinc-400 hover:text-rose-500 hover:bg-rose-500/10 transition-colors cursor-pointer text-xs font-semibold"
-                              title="重設為原曲預設"
+                              title="Reset to original preset"
                             >
                               <RotateCcw className="w-3 h-3" />
-                              <span>重設為原曲</span>
+                              <span>Reset to Original</span>
                             </button>
                           )}
                           <span className="font-medium text-amber-600 dark:text-amber-400 group-hover:underline">
-                            {isModified ? '載入修改版 →' : '載入原曲 →'}
+                            {isModified ? 'Load Edited Version →' : 'Load Preset →'}
                           </span>
                         </div>
                       </div>
@@ -633,7 +633,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                       type="text"
                       value={librarySearchQuery}
                       onChange={e => setLibrarySearchQuery(e.target.value)}
-                      placeholder="搜尋自訂庫存歌名、歌詞、白話字..."
+                      placeholder="Search custom songs by title, lyrics, POJ..."
                       className="w-full bg-zinc-50 dark:bg-zinc-800/60 border border-zinc-200 dark:border-zinc-700/80 text-zinc-900 dark:text-zinc-100 pl-8.5 pr-8 py-1.5 rounded-xl text-xs focus:outline-hidden focus:ring-2 focus:ring-amber-500/80 placeholder:text-zinc-400"
                     />
                     {librarySearchQuery && (
@@ -650,7 +650,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                   {filteredCustom.length === 0 ? (
                     <div className="p-8 text-center border border-dashed border-zinc-200 dark:border-zinc-800 rounded-2xl flex flex-col items-center gap-2">
                       <Search className="w-8 h-8 text-zinc-400" />
-                      <p className="text-xs text-zinc-500">找不到與「{librarySearchQuery}」相符的自訂樂曲或歌詞</p>
+                      <p className="text-xs text-zinc-500">No custom songs or lyrics found matching &ldquo;{librarySearchQuery}&rdquo;</p>
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -796,7 +796,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
                     <div>
                       <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                        Export File Type (輸出檔案格式)
+                        Export File Type
                       </span>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                         Choose between standard DAW MIDI (.mid) or player-ready MIDI Karaoke (.kar).
@@ -834,7 +834,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col gap-2">
                       <div className="flex items-center justify-between">
                         <label className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                          Synchronized Lyrics (同步歌詞)
+                          Synchronized Lyrics
                         </label>
                         {midiLyricsSummary.totalSyllables > 0 && (
                           <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
@@ -852,7 +852,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                           }`}
                         >
-                          漢羅 (Hanlo)
+                          Han-Lo
                         </button>
                         <button
                           type="button"
@@ -863,7 +863,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                           }`}
                         >
-                          POJ (羅馬字)
+                          POJ (Romanization)
                         </button>
                         <button
                           type="button"
@@ -874,7 +874,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                           }`}
                         >
-                          雙語 (Both)
+                          Both
                         </button>
                         <button
                           type="button"
@@ -885,7 +885,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                               : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                           }`}
                         >
-                          None (純音)
+                          None (Instrumental)
                         </button>
                       </div>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-tight">
@@ -896,7 +896,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     {/* Instrument Patch */}
                     <div className="p-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 flex flex-col gap-2">
                       <label htmlFor="midi-instrument-select" className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                        Melody Sound Patch (主旋律音色)
+                        Melody Sound Patch
                       </label>
                       <select
                         id="midi-instrument-select"
@@ -969,7 +969,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     />
                     <div className="flex flex-col">
                       <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                        Include Chord Accompaniment Track (Channel 2 和弦伴奏音軌)
+                        Include Chord Accompaniment Track (Channel 2)
                       </span>
                       <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
                         Generates acoustic grand piano harmonies from score chords across each measure.

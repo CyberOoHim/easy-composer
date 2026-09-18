@@ -3602,7 +3602,7 @@ export const PRESET_SONGS: Song[] = [
         "id": "skh_m31",
         "measureNumber": 31,
         "chord": "Eb",
-        "section": "尾奏 (Coda)",
+        "section": "Coda",
         "voltaEnding": [
           4
         ],
@@ -3929,7 +3929,7 @@ export const PRESET_SONGS: Song[] = [
 /**
  * Creates a brand-new empty/fresh song template ready for editing.
  */
-export function createFreshSong(title = '未命名樂曲'): Song {
+export function createFreshSong(title = 'Untitled Song'): Song {
   const timestamp = Date.now();
   return {
     id: `song-${timestamp}`,
