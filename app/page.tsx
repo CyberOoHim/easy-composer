@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LyricDisplayMode, Song, InstrumentType } from '@/types/song';
 import { PRESET_SONGS, createFreshSong } from '@/lib/presets';
 import { audioEngine } from '@/lib/audioEngine';
@@ -16,7 +16,7 @@ import { useSongHistory } from '@/hooks/useSongHistory';
 import { usePowerSaveMode } from '@/hooks/usePowerSaveMode';
 import { useChordPlayback } from '@/hooks/useChordPlayback';
 import { useMetronomePlayback } from '@/hooks/useMetronomePlayback';
-import { Music, BookmarkPlus, Share2, X } from 'lucide-react';
+import { Music, BookmarkPlus, Share2, X, AlertTriangle } from 'lucide-react';
 import { parseSongFromUrl } from '@/lib/songUrl';
 import {
   getStoredDisplayMode,
@@ -138,6 +138,7 @@ export default function Home() {
   const [isNewSongConfirmOpen, setIsNewSongConfirmOpen] = useState(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [sharedSongNotice, setSharedSongNotice] = useState<{ song: Song; isPreset: boolean } | null>(null);
+  const [urlLoadError, setUrlLoadError] = useState<string | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [targetMeasureIndex, setTargetMeasureIndex] = useState<number | null>(null);
 
@@ -152,6 +153,10 @@ export default function Home() {
   const [modifiedPresetIds, setModifiedPresetIds] = useState<Set<string>>(new Set());
   const hasInitializedRef = React.useRef(false);
   const selectSongSeqRef = React.useRef(0);
+  const songRef = useRef(song);
+  songRef.current = song;
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
 
   // Bootstrap IndexedDB on mount: check URL for shared song, migrate legacy localStorage, load active song
   useEffect(() => {
@@ -188,6 +193,7 @@ export default function Home() {
           }
         } catch (urlErr) {
           console.warn('[bootstrap] Failed to parse song from URL:', urlErr);
+          setUrlLoadError('Could not open shared score: The link appears to be invalid or incomplete.');
         }
 
         if (urlSharedSong) {
@@ -201,10 +207,20 @@ export default function Home() {
           }
           loadNewSong(urlSharedSong.song, { unsaved: !urlSharedSong.isPreset });
           setSharedSongNotice(urlSharedSong);
+          setUrlLoadError(null);
 
-          // Clean up hash from browser address bar so refreshing or editing doesn't conflict
+          // Clean up hash and song query params from browser address bar so refreshing or editing doesn't conflict
           if (typeof window !== 'undefined' && window.history?.replaceState) {
-            window.history.replaceState(null, '', window.location.pathname);
+            try {
+              const u = new URL(window.location.href);
+              u.hash = '';
+              u.searchParams.delete('song');
+              u.searchParams.delete('preset');
+              u.searchParams.delete('data');
+              window.history.replaceState(null, '', u.pathname + (u.search || ''));
+            } catch {
+              window.history.replaceState(null, '', window.location.pathname);
+            }
           }
         } else {
           const { song: bootSong, fromLocalDraft } = pickBootstrapSong(activeDbSong, localSong);
@@ -238,21 +254,32 @@ export default function Home() {
       try {
         const parsed = await parseSongFromUrl(window.location);
         if (parsed) {
-          if (isDirty && song) {
-            await saveActiveSongToDB(song);
+          if (isDirtyRef.current && songRef.current) {
+            await saveActiveSongToDB(songRef.current);
           }
           loadNewSong(parsed.song, { unsaved: !parsed.isPreset });
           setSharedSongNotice({ song: parsed.song, isPreset: parsed.isPreset });
-          window.history.replaceState(null, '', window.location.pathname);
+          setUrlLoadError(null);
+          try {
+            const u = new URL(window.location.href);
+            u.hash = '';
+            u.searchParams.delete('song');
+            u.searchParams.delete('preset');
+            u.searchParams.delete('data');
+            window.history.replaceState(null, '', u.pathname + (u.search || ''));
+          } catch {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
         }
       } catch (err) {
         console.warn('[hashchange] Failed to load song from hash:', err);
+        setUrlLoadError('Could not open shared score: The link appears to be invalid or incomplete.');
       }
     };
 
     window.addEventListener('hashchange', handleHashChange);
     return () => window.removeEventListener('hashchange', handleHashChange);
-  }, [isDirty, song, loadNewSong]);
+  }, [loadNewSong]);
 
   // Persist the active song to localStorage after bootstrap with 300ms debounce
   // to avoid blocking the main thread during rapid typing or note editing.
@@ -785,6 +812,32 @@ export default function Home() {
                 <X className="w-4 h-4" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {urlLoadError && (
+        <div
+          id="shared-song-error-banner"
+          role="alert"
+          className="print:hidden mx-2 sm:mx-auto sm:max-w-[1600px] sm:w-full sm:px-3 lg:px-4 mt-2 animate-in fade-in slide-in-from-top-2 duration-200"
+        >
+          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-200 flex items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2 min-w-0">
+              <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
+              <span className="text-xs font-bold truncate">
+                {urlLoadError}
+              </span>
+            </div>
+            <button
+              id="shared-error-dismiss-btn"
+              type="button"
+              onClick={() => setUrlLoadError(null)}
+              className="p-1 rounded-lg text-rose-600 dark:text-rose-400 hover:bg-rose-500/15 transition-colors cursor-pointer min-h-[32px] min-w-[32px] flex items-center justify-center"
+              title="Dismiss"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
           </div>
         </div>
       )}

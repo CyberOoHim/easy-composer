@@ -13,6 +13,7 @@ import {
   Sparkles,
   Link as LinkIcon,
   CheckCircle2,
+  AlertTriangle,
 } from 'lucide-react';
 
 interface ShareSongModalProps {
@@ -35,6 +36,7 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
   useEffect(() => {
     if (!isOpen) return;
 
+    setShareResult(null);
     let isMounted = true;
     void createShareableSongUrl(song)
       .then(result => {
@@ -100,6 +102,7 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
   if (!isOpen) return null;
 
   const urlLengthKb = shareResult ? (shareResult.url.length / 1024).toFixed(1) : '0';
+  const isUrlLong = shareResult ? !shareResult.isPreset && shareResult.payloadSize > 4096 : false;
 
   return (
     <div
@@ -209,14 +212,14 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
                 readOnly
                 value={isGenerating ? 'Generating share link...' : shareResult?.url || ''}
                 onClick={handleSelectAll}
-                className="w-full px-3 py-2 pr-10 text-xs font-mono bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer h-10 transition-colors"
+                className="w-full px-3 py-2 pr-12 text-xs font-mono bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer h-11 transition-colors"
                 placeholder="https://..."
               />
               <button
                 type="button"
                 onClick={handleCopy}
                 disabled={isGenerating || !shareResult?.url}
-                className="absolute right-1.5 p-1.5 text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer touch-manipulation min-w-[32px] min-h-[32px] flex items-center justify-center"
+                className="absolute right-1 p-2 text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg"
                 title="Copy Link"
               >
                 {copied ? (
@@ -226,6 +229,23 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
                 )}
               </button>
             </div>
+
+            {isUrlLong && (
+              <div
+                id="share-modal-url-length-warning"
+                className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-200 text-xs flex items-start gap-2.5 animate-in fade-in"
+              >
+                <AlertTriangle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+                <div className="space-y-0.5 leading-relaxed">
+                  <p className="font-bold text-zinc-900 dark:text-zinc-100">
+                    Large Score URL ({urlLengthKb} KB)
+                  </p>
+                  <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                    This score contains extensive notes and lyrics. Some messaging apps or chat tools may truncate links longer than 4 KB. For best results, share via email or direct copy-paste.
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Primary Action Buttons */}

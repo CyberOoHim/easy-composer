@@ -180,4 +180,90 @@ describe('Song URL Compression & Sharing Engine (songUrl)', () => {
       }
     );
   });
+
+  it('cleanSongForUrl strips empty lyrics, zero octave, false booleans, and empty objects', () => {
+    const song: Song = {
+      id: 'clean-test',
+      title: 'Clean Test Song',
+      subtitle: '',
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 80,
+      measures: [
+        {
+          id: 'm1',
+          measureNumber: 1,
+          chord: '',
+          notes: [
+            {
+              id: 'n1',
+              pitch: 1,
+              octave: 0,
+              duration: 1,
+              isDotted: false,
+              tieToNext: false,
+              lyric: { poj: '', hanlo: '' },
+            },
+            {
+              id: 'n2',
+              pitch: 2,
+              octave: 1,
+              duration: 1,
+              isDotted: true,
+              lyric: { poj: 'ti', hanlo: '知' },
+            },
+          ],
+        },
+      ],
+    };
+
+    const cleaned = cleanSongForUrl(song) as Record<string, unknown>;
+    assert.equal('subtitle' in cleaned, false);
+    const measures = cleaned.measures as Array<Record<string, unknown>>;
+    assert.equal('chord' in measures[0], false);
+    const notes = measures[0].notes as Array<Record<string, unknown>>;
+
+    // Note 1: octave 0, isDotted: false, tieToNext: false, empty lyric should all be stripped
+    assert.equal('octave' in notes[0], false);
+    assert.equal('isDotted' in notes[0], false);
+    assert.equal('tieToNext' in notes[0], false);
+    assert.equal('lyric' in notes[0], false);
+
+    // Note 2: octave 1, isDotted: true, non-empty lyric should remain
+    assert.equal(notes[1].octave, 1);
+    assert.equal(notes[1].isDotted, true);
+    assert.ok(notes[1].lyric);
+  });
+
+  it('compresses and roundtrips a large song with multi-verse lyrics', async () => {
+    const largeSong: Song = {
+      id: 'large-song',
+      title: 'Long Hymn Score with Multi-Verse Lyrics',
+      composer: 'Composer Name',
+      key: 'Eb',
+      timeSignature: '4/4',
+      bpm: 72,
+      measures: Array.from({ length: 32 }, (_, i) => ({
+        id: `m-${i + 1}`,
+        measureNumber: i + 1,
+        chord: i % 2 === 0 ? 'Eb' : 'Bb7',
+        notes: [
+          { id: `m-${i + 1}-n1`, pitch: 1 as const, octave: 0, duration: 1, lyric: { poj: 'Sèng', hanlo: '聖' } },
+          { id: `m-${i + 1}-n2`, pitch: 3 as const, octave: 0, duration: 1, lyric: { poj: 'châi', hanlo: '哉' } },
+          { id: `m-${i + 1}-n3`, pitch: 5 as const, octave: 0, duration: 1, lyric: { poj: 'sèng', hanlo: '聖' } },
+          { id: `m-${i + 1}-n4`, pitch: 1 as const, octave: 1, duration: 1, lyric: { poj: 'châi', hanlo: '哉' } },
+        ],
+      })),
+    };
+
+    const encoded = await encodeSongToUrlPayload(largeSong);
+    assert.equal(encoded.type, 'song');
+    if (encoded.type === 'song') {
+      const decoded = await decodeSongFromUrlPayload(encoded.payload);
+      assert.equal(decoded.title, largeSong.title);
+      assert.equal(decoded.measures.length, 32);
+      assert.equal(decoded.measures[0].notes[0].lyric.hanlo, '聖');
+      assert.equal(decoded.measures[31].notes[3].octave, 1);
+    }
+  });
 });

@@ -331,12 +331,23 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
 
   const handleDownloadFile = () => {
     if (exportFormat === 'url') {
-      const shortcutContent = `[InternetShortcut]\nURL=${shareResult?.url || ''}\n`;
-      const blob = new Blob([shortcutContent], { type: 'application/internet-shortcut' });
+      const shareUrl = shareResult?.url || '';
+      const htmlContent = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="refresh" content="0;url=${shareUrl}">
+  <title>${currentSong.title || 'Musical Score'} - Easy Composer</title>
+</head>
+<body>
+  <p>Redirecting to score: <a href="${shareUrl}">${currentSong.title || 'Open in Easy Composer'}</a>...</p>
+</body>
+</html>\n`;
+      const blob = new Blob([htmlContent], { type: 'text/html' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${currentSong.title.replace(/\s+/g, '_')}.url`;
+      link.download = `${currentSong.title.replace(/\s+/g, '_')}.html`;
       link.click();
       URL.revokeObjectURL(url);
       return;
@@ -857,7 +868,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Download {exportFormat === 'midi' ? (midiFormat === 'kar' ? '.kar' : '.mid') : 'File'}</span>
+                    <span>Download {exportFormat === 'midi' ? (midiFormat === 'kar' ? '.kar' : '.mid') : exportFormat === 'url' ? 'Web Link (.html)' : 'File'}</span>
                   </button>
                 </div>
               </div>

@@ -224,9 +224,10 @@ const SCROLL_JITTER_TOLERANCE_PX = 6;
  * is positioned comfortably within the safe viewport zone between the sticky header
  * and the floating HUD stack.
  */
-function scrollLineIntoSafeZone(lineEl: HTMLElement): void {
+function scrollLineIntoSafeZone(lineEl: HTMLElement, fallbackHudHeight: number = 180): void {
+  if (typeof window === 'undefined') return;
   const hudEl = document.getElementById('floating-score-hud-container');
-  const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : 180;
+  const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : fallbackHudHeight;
   const headerEl = document.getElementById('header-bar') || document.querySelector('header');
   const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
   const safeTop = headerHeight + 12;
@@ -874,7 +875,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       const measureEl = targetEl.closest('[id^="sheet-measure-"]') as HTMLElement | null;
       const lineEl = systemEl || measureEl || targetEl;
 
-      scrollLineIntoSafeZone(lineEl);
+      scrollLineIntoSafeZone(lineEl, hudStackHeight);
 
       // In no-wrap horizontal scrolling mode, ensure the active measure is visible horizontally
       if (sheetWrapMode === 'no_wrap' && canvasWrapperRef.current && (measureEl || targetEl)) {
@@ -940,7 +941,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       const measureEl = targetEl.closest('[id^="sheet-measure-"]') as HTMLElement | null;
       const lineEl = systemEl || measureEl || targetEl;
 
-      scrollLineIntoSafeZone(lineEl);
+      scrollLineIntoSafeZone(lineEl, hudStackHeight);
 
       // In no-wrap horizontal scrolling mode, ensure the active measure is visible horizontally
       if (sheetWrapMode === 'no_wrap' && canvasWrapperRef.current && (measureEl || targetEl)) {

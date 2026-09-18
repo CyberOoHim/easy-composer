@@ -29,7 +29,7 @@ export function cleanSongForUrl(song: Song): Record<string, unknown> {
       const obj = val as Record<string, unknown>;
       const out: Record<string, unknown> = {};
       for (const [k, v] of Object.entries(obj)) {
-        if (v === '' || v === null || v === undefined) continue;
+        if (v === '' || v === null || v === undefined || v === false) continue;
         if (k === 'octave' && v === 0) continue;
         if (k === 'lyric') {
           const l = v as Record<string, unknown>;
@@ -37,7 +37,7 @@ export function cleanSongForUrl(song: Song): Record<string, unknown> {
         }
         if (typeof v === 'object') {
           const cleanedChild = cleanVal(v);
-          if (Array.isArray(cleanedChild) && cleanedChild.length === 0) continue;
+          if (k !== 'measures' && Array.isArray(cleanedChild) && cleanedChild.length === 0) continue;
           if (cleanedChild && typeof cleanedChild === 'object' && Object.keys(cleanedChild).length === 0) continue;
           out[k] = cleanedChild;
         } else {
@@ -62,8 +62,10 @@ export function uint8ArrayToBase64Url(bytes: Uint8Array): string {
   }
   let binary = '';
   const len = bytes.byteLength;
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i]);
+  const CHUNK_SIZE = 8192;
+  for (let i = 0; i < len; i += CHUNK_SIZE) {
+    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
+    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
   }
   const base64 = btoa(binary);
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -129,9 +131,14 @@ export async function compressString(text: string): Promise<{ bytes: Uint8Array;
   try {
     const bytes = await tryCompress(uncompressedBytes, 'deflate-raw');
     return { bytes, compressed: true };
-  } catch (err) {
-    console.warn('[compressString] deflate-raw failed, falling back to raw bytes:', err);
-    return { bytes: uncompressedBytes, compressed: false };
+  } catch {
+    try {
+      const bytes = await tryCompress(uncompressedBytes, 'gzip');
+      return { bytes, compressed: true };
+    } catch (err) {
+      console.warn('[compressString] compression failed, falling back to raw bytes:', err);
+      return { bytes: uncompressedBytes, compressed: false };
+    }
   }
 }
 
@@ -231,7 +238,18 @@ export async function decodeSongFromUrlPayload(payload: string): Promise<Song> {
   try {
     parsed = JSON.parse(text);
   } catch (parseErr) {
-    throw new Error(`Failed to parse song JSON from URL payload: ${(parseErr as Error).message}`);
+    try {
+      parsed = JSON.parse(decodeURIComponent(trimmed));
+    } catch {
+      throw new Error(`Failed to parse song JSON from URL payload: ${(parseErr as Error).message}`);
+    }
+  }
+
+  if (parsed && typeof parsed === 'object') {
+    const obj = parsed as Record<string, unknown>;
+    if (!obj.id || typeof obj.id !== 'string' || !obj.id.trim()) {
+      obj.id = `song-${Date.now()}`;
+    }
   }
 
   const sanitized = sanitizeSong(parsed);
@@ -262,7 +280,10 @@ export async function createShareableSongUrl(
   }
 
   // Ensure trailing slash or clean path without existing hash or search params
-  const cleanBase = base.split('#')[0].split('?')[0];
+  let cleanBase = base.split('#')[0].split('?')[0];
+  if (!cleanBase.endsWith('/') && !/\.[a-zA-Z0-9]+$/.test(cleanBase)) {
+    cleanBase += '/';
+  }
 
   if (encoded.type === 'preset') {
     const url = `${cleanBase}#preset=${encodeURIComponent(encoded.id)}`;
@@ -392,11 +413,13 @@ export async function copySongUrlToClipboard(text: string): Promise<boolean> {
     const textArea = document.createElement('textarea');
     textArea.value = text;
     textArea.style.position = 'fixed';
-    textArea.style.top = '-9999px';
+    textArea.style.top = '0';
     textArea.style.left = '-9999px';
+    textArea.style.fontSize = '16px'; // Prevent Mobile Safari auto-zoom
     textArea.setAttribute('readonly', '');
     document.body.appendChild(textArea);
     textArea.select();
+    textArea.setSelectionRange(0, text.length);
     const successful = document.execCommand('copy');
     document.body.removeChild(textArea);
     return successful;
