@@ -609,6 +609,43 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     setLyricSpreaderInput('');
   }, [lyricSpreaderInput, song, currentMIdx, currentNIdx, lyricSpreaderVerse, lyricSpreaderField, onUpdateSong]);
 
+  // Dynamic real-time height tracking of the floating score HUD stack
+  const [hudStackHeight, setHudStackHeight] = useState<number>(180);
+
+  useEffect(() => {
+    const updateHudHeight = () => {
+      const hudEl = document.getElementById('floating-score-hud-container');
+      if (hudEl) {
+        const rect = hudEl.getBoundingClientRect();
+        if (rect.height > 0) {
+          setHudStackHeight(Math.round(rect.height));
+        }
+      }
+    };
+
+    updateHudHeight();
+
+    const hudEl = document.getElementById('floating-score-hud-container');
+    let resizeObs: ResizeObserver | null = null;
+    if (hudEl && typeof ResizeObserver !== 'undefined') {
+      resizeObs = new ResizeObserver(() => {
+        updateHudHeight();
+      });
+      resizeObs.observe(hudEl);
+    }
+
+    window.addEventListener('resize', updateHudHeight, { passive: true });
+    const t1 = setTimeout(updateHudHeight, 60);
+    const t2 = setTimeout(updateHudHeight, 200);
+
+    return () => {
+      if (resizeObs) resizeObs.disconnect();
+      window.removeEventListener('resize', updateHudHeight);
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+  }, [activeHudDrawer]);
+
   // Standard realistic physical sheet widths (A4)
   // Portrait: 210mm (~896px / max-w-4xl)
   // Landscape: 297mm (~1240px / max-w-[1240px])
@@ -762,20 +799,49 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
   }, [sheetWrapMode, sheetOrientation]);
 
-  // Scroll active note into view smoothly when navigating
+  // Scroll active note / line into view smoothly when navigating
   useEffect(() => {
     if (isFirstMountRef.current) {
       isFirstMountRef.current = false;
       return;
     }
-    if (activeNoteElementRef.current) {
-      activeNoteElementRef.current.scrollIntoView({
-        behavior: 'smooth',
-        block: 'nearest',
-        inline: 'nearest',
-      });
+    const targetEl = activeNoteElementRef.current;
+    if (!targetEl) return;
+
+    try {
+      const systemEl = targetEl.closest('[id^="sheet-system-"]') as HTMLElement | null;
+      const measureEl = targetEl.closest('[id^="sheet-measure-"]') as HTMLElement | null;
+      const lineEl = systemEl || measureEl || targetEl;
+
+      const hudEl = document.getElementById('floating-score-hud-container');
+      const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : hudStackHeight;
+      const headerEl = document.querySelector('header');
+      const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
+      const safeTop = headerHeight + 12;
+      const safeBottom = window.innerHeight - currentHudHeight - 20;
+
+      const lineRect = lineEl.getBoundingClientRect();
+      const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+      if (lineRect.bottom > safeBottom || lineRect.top < safeTop) {
+        const availableSafeHeight = Math.max(100, safeBottom - safeTop);
+        const targetTopInViewport =
+          lineRect.height <= availableSafeHeight
+            ? safeTop + Math.min(32, Math.max(16, (availableSafeHeight - lineRect.height) * 0.25))
+            : safeTop + 8;
+        const targetScrollY = Math.max(0, currentScrollY + lineRect.top - targetTopInViewport);
+
+        if (Math.abs(currentScrollY - targetScrollY) > 8) {
+          window.scrollTo({
+            top: targetScrollY,
+            behavior: 'smooth',
+          });
+        }
+      }
+    } catch {
+      // Gracefully ignore scroll exceptions
     }
-  }, [currentMIdx, currentNIdx]);
+  }, [currentMIdx, currentNIdx, hudStackHeight]);
 
   // Helper to update current selected note
   const updateCurrentNote = useCallback(
@@ -814,27 +880,89 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
   }, [song.key]);
 
-  // Smoothly scroll active playback note or lyric syllable into view during playback
+  // Smoothly scroll active playback line of measures (including all notes and lyrics) into view above the HUD stack
   useEffect(() => {
     if (!isPlaying || !activePlaybackNoteId) return;
-    const currentLyricNoteId = activeLyricNoteIdByVerse[activeVerseRow];
-    const targetEl =
-      activeField === 'lyric'
-        ? (currentLyricNoteId && document.getElementById(`sheet-lyric-v${activeVerseRow}-${currentLyricNoteId}`)) ||
-          document.getElementById(`sheet-note-${activePlaybackNoteId}`)
-        : document.getElementById(`sheet-note-${activePlaybackNoteId}`);
-    if (targetEl && typeof targetEl.scrollIntoView === 'function') {
-      try {
-        targetEl.scrollIntoView({
-          behavior: 'smooth',
-          block: 'nearest',
-          inline: 'nearest',
-        });
-      } catch {
-        // Gracefully ignore scroll exceptions in iframe / test environments
+
+    try {
+      const currentLyricNoteId = activeLyricNoteIdByVerse[activeVerseRow];
+      const noteEl = document.getElementById(`sheet-note-${activePlaybackNoteId}`);
+      const lyricEl = currentLyricNoteId
+        ? document.getElementById(`sheet-lyric-v${activeVerseRow}-${currentLyricNoteId}`)
+        : null;
+      const targetEl = (activeField === 'lyric' ? (lyricEl || noteEl) : noteEl) || noteEl;
+      if (!targetEl) return;
+
+      // Find the enclosing system (row / line of measures) or measure
+      const systemEl = targetEl.closest('[id^="sheet-system-"]') as HTMLElement | null;
+      const measureEl = targetEl.closest('[id^="sheet-measure-"]') as HTMLElement | null;
+      const lineEl = systemEl || measureEl || targetEl;
+
+      // Calculate HUD safe zone
+      const hudEl = document.getElementById('floating-score-hud-container');
+      const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : hudStackHeight;
+
+      const headerEl = document.querySelector('header');
+      const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
+      const safeTop = headerHeight + 12; // safe distance below sticky top bar
+      const safeBottom = window.innerHeight - currentHudHeight - 20; // safe clearance above HUD stack
+
+      const lineRect = lineEl.getBoundingClientRect();
+      const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
+
+      // Check if any part of the system row (notes, chords, or multi-verse lyrics) is outside the clear viewing zone
+      const isPartiallyBelowHud = lineRect.bottom > safeBottom;
+      const isPartiallyAboveHeader = lineRect.top < safeTop;
+
+      if (isPartiallyBelowHud || isPartiallyAboveHeader) {
+        const availableSafeHeight = Math.max(100, safeBottom - safeTop);
+        let targetTopInViewport: number;
+
+        if (lineRect.height <= availableSafeHeight) {
+          // If the line fits in the safe zone, position it comfortably in the upper portion
+          targetTopInViewport = safeTop + Math.min(32, Math.max(16, (availableSafeHeight - lineRect.height) * 0.25));
+        } else {
+          // If the line is taller than available safe height, ensure top of measure is visible below header
+          targetTopInViewport = safeTop + 8;
+        }
+
+        const targetScrollY = Math.max(0, currentScrollY + lineRect.top - targetTopInViewport);
+
+        // Avoid micro-jitter if scroll position is already within tolerance
+        if (Math.abs(currentScrollY - targetScrollY) > 6) {
+          window.scrollTo({
+            top: targetScrollY,
+            behavior: 'smooth',
+          });
+        }
       }
+
+      // In no-wrap horizontal scrolling mode, ensure the active measure is visible horizontally
+      if (sheetWrapMode === 'no_wrap' && canvasWrapperRef.current && (measureEl || targetEl)) {
+        const targetH = measureEl || targetEl;
+        const wrapper = canvasWrapperRef.current;
+        const wrapperRect = wrapper.getBoundingClientRect();
+        const tRect = targetH.getBoundingClientRect();
+        if (tRect.left < wrapperRect.left + 40 || tRect.right > wrapperRect.right - 40) {
+          const scrollLeftTarget = wrapper.scrollLeft + (tRect.left - wrapperRect.left) - 80;
+          wrapper.scrollTo({
+            left: Math.max(0, scrollLeftTarget),
+            behavior: 'smooth',
+          });
+        }
+      }
+    } catch {
+      // Gracefully ignore scroll exceptions in test/server environments
     }
-  }, [isPlaying, activePlaybackNoteId, activeField, activeVerseRow, activeLyricNoteIdByVerse]);
+  }, [
+    isPlaying,
+    activePlaybackNoteId,
+    activeField,
+    activeVerseRow,
+    activeLyricNoteIdByVerse,
+    hudStackHeight,
+    sheetWrapMode,
+  ]);
 
   // Step to Next Note
   const stepToNextNote = useCallback(() => {
@@ -2235,7 +2363,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     <div
       id="real-sheet-viewport-container"
       ref={canvasWrapperRef}
-      className={`relative w-full min-h-screen flex flex-col items-start pt-1 sm:pt-1.5 pb-6 sm:pb-10 px-2 sm:px-4 md:px-6 select-none print:p-0 print:m-0 print:min-h-0 print:bg-white print:overflow-visible print:w-full print:block overflow-x-auto transition-colors duration-150 touch-momentum ${
+      style={{
+        paddingBottom: `${Math.max(200, hudStackHeight + 80)}px`,
+      }}
+      className={`relative w-full min-h-screen flex flex-col items-start pt-1 sm:pt-1.5 px-2 sm:px-4 md:px-6 select-none print:p-0 print:m-0 print:min-h-0 print:bg-white print:overflow-visible print:w-full print:block overflow-x-auto transition-colors duration-150 touch-momentum ${
         sheetTheme === 'dark'
           ? 'bg-[#0c0e15] dark:bg-[#0c0e15] text-zinc-100 dark:text-zinc-100'
           : 'bg-[#ede8de] dark:bg-[#ede8de] text-zinc-900 dark:text-zinc-900'
