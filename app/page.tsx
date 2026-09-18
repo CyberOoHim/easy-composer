@@ -11,10 +11,13 @@ import { ImportExportModal } from '@/components/ImportExportModal';
 import { QuickLyricAlignerModal } from '@/components/QuickLyricAlignerModal';
 import { LyricSearchModal } from '@/components/LyricSearchModal';
 import { NewSongModal } from '@/components/NewSongModal';
+import { ShareSongModal } from '@/components/ShareSongModal';
 import { useSongHistory } from '@/hooks/useSongHistory';
 import { usePowerSaveMode } from '@/hooks/usePowerSaveMode';
 import { useChordPlayback } from '@/hooks/useChordPlayback';
 import { useMetronomePlayback } from '@/hooks/useMetronomePlayback';
+import { Music, BookmarkPlus, Share2, X } from 'lucide-react';
+import { parseSongFromUrl } from '@/lib/songUrl';
 import {
   getStoredDisplayMode,
   setStoredDisplayMode,
@@ -133,6 +136,8 @@ export default function Home() {
   const [isLyricSearchOpen, setIsLyricSearchOpen] = useState(false);
   const [isAlignerOpen, setIsAlignerOpen] = useState(false);
   const [isNewSongConfirmOpen, setIsNewSongConfirmOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [sharedSongNotice, setSharedSongNotice] = useState<{ song: Song; isPreset: boolean } | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [targetMeasureIndex, setTargetMeasureIndex] = useState<number | null>(null);
 
@@ -148,7 +153,7 @@ export default function Home() {
   const hasInitializedRef = React.useRef(false);
   const selectSongSeqRef = React.useRef(0);
 
-  // Bootstrap IndexedDB on mount: migrate legacy localStorage, load active song, custom songs, and modified presets
+  // Bootstrap IndexedDB on mount: check URL for shared song, migrate legacy localStorage, load active song
   useEffect(() => {
     let isMounted = true;
 
@@ -173,8 +178,38 @@ export default function Home() {
         setModifiedPresetIds(modifiedIds);
 
         const localSong = getStoredCurrentSongOrNull();
-        const { song: bootSong, fromLocalDraft } = pickBootstrapSong(activeDbSong, localSong);
-        loadNewSong(bootSong, { unsaved: fromLocalDraft });
+
+        // Check if app was opened with a shared song in URL hash or query params
+        let urlSharedSong: { song: Song; isPreset: boolean } | null = null;
+        try {
+          const parsedFromUrl = await parseSongFromUrl(typeof window !== 'undefined' ? window.location : undefined);
+          if (parsedFromUrl) {
+            urlSharedSong = { song: parsedFromUrl.song, isPreset: parsedFromUrl.isPreset };
+          }
+        } catch (urlErr) {
+          console.warn('[bootstrap] Failed to parse song from URL:', urlErr);
+        }
+
+        if (urlSharedSong) {
+          // If user already had a dirty or in-progress local draft, preserve it into DB
+          if (localSong) {
+            try {
+              await saveSongToDB(localSong);
+            } catch {
+              // ignore
+            }
+          }
+          loadNewSong(urlSharedSong.song, { unsaved: !urlSharedSong.isPreset });
+          setSharedSongNotice(urlSharedSong);
+
+          // Clean up hash from browser address bar so refreshing or editing doesn't conflict
+          if (typeof window !== 'undefined' && window.history?.replaceState) {
+            window.history.replaceState(null, '', window.location.pathname);
+          }
+        } else {
+          const { song: bootSong, fromLocalDraft } = pickBootstrapSong(activeDbSong, localSong);
+          loadNewSong(bootSong, { unsaved: fromLocalDraft });
+        }
       } catch (err) {
         console.warn('[IndexedDB] Bootstrap failed, falling back to localStorage:', err);
         if (isMounted) {
@@ -194,6 +229,30 @@ export default function Home() {
       isMounted = false;
     };
   }, [loadNewSong]);
+
+  // Handle in-page hash navigation (e.g. user clicks another shared link or pastes hash)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const handleHashChange = async () => {
+      try {
+        const parsed = await parseSongFromUrl(window.location);
+        if (parsed) {
+          if (isDirty && song) {
+            await saveActiveSongToDB(song);
+          }
+          loadNewSong(parsed.song, { unsaved: !parsed.isPreset });
+          setSharedSongNotice({ song: parsed.song, isPreset: parsed.isPreset });
+          window.history.replaceState(null, '', window.location.pathname);
+        }
+      } catch (err) {
+        console.warn('[hashchange] Failed to load song from hash:', err);
+      }
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, [isDirty, song, loadNewSong]);
 
   // Persist the active song to localStorage after bootstrap with 300ms debounce
   // to avoid blocking the main thread during rapid typing or note editing.
@@ -229,7 +288,13 @@ export default function Home() {
     setIsLyricSearchOpen(false);
     setIsAlignerOpen(false);
     setIsNewSongConfirmOpen(false);
+    setIsShareModalOpen(false);
   }, []);
+
+  const handleOpenShare = useCallback(() => {
+    closeAllPrimaryModals();
+    setIsShareModalOpen(true);
+  }, [closeAllPrimaryModals]);
 
   const handleStartFreshSong = useCallback(() => {
     closeAllPrimaryModals();
@@ -621,7 +686,8 @@ export default function Home() {
     isImportExportOpen ||
     isLyricSearchOpen ||
     isAlignerOpen ||
-    isNewSongConfirmOpen;
+    isNewSongConfirmOpen ||
+    isShareModalOpen;
 
   return (
     <div className="min-h-screen bg-zinc-100 dark:bg-[#0c0e14] text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-amber-500/30 print:bg-white print:text-black print:min-h-0">
@@ -631,6 +697,7 @@ export default function Home() {
         onSelectSong={handleSelectSong}
         onStartFreshSong={handleStartFreshSong}
         onOpenLyricSearch={handleOpenLyricSearch}
+        onOpenShare={handleOpenShare}
         onOpenImportExport={handleOpenLibrary}
         onOpenImportScore={handleOpenImportScore}
         onOpenMidiExport={handleOpenMidiExport}
@@ -664,6 +731,63 @@ export default function Home() {
         onRestoreSettingsToDefault={handleRestoreSettingsToDefault}
         onUpdateSong={setSong}
       />
+
+      {sharedSongNotice && (
+        <div
+          id="shared-song-loaded-banner"
+          role="status"
+          className="print:hidden mx-2 sm:mx-auto sm:max-w-[1600px] sm:w-full sm:px-3 lg:px-4 mt-2 animate-in fade-in slide-in-from-top-2 duration-200"
+        >
+          <div className="p-3 rounded-2xl bg-amber-500/15 dark:bg-amber-500/10 border border-amber-500/30 text-zinc-900 dark:text-zinc-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-7 h-7 rounded-lg bg-amber-500 text-zinc-950 flex items-center justify-center font-black shrink-0 shadow-xs">
+                <Music className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold truncate">
+                  Opened shared score: <span className="text-amber-700 dark:text-amber-400 font-extrabold">{sharedSongNotice.song.title}</span>
+                </span>
+                <span className="text-[11px] text-zinc-600 dark:text-zinc-400 font-mono">
+                  1={sharedSongNotice.song.key} · {sharedSongNotice.song.timeSignature} · {sharedSongNotice.song.bpm} BPM · {sharedSongNotice.song.measures.length} measures
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-1.5 self-end sm:self-auto shrink-0">
+              <button
+                id="banner-save-to-library-btn"
+                type="button"
+                onClick={async () => {
+                  await handleSaveSong();
+                  setSharedSongNotice(null);
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs shadow-xs transition-all cursor-pointer touch-manipulation min-h-[36px]"
+              >
+                <BookmarkPlus className="w-3.5 h-3.5" />
+                <span>Save to My Library</span>
+              </button>
+              <button
+                id="banner-share-link-btn"
+                type="button"
+                onClick={handleOpenShare}
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-zinc-300 dark:border-zinc-700 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-semibold text-xs transition-all cursor-pointer touch-manipulation min-h-[36px]"
+              >
+                <Share2 className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Share</span>
+              </button>
+              <button
+                id="banner-dismiss-btn"
+                type="button"
+                onClick={() => setSharedSongNotice(null)}
+                className="p-1.5 rounded-lg text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200 hover:bg-zinc-200/60 dark:hover:bg-zinc-800 transition-all cursor-pointer touch-manipulation min-h-[36px] min-w-[36px] flex items-center justify-center"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {saveError && (
         <div
@@ -717,6 +841,7 @@ export default function Home() {
         onResetPreset={handleResetPreset}
         initialTab={importExportTab}
         initialExportFormat={importExportFormat}
+        onOpenShare={handleOpenShare}
       />
 
       <LyricSearchModal
@@ -744,6 +869,13 @@ export default function Home() {
         isDirty={isDirty}
         onConfirm={handleConfirmFreshSong}
         onOpenImport={handleOpenImportScore}
+      />
+
+      <ShareSongModal
+        key={isShareModalOpen ? 'open' : 'closed'}
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        song={song}
       />
     </div>
   );

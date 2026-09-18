@@ -54,6 +54,8 @@ import {
   RotateCcw,
   Music,
   Search,
+  Share2,
+  ExternalLink,
 } from 'lucide-react';
 import { searchSongLyrics } from '@/lib/lyricSearch';
 import {
@@ -62,6 +64,11 @@ import {
   deleteSongFromDB,
   songIdExists,
 } from '@/lib/indexedDb';
+import {
+  createShareableSongUrl,
+  copySongUrlToClipboard,
+  ShareUrlResult,
+} from '@/lib/songUrl';
 
 interface ImportExportModalProps {
   isOpen: boolean;
@@ -72,7 +79,8 @@ interface ImportExportModalProps {
   modifiedPresetIds?: Set<string>;
   onResetPreset?: (presetId: string) => void;
   initialTab?: 'presets' | 'custom' | 'export' | 'import';
-  initialExportFormat?: 'json' | 'text' | 'midi';
+  initialExportFormat?: 'json' | 'text' | 'midi' | 'url';
+  onOpenShare?: () => void;
 }
 
 export const ImportExportModal: React.FC<ImportExportModalProps> = ({
@@ -89,13 +97,33 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const [activeTab, setActiveTab] = useState<'presets' | 'custom' | 'export' | 'import'>(
     () => initialTab || 'presets'
   );
-  const [exportFormat, setExportFormatState] = useState<'json' | 'text' | 'midi'>(
+  const [exportFormat, setExportFormatState] = useState<ExportFormat>(
     () => initialExportFormat || (typeof window !== 'undefined' ? getStoredExportFormat('json') : 'json')
   );
   const setExportFormat = (fmt: ExportFormat) => {
     setExportFormatState(fmt);
     setStoredExportFormat(fmt);
   };
+
+  const [shareResult, setShareResult] = useState<ShareUrlResult | null>(null);
+
+  React.useEffect(() => {
+    if (!isOpen || activeTab !== 'export' || exportFormat !== 'url') return;
+    let isMounted = true;
+    void createShareableSongUrl(currentSong)
+      .then(res => {
+        if (isMounted) setShareResult(res);
+      })
+      .catch(err => {
+        console.error('[ImportExportModal] Failed to generate share URL:', err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, activeTab, exportFormat, currentSong]);
+
+  const isGeneratingUrl = exportFormat === 'url' && !shareResult;
 
   const [midiAccompaniment, setMidiAccompanimentState] = useState(() => {
     if (typeof window !== 'undefined') return getStoredMidiAccompaniment(true);
@@ -245,6 +273,8 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
       ? exportSongToJson(currentSong)
       : exportFormat === 'text'
       ? exportSongToText(currentSong)
+      : exportFormat === 'url'
+      ? shareResult?.url || ''
       : '';
 
   const midiLyricsSummary = React.useMemo(() => {
@@ -254,6 +284,14 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   if (!isOpen) return null;
 
   const handleCopyExport = () => {
+    if (exportFormat === 'url') {
+      if (shareResult?.url) {
+        void copySongUrlToClipboard(shareResult.url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      }
+      return;
+    }
     if (exportFormat === 'midi') {
       const lyricDesc =
         midiLyricType === 'none'
@@ -292,6 +330,17 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
   };
 
   const handleDownloadFile = () => {
+    if (exportFormat === 'url') {
+      const shortcutContent = `[InternetShortcut]\nURL=${shareResult?.url || ''}\n`;
+      const blob = new Blob([shortcutContent], { type: 'application/internet-shortcut' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${currentSong.title.replace(/\s+/g, '_')}.url`;
+      link.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
     if (exportFormat === 'midi') {
       handleDownloadMidi(midiFormat);
       return;
@@ -779,6 +828,18 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     <Music className="w-3.5 h-3.5 inline mr-1" />
                     MIDI (.mid)
                   </button>
+                  <button
+                    id="export-format-url-btn"
+                    onClick={() => setExportFormat('url')}
+                    className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                      exportFormat === 'url'
+                        ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    <Share2 className="w-3.5 h-3.5 inline mr-1" />
+                    Share Link (URL)
+                  </button>
                 </div>
 
                 <div className="flex items-center gap-2">
@@ -1069,6 +1130,62 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                       <span>Download .KAR (Karaoke MIDI)</span>
                     </button>
                   </div>
+                </div>
+              ) : exportFormat === 'url' ? (
+                <div id="url-export-config" className="flex flex-col gap-3 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
+                      Direct Score URL
+                    </span>
+                    {shareResult?.isPreset ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
+                        Preset Shortcut Link
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
+                        Compressed ({(shareResult ? shareResult.url.length / 1024 : 0).toFixed(1)} KB)
+                      </span>
+                    )}
+                  </div>
+
+                  <input
+                    id="export-url-input"
+                    type="text"
+                    readOnly
+                    value={isGeneratingUrl ? 'Generating share link...' : shareResult?.url || ''}
+                    onClick={e => (e.target as HTMLInputElement).select()}
+                    className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden"
+                  />
+
+                  <div className="flex flex-wrap gap-2 pt-1">
+                    <button
+                      id="export-url-copy-btn"
+                      type="button"
+                      onClick={handleCopyExport}
+                      disabled={isGeneratingUrl || !shareResult?.url}
+                      className="flex-1 flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs shadow-xs transition-all cursor-pointer min-h-[44px]"
+                    >
+                      {copied ? <Check className="w-4 h-4 text-zinc-950 stroke-[3]" /> : <Copy className="w-4 h-4" />}
+                      <span>{copied ? 'Link Copied!' : 'Copy Share Link'}</span>
+                    </button>
+
+                    <button
+                      id="export-url-test-btn"
+                      type="button"
+                      onClick={() => {
+                        if (shareResult?.url) window.open(shareResult.url, '_blank');
+                      }}
+                      disabled={isGeneratingUrl || !shareResult?.url}
+                      className="flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-zinc-800 dark:text-zinc-200 font-bold text-xs transition-all cursor-pointer min-h-[44px]"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>Test Link</span>
+                    </button>
+                  </div>
+
+                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    This link directly embeds your musical score. Anyone who opens this URL will launch Easy Composer with this song ready to view and edit, without needing an account or server.
+                  </p>
                 </div>
               ) : (
                 <textarea

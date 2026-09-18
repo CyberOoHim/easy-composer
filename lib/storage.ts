@@ -83,7 +83,7 @@ export type PianoQuantizeGrid = 'quarter' | 'eighth' | 'sixteenth' | 'thirtyseco
 export type PianoDeckMode = 'step' | 'transcribe';
 export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit' | 'creativity';
 export type AccompanimentStyle = 'block' | 'arpeggio' | 'folk' | 'waltz';
-export type ExportFormat = 'json' | 'text' | 'midi';
+export type ExportFormat = 'json' | 'text' | 'midi' | 'url';
 export type MidiLyricMode = 'hanlo' | 'poj' | 'both' | 'none';
 export type SearchScope = 'all' | 'current';
 export type SearchMatchFilter = 'all' | 'measure' | 'verse';
@@ -816,7 +816,7 @@ export function setStoredSyncAllMeasures(val: boolean): void {
 // ============================================================================
 export function getStoredExportFormat(defaultVal: ExportFormat = 'json'): ExportFormat {
   const val = safeGetItem(STORAGE_KEYS.EXPORT_FORMAT);
-  if (val === 'json' || val === 'text' || val === 'midi') return val;
+  if (val === 'json' || val === 'text' || val === 'midi' || val === 'url') return val;
   return defaultVal;
 }
 

@@ -217,6 +217,60 @@ function hasActualLyricWord(note: NumberedNotationNote, verseIndex: number): boo
   }
 }
 
+const SCROLL_JITTER_TOLERANCE_PX = 6;
+
+/**
+ * Smoothly scrolls the window so that a target line element (system row or measure)
+ * is positioned comfortably within the safe viewport zone between the sticky header
+ * and the floating HUD stack.
+ */
+function scrollLineIntoSafeZone(lineEl: HTMLElement): void {
+  const hudEl = document.getElementById('floating-score-hud-container');
+  const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : 180;
+  const headerEl = document.getElementById('header-bar') || document.querySelector('header');
+  const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
+  const safeTop = headerHeight + 12;
+
+  const hudRect = hudEl?.getBoundingClientRect();
+  const hudTop = hudRect && hudRect.top > 0 ? hudRect.top : window.innerHeight - currentHudHeight;
+  const safeBottom = hudTop - 20;
+
+  const lineRect = lineEl.getBoundingClientRect();
+  const currentScrollY = window.scrollY || document.documentElement.scrollTop;
+
+  if (lineRect.bottom > safeBottom || lineRect.top < safeTop) {
+    const availableSafeHeight = Math.max(100, safeBottom - safeTop);
+    const targetTopInViewport =
+      lineRect.height <= availableSafeHeight
+        ? safeTop + Math.min(32, Math.max(16, (availableSafeHeight - lineRect.height) * 0.25))
+        : safeTop + 8;
+    const targetScrollY = Math.max(0, currentScrollY + lineRect.top - targetTopInViewport);
+
+    if (Math.abs(currentScrollY - targetScrollY) > SCROLL_JITTER_TOLERANCE_PX) {
+      window.scrollTo({
+        top: targetScrollY,
+        behavior: 'smooth',
+      });
+    }
+  }
+}
+
+/**
+ * In no-wrap horizontal scrolling mode, ensures the active measure or element
+ * is visible horizontally within the canvas wrapper.
+ */
+function scrollMeasureIntoHorizontalView(wrapper: HTMLElement, targetEl: HTMLElement): void {
+  const wrapperRect = wrapper.getBoundingClientRect();
+  const tRect = targetEl.getBoundingClientRect();
+  if (tRect.left < wrapperRect.left + 40 || tRect.right > wrapperRect.right - 40) {
+    const scrollLeftTarget = wrapper.scrollLeft + (tRect.left - wrapperRect.left) - 80;
+    wrapper.scrollTo({
+      left: Math.max(0, scrollLeftTarget),
+      behavior: 'smooth',
+    });
+  }
+}
+
 export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   song,
   onUpdateSong,
@@ -613,6 +667,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   const [hudStackHeight, setHudStackHeight] = useState<number>(180);
 
   useEffect(() => {
+    let resizeObs: ResizeObserver | null = null;
+
     const updateHudHeight = () => {
       const hudEl = document.getElementById('floating-score-hud-container');
       if (hudEl) {
@@ -620,19 +676,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         if (rect.height > 0) {
           setHudStackHeight(Math.round(rect.height));
         }
+        if (!resizeObs && typeof ResizeObserver !== 'undefined') {
+          resizeObs = new ResizeObserver(() => {
+            updateHudHeight();
+          });
+          resizeObs.observe(hudEl);
+        }
       }
     };
 
     updateHudHeight();
-
-    const hudEl = document.getElementById('floating-score-hud-container');
-    let resizeObs: ResizeObserver | null = null;
-    if (hudEl && typeof ResizeObserver !== 'undefined') {
-      resizeObs = new ResizeObserver(() => {
-        updateHudHeight();
-      });
-      resizeObs.observe(hudEl);
-    }
 
     window.addEventListener('resize', updateHudHeight, { passive: true });
     const vv = typeof window !== 'undefined' ? window.visualViewport : null;
@@ -821,53 +874,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       const measureEl = targetEl.closest('[id^="sheet-measure-"]') as HTMLElement | null;
       const lineEl = systemEl || measureEl || targetEl;
 
-      const hudEl = document.getElementById('floating-score-hud-container');
-      const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : hudStackHeight;
-      const headerEl = document.getElementById('header-bar') || document.querySelector('header');
-      const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
-      const safeTop = headerHeight + 12;
-
-      const hudRect = hudEl?.getBoundingClientRect();
-      const hudTop = hudRect && hudRect.top > 0 ? hudRect.top : window.innerHeight - currentHudHeight;
-      const safeBottom = hudTop - 20;
-
-      const lineRect = lineEl.getBoundingClientRect();
-      const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
-
-      if (lineRect.bottom > safeBottom || lineRect.top < safeTop) {
-        const availableSafeHeight = Math.max(100, safeBottom - safeTop);
-        const targetTopInViewport =
-          lineRect.height <= availableSafeHeight
-            ? safeTop + Math.min(32, Math.max(16, (availableSafeHeight - lineRect.height) * 0.25))
-            : safeTop + 8;
-        const targetScrollY = Math.max(0, currentScrollY + lineRect.top - targetTopInViewport);
-
-        if (Math.abs(currentScrollY - targetScrollY) > 8) {
-          window.scrollTo({
-            top: targetScrollY,
-            behavior: 'smooth',
-          });
-        }
-      }
+      scrollLineIntoSafeZone(lineEl);
 
       // In no-wrap horizontal scrolling mode, ensure the active measure is visible horizontally
       if (sheetWrapMode === 'no_wrap' && canvasWrapperRef.current && (measureEl || targetEl)) {
-        const targetH = measureEl || targetEl;
-        const wrapper = canvasWrapperRef.current;
-        const wrapperRect = wrapper.getBoundingClientRect();
-        const tRect = targetH.getBoundingClientRect();
-        if (tRect.left < wrapperRect.left + 40 || tRect.right > wrapperRect.right - 40) {
-          const scrollLeftTarget = wrapper.scrollLeft + (tRect.left - wrapperRect.left) - 80;
-          wrapper.scrollTo({
-            left: Math.max(0, scrollLeftTarget),
-            behavior: 'smooth',
-          });
-        }
+        scrollMeasureIntoHorizontalView(canvasWrapperRef.current, measureEl || targetEl);
       }
     } catch {
       // Gracefully ignore scroll exceptions
     }
-  }, [currentMIdx, currentNIdx, hudStackHeight, sheetWrapMode]);
+  }, [currentMIdx, currentNIdx, sheetWrapMode]);
 
   // Helper to update current selected note
   const updateCurrentNote = useCallback(
@@ -924,61 +940,11 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       const measureEl = targetEl.closest('[id^="sheet-measure-"]') as HTMLElement | null;
       const lineEl = systemEl || measureEl || targetEl;
 
-      // Calculate HUD safe zone
-      const hudEl = document.getElementById('floating-score-hud-container');
-      const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : hudStackHeight;
-
-      const headerEl = document.getElementById('header-bar') || document.querySelector('header');
-      const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
-      const safeTop = headerHeight + 12; // safe distance below sticky top bar
-
-      const hudRect = hudEl?.getBoundingClientRect();
-      const hudTop = hudRect && hudRect.top > 0 ? hudRect.top : window.innerHeight - currentHudHeight;
-      const safeBottom = hudTop - 20; // safe clearance above HUD stack
-
-      const lineRect = lineEl.getBoundingClientRect();
-      const currentScrollY = window.pageYOffset || document.documentElement.scrollTop;
-
-      // Check if any part of the system row (notes, chords, or multi-verse lyrics) is outside the clear viewing zone
-      const isPartiallyBelowHud = lineRect.bottom > safeBottom;
-      const isPartiallyAboveHeader = lineRect.top < safeTop;
-
-      if (isPartiallyBelowHud || isPartiallyAboveHeader) {
-        const availableSafeHeight = Math.max(100, safeBottom - safeTop);
-        let targetTopInViewport: number;
-
-        if (lineRect.height <= availableSafeHeight) {
-          // If the line fits in the safe zone, position it comfortably in the upper portion
-          targetTopInViewport = safeTop + Math.min(32, Math.max(16, (availableSafeHeight - lineRect.height) * 0.25));
-        } else {
-          // If the line is taller than available safe height, ensure top of measure is visible below header
-          targetTopInViewport = safeTop + 8;
-        }
-
-        const targetScrollY = Math.max(0, currentScrollY + lineRect.top - targetTopInViewport);
-
-        // Avoid micro-jitter if scroll position is already within tolerance
-        if (Math.abs(currentScrollY - targetScrollY) > 6) {
-          window.scrollTo({
-            top: targetScrollY,
-            behavior: 'smooth',
-          });
-        }
-      }
+      scrollLineIntoSafeZone(lineEl);
 
       // In no-wrap horizontal scrolling mode, ensure the active measure is visible horizontally
       if (sheetWrapMode === 'no_wrap' && canvasWrapperRef.current && (measureEl || targetEl)) {
-        const targetH = measureEl || targetEl;
-        const wrapper = canvasWrapperRef.current;
-        const wrapperRect = wrapper.getBoundingClientRect();
-        const tRect = targetH.getBoundingClientRect();
-        if (tRect.left < wrapperRect.left + 40 || tRect.right > wrapperRect.right - 40) {
-          const scrollLeftTarget = wrapper.scrollLeft + (tRect.left - wrapperRect.left) - 80;
-          wrapper.scrollTo({
-            left: Math.max(0, scrollLeftTarget),
-            behavior: 'smooth',
-          });
-        }
+        scrollMeasureIntoHorizontalView(canvasWrapperRef.current, measureEl || targetEl);
       }
     } catch {
       // Gracefully ignore scroll exceptions in test/server environments
@@ -989,7 +955,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     activeField,
     activeVerseRow,
     activeLyricNoteIdByVerse,
-    hudStackHeight,
     sheetWrapMode,
   ]);
 

@@ -31,6 +31,7 @@ import {
   Languages,
   Sparkles,
   Type,
+  Share2,
 } from 'lucide-react';
 import { UiZoomControl } from '@/components/UiZoomControl';
 import { NoteZoomControl, LyricZoomControl } from '@/components/ScoreZoomControls';
@@ -44,6 +45,7 @@ interface HeaderBarProps {
   onSelectSong: (song: Song) => void;
   onStartFreshSong?: () => void;
   onOpenLyricSearch?: () => void;
+  onOpenShare?: () => void;
   onOpenImportExport: (tab?: 'presets' | 'custom' | 'export' | 'import', format?: 'json' | 'text' | 'midi') => void;
   onOpenImportScore?: () => void;
   onOpenMidiExport?: () => void;
@@ -115,6 +117,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onSelectSong,
   onStartFreshSong,
   onOpenLyricSearch,
+  onOpenShare,
   onOpenImportExport,
   onOpenImportScore,
   onOpenMidiExport,
@@ -475,6 +478,20 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               <Search className="w-3.5 h-3.5 text-amber-500 shrink-0" />
               <span className="hidden xl:inline whitespace-nowrap">Search</span>
               <kbd className="hidden lg:inline text-[9px] px-1 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700/80 font-mono font-bold text-zinc-600 dark:text-zinc-400">⌘K</kbd>
+            </button>
+          )}
+
+          {/* Quick Share Trigger */}
+          {onOpenShare && (
+            <button
+              id="header-top-share-btn"
+              type="button"
+              onClick={onOpenShare}
+              className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-lg border text-xs font-bold transition-all active:scale-95 cursor-pointer h-7.5 sm:h-8 bg-zinc-100 hover:bg-zinc-200 dark:bg-[#151822] dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-750 shrink-0 touch-manipulation touch-target-expand"
+              title="Share Score with App URL"
+            >
+              <Share2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+              <span className="hidden xl:inline whitespace-nowrap">Share</span>
             </button>
           )}
 
@@ -858,6 +875,22 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   <span>Export MIDI File</span>
                 </button>
               )}
+
+              {/* Share Score via App URL */}
+              {onOpenShare && (
+                <button
+                  id="studio-menu-share-score-btn"
+                  type="button"
+                  onClick={() => {
+                    setIsStudioMenuOpen(false);
+                    onOpenShare();
+                  }}
+                  className="col-span-2 flex items-center justify-center gap-2 p-2.5 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 text-amber-900 dark:text-amber-300 border border-amber-500/30 text-xs font-bold transition-all cursor-pointer"
+                >
+                  <Share2 className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <span>Share Song via App URL</span>
+                </button>
+              )}
             </div>
 
             {/* Shortcuts Button */}
@@ -1015,7 +1048,32 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             </button>
           </div>
 
-          {/* 1. Import Score Button */}
+          {/* 1. Share Song Link Button */}
+          {onOpenShare && (
+            <button
+              id="header-menu-share-song-btn"
+              type="button"
+              onClick={() => {
+                setIsScoreActionMenuOpen(false);
+                onOpenShare();
+              }}
+              className="w-full flex items-center gap-2.5 p-2 rounded-xl text-left hover:bg-amber-500/10 text-zinc-800 dark:text-zinc-100 hover:text-amber-700 dark:hover:text-amber-400 transition-colors cursor-pointer group"
+            >
+              <div className="w-7 h-7 rounded-lg bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-zinc-950 transition-colors">
+                <Share2 className="w-3.5 h-3.5" />
+              </div>
+              <div className="flex flex-col min-w-0">
+                <span className="text-xs font-bold text-zinc-900 dark:text-zinc-100">
+                  Share Song Link
+                </span>
+                <span className="text-[10px] text-zinc-500 dark:text-zinc-400 truncate">
+                  Copy direct app URL to share score
+                </span>
+              </div>
+            </button>
+          )}
+
+          {/* 2. Import Score Button */}
           <button
             id="header-menu-import-score-btn"
             type="button"

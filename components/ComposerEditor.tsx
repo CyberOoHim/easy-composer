@@ -174,7 +174,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     [onUpdateSong, selectedCoord]
   );
 
-
   const [autoStepAdvance, setAutoStepAdvanceState] = useState<boolean>(() => {
     if (typeof window !== 'undefined') return getStoredAutoStepAdvance(false);
     return false;
