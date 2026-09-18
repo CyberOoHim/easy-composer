@@ -1249,6 +1249,36 @@ export function getExpectedMeasureBeats(timeSignature: string): number {
   return Math.round(num * (4 / den) * 1000) / 1000;
 }
 
+/**
+ * Integer quarter-note clicks per bar for metronome / chord grooves.
+ * 4/4 → 4, 3/4 → 3, 6/8 → 3 (not 6 eighths).
+ */
+export function getPlaybackBeatsPerBar(timeSignature: string): number {
+  return Math.max(1, Math.round(getExpectedMeasureBeats(timeSignature || '4/4')));
+}
+
+/**
+ * Written duration of a measure in quarter-note beats (rests count; spacers do not).
+ */
+export function getWrittenPlaybackBeats(measure: Measure): number {
+  let beats = 0;
+  for (const note of measure?.notes || []) {
+    if (!isNonNotationItem(note) && note.pitch !== 'empty' && note.duration > 0) {
+      beats += note.duration;
+    }
+  }
+  return beats;
+}
+
+/**
+ * Playback length of a bar: written notes, padded up to the time-signature length
+ * so an incomplete bar does not overlap the next downbeat.
+ */
+export function getPaddedMeasureBeats(measure: Measure, fallbackTimeSignature = '4/4'): number {
+  const expected = getExpectedMeasureBeats(measure?.timeSignature || fallbackTimeSignature || '4/4');
+  return Math.max(getWrittenPlaybackBeats(measure), expected);
+}
+
 export interface MeasureRhythmReport {
   currentBeats: number;
   expectedBeats: number;
@@ -2405,6 +2435,114 @@ export function distributeLyricsAcrossNotes(
       }
     }
     if (sylIdx >= syllables.length) break;
+  }
+
+  return normalizeSongDurations({
+    ...song,
+    measures: newMeasures,
+  });
+}
+
+export interface ApplyLyricTokensOptions {
+  startMeasureIdx?: number;
+  startNoteIdx?: number;
+  verseIndex?: number;
+}
+
+/**
+ * Writes lyric tokens onto notes without flattening POJ and Hàn-lô into one field.
+ * Dual tokens keep both `poj` and `hanlo`. A verseIndex > 1 writes only that
+ * lyricsByVerse slot and leaves other verses untouched.
+ */
+export function applyLyricTokensToSong(
+  song: Song,
+  tokens: LyricSyllable[],
+  options: ApplyLyricTokensOptions = {}
+): Song {
+  if (!tokens.length) return song;
+
+  const startMeasureIdx = options.startMeasureIdx ?? 0;
+  const startNoteIdx = options.startNoteIdx ?? 0;
+  const verseIndex = Math.max(1, Math.round(options.verseIndex ?? 1));
+
+  const newMeasures = song.measures.map(m => ({
+    ...m,
+    notes: m.notes.map(note => ({
+      ...note,
+      lyric: { ...note.lyric },
+      ...(note.lyricsByVerse
+        ? {
+            lyricsByVerse: Object.fromEntries(
+              Object.entries(note.lyricsByVerse).map(([k, v]) => [k, { ...v }])
+            ),
+          }
+        : {}),
+    })),
+  }));
+
+  let tokIdx = 0;
+  let started = false;
+
+  for (let mIdx = 0; mIdx < newMeasures.length; mIdx++) {
+    const m = newMeasures[mIdx];
+    for (let nIdx = 0; nIdx < m.notes.length; nIdx++) {
+      if (!started) {
+        if (mIdx === startMeasureIdx && nIdx >= startNoteIdx) {
+          started = true;
+        } else if (mIdx > startMeasureIdx) {
+          started = true;
+        } else {
+          continue;
+        }
+      }
+
+      if (tokIdx >= tokens.length) break;
+
+      const note = m.notes[nIdx];
+      const tok = tokens[tokIdx];
+      const isNonNotation = isNonNotationItem(note);
+      const isTokenPunct = isPunctuationOrSpacer(
+        tok.hanlo || tok.hanji || tok.custom || tok.poj || tok.tl || ''
+      );
+
+      if (isNonNotation && !isTokenPunct) {
+        continue;
+      }
+
+      tokIdx++;
+
+      const targetHanlo =
+        tok.hanlo !== undefined ? tok.hanlo : tok.hanji !== undefined ? tok.hanji : tok.custom;
+      const targetPoj = tok.poj !== undefined ? tok.poj : tok.tl;
+
+      const patch: LyricSyllable = {};
+      if (targetHanlo !== undefined) patch.hanlo = targetHanlo;
+      if (targetPoj !== undefined) patch.poj = targetPoj;
+
+      if (verseIndex === 1) {
+        note.lyric = {
+          ...note.lyric,
+          ...patch,
+        };
+      }
+
+      if (!note.lyricsByVerse) {
+        note.lyricsByVerse = {};
+      }
+      if (!note.lyricsByVerse[verseIndex]) {
+        note.lyricsByVerse[verseIndex] = {};
+      }
+      note.lyricsByVerse[verseIndex] = {
+        ...note.lyricsByVerse[verseIndex],
+        ...patch,
+      };
+
+      if (isTokenPunct && isNonNotation) {
+        note.pitch = 'empty';
+        note.duration = 0 as NoteDuration;
+      }
+    }
+    if (tokIdx >= tokens.length) break;
   }
 
   return normalizeSongDurations({

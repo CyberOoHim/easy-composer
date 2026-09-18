@@ -15,6 +15,7 @@ import {
   SheetOrientation,
 } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
+import { wakeLockManager } from '@/lib/wakeLock';
 import {
   normalizeSongDurations,
   getMeasureRhythmReport,
@@ -385,6 +386,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     [song, audioEngine, setSelectedCoord]
   );
 
+  const requestPlaybackWakeLock = useCallback(() => {
+    void wakeLockManager.requestForPlayback(Boolean(audioEngine.getOptions().ecoMode));
+  }, [audioEngine]);
+
   // Dedicated Play/Stop Measure verification
   const handleTogglePlayMeasure = (mIdx: number) => {
     if (playingMeasureIdx === mIdx && audioEngine.getIsPlaying()) {
@@ -394,6 +399,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       setPlayingSystemIdx(null);
       setIsPlayingSheet(false);
       setPlayingMeasureIdx(mIdx);
+      requestPlaybackWakeLock();
       audioEngine.playMeasure(song, mIdx, () => {
         setPlayingMeasureIdx(null);
       });
@@ -409,6 +415,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       setPlayingMeasureIdx(null);
       setIsPlayingSheet(false);
       setPlayingSystemIdx(systemIdx);
+      requestPlaybackWakeLock();
       audioEngine.playSystem(song, measureIndices, () => {
         setPlayingSystemIdx(null);
       });
@@ -442,9 +449,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       setPlayingSystemIdx(null);
       setIsPlayingSheet(true);
 
+      requestPlaybackWakeLock();
       audioEngine.play(song, startSec);
     },
-    [audioEngine, selectedMeasureIndex, selectedNoteIndex, song, handleSelectNote]
+    [audioEngine, selectedMeasureIndex, selectedNoteIndex, song, handleSelectNote, requestPlaybackWakeLock]
   );
 
   // Mutate specific note helper
@@ -2090,7 +2098,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     insertNoteBeforeAtRef.current = handleInsertNoteBeforeAt;
   });
 
-  // Keyboard listener for quick score editing (undo/redo handled globally at master transport)
+  // Global Find / transport / measure-ops only. Score pitch, octave, dash, and delete keys are owned by RealSheetCanvas.
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const activeEl = document.activeElement;
@@ -2099,7 +2107,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         activeEl instanceof HTMLTextAreaElement ||
         activeEl?.getAttribute('contenteditable') === 'true';
 
-      if (isTyping) return;
+      if (isTyping || e.defaultPrevented) return;
 
       // Check for In-Song Search (Ctrl+F or Cmd+F)
       if ((e.ctrlKey || e.metaKey) && (e.key === 'f' || e.key === 'F')) {
@@ -2120,69 +2128,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         return;
       }
 
-      if (e.key === 'ArrowRight' && !e.altKey) {
-        e.preventDefault();
-        handleNavigateNextNote();
-        return;
-      }
-
-      if (e.key === 'ArrowLeft' && !e.altKey) {
-        e.preventDefault();
-        handleNavigatePrevNote();
-        return;
-      }
-
       if (selectedMeasureIndex === null || selectedNoteIndex === null) return;
 
-      // 1-7 or 0 (Numpad or number row): Pitch input
-      if (
-        ['1', '2', '3', '4', '5', '6', '7', '0'].includes(e.key) ||
-        (e.code && /^Numpad[0-7]$/.test(e.code))
-      ) {
-        e.preventDefault();
-        const digitStr = e.code && /^Numpad[0-7]$/.test(e.code) ? e.code.replace('Numpad', '') : e.key;
-        const p = parseInt(digitStr, 10) as PitchNumber;
-        handleSetPitch(p);
-      } else if (['e', 'E', '_', 'x', 'X', 'Backspace', 'Delete'].includes(e.key)) {
-        e.preventDefault();
-        handleSetPitch('empty');
-      } else if (e.key === '/' || e.code === 'NumpadDivide') {
-        // Halve duration: / or NumpadDivide
-        e.preventDefault();
-        handleHalveDuration();
-      } else if (e.key === '*' || e.code === 'NumpadMultiply') {
-        // Double duration: * or NumpadMultiply
-        e.preventDefault();
-        handleDoubleDuration();
-      } else if (e.key === '-' || e.code === 'NumpadSubtract') {
-        // Octave down
-        e.preventDefault();
-        handleSetOctave(-1);
-      } else if (e.key === '+' || e.key === '=' || e.code === 'NumpadAdd') {
-        // Octave up
-        e.preventDefault();
-        handleSetOctave(1);
-      } else if (e.key === '.' || e.code === 'NumpadDecimal') {
-        // Toggle dotted note
-        e.preventDefault();
-        handleToggleDotted();
-      } else if (e.key === 't' || e.key === 'T') {
-        // Toggle tie
-        e.preventDefault();
-        handleToggleTie();
-      } else if (e.key === 's' || e.key === 'S') {
-        // Toggle slur
-        e.preventDefault();
-        handleToggleSlur();
-      } else if (e.key === '#') {
-        // Toggle sharp accidental
-        e.preventDefault();
-        handleSetAccidental('#');
-      } else if (e.key === 'b') {
-        // Toggle flat accidental
-        e.preventDefault();
-        handleSetAccidental('b');
-      } else if (['，', '。', ','].includes(e.key)) {
+      // Score pitch / octave / dash / delete are owned by RealSheetCanvas.
+      if (['，', '。', ','].includes(e.key)) {
         e.preventDefault();
         const mark = e.key === ',' ? '，' : e.key;
         handleInsertPunctuationToNote(mark);
@@ -2212,17 +2161,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         } else {
           insertNoteAtRef.current(selectedMeasureIndex, selectedNoteIndex);
         }
-      } else if (e.key === 'ArrowRight') {
-        e.preventDefault();
-        handleNavigateNextNote();
-      } else if (e.key === 'ArrowLeft') {
-        e.preventDefault();
-        handleNavigatePrevNote();
-      } else if (e.key === ' ') {
-        e.preventDefault();
-        if (currentNote) {
-          audioEngine.previewNote(song.key, currentNote);
-        }
       }
     };
 
@@ -2233,19 +2171,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   }, [
     selectedMeasureIndex,
     selectedNoteIndex,
-    currentNote,
-    audioEngine,
-    song.key,
-    handleSetPitch,
-    handleHalveDuration,
-    handleDoubleDuration,
-    handleSetOctave,
-    handleToggleDotted,
-    handleToggleTie,
-    handleToggleSlur,
-    handleSetAccidental,
-    handleNavigateNextNote,
-    handleNavigatePrevNote,
     handleInsertPunctuationToNote,
     handleMoveNoteBackward,
     handleMoveNoteForward,

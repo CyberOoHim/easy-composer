@@ -9,8 +9,8 @@
 | **Target Scope** | Persistence truth (IndexedDB / localStorage / import), shared song sanitizer, single editor keyboard owner, playback meter alignment, creativity/MIDI fidelity, and CI/PWA operational health. |
 | **Language Policy** | **100% English UI text across all buttons, dialogs, menus, tooltips, and prompts. Song titles, lyrics, Han-Lo, and Pe̍h-ōe-jī (POJ) remain preserved in their authentic native language.** |
 | **Backend Dependency** | **Zero Backend API Dependencies (100% Client-Side SPA / PWA execution).** |
-| **Status** | **In Progress — INT-1 and INT-2 complete** |
-| **Baseline (2026-09-18)** | `tsc --noEmit` clean. `npm test` **236/236 pass** after INT-1 + INT-2. Uncommitted `lib/creativityEngine.ts` change is English copy only (two chord-preset descriptions) and is safe to keep. |
+| **Status** | **In Progress — INT-1, INT-2, INT-3, and INT-4 complete** |
+| **Baseline (2026-09-18)** | `tsc --noEmit` clean. `npm test` **259/259 pass** after INT-1 + INT-2 + INT-3 + INT-4. Uncommitted `lib/creativityEngine.ts` change is English copy only (two chord-preset descriptions) and is safe to keep. |
 
 ---
 
@@ -31,8 +31,8 @@ Turns 5 and 6 may run in parallel with 3 or 4. Do **not** start INT-2 until INT-
 | :---: | :---: | :--- | :--- | :--- | :--- | :--- |
 | `[✓]` | **INT-1** | **Persistence Truth** | IDB commit-only saves; do not store unmodified presets; honor discard; save-error UI; newest-of-IDB-vs-localStorage bootstrap; same-id import confirm. | `lib/indexedDb.ts`, `app/page.tsx`, `components/ImportExportModal.tsx`, `components/NewSongModal.tsx`, `test/indexedDb.test.ts` | None | `Implement Module INT-1` |
 | `[✓]` | **INT-2** | **Shared Song Sanitizer** | One `sanitizeSong` on every load path; require lyric objects; reject empty measures; JSON/text parser tests including dotted-half round-trip. | `lib/songParser.ts`, `lib/indexedDb.ts`, `lib/storage.ts`, `app/page.tsx`, `test/songParser.test.ts` | INT-1 | `Implement Module INT-2` |
-| `[ ]` | **INT-3** | **Editor Input Ownership** | Single score keydown owner; note click must land on the tapped cell; remove measure-13 hyphen hacks; lyric aligner verse + dual-field apply. | `components/ComposerEditor.tsx`, `components/composer/RealSheetCanvas.tsx`, `components/QuickLyricAlignerModal.tsx` | None | `Implement Module INT-3` |
-| `[ ]` | **INT-4** | **Playback Meter & Wake Lock** | Drive beats from `getExpectedMeasureBeats`; pad incomplete bars; pass `isDownbeat` correctly; release wake lock; rest duration in chord arranger. | `lib/audioEngine.ts`, `lib/wakeLock.ts`, `lib/chordArranger.ts`, `app/page.tsx`, `test/audioEngine.test.ts` | None | `Implement Module INT-4` |
+| `[✓]` | **INT-3** | **Editor Input Ownership** | Single score keydown owner; note click must land on the tapped cell; remove measure-13 hyphen hacks; lyric aligner verse + dual-field apply. | `components/ComposerEditor.tsx`, `components/composer/RealSheetCanvas.tsx`, `components/QuickLyricAlignerModal.tsx` | None | `Implement Module INT-3` |
+| `[✓]` | **INT-4** | **Playback Meter & Wake Lock** | Drive beats from `getExpectedMeasureBeats`; pad incomplete bars; pass `isDownbeat` correctly; release wake lock; rest duration in chord arranger. | `lib/audioEngine.ts`, `lib/wakeLock.ts`, `lib/chordArranger.ts`, `app/page.tsx`, `test/audioEngine.test.ts` | None | `Implement Module INT-4` |
 | `[ ]` | **INT-5** | **Creativity & MIDI Fidelity** | Melody spark must not wipe lyrics; folk grace degree-7 neighbor; diatonic VII from key; MIDI `m7`/slash bass; drop unused import. | `lib/creativityEngine.ts`, `lib/midiExport.ts`, `components/composer/RealSheetCanvas.tsx`, `test/creativityEngine.test.ts` | None | `Implement Module INT-5` |
 | `[ ]` | **INT-6** | **CI & PWA Health** | Run tests in CI; Node engine vs strip-types; global-error backup key; SW cache cap/version; unused manifest shortcuts. | `.github/workflows/deploy.yml`, `package.json`, `app/global-error.tsx`, `public/sw.js`, `public/manifest.webmanifest` | None | `Implement Module INT-6` |
 
@@ -140,7 +140,7 @@ Do **not** “fix” these as part of this plan:
 ---
 
 ### Module 3: Editor Input Ownership (`INT-3`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: One keydown owner for the score; clicking a note selects that note; lyric aligner respects verse scope and dual fields.
 - **Touchpoint Files**:
   - `components/ComposerEditor.tsx`
@@ -157,11 +157,11 @@ Do **not** “fix” these as part of this plan:
   | Bug | `QuickLyricAlignerModal.tsx` ~253–385 | `alignScope === 'verse'` is UI-only; dual mode flattens tokens to one field. |
 
 - **Detailed TODO List**:
-  - [ ] Keep **one** score keydown handler (RealSheetCanvas, which already knows `noteInputMode`). ComposerEditor must return early on `e.defaultPrevented` **or** drop duplicate pitch / octave / delete / dash handling. Global Ctrl/Cmd+F and transport keys may remain on the page/editor.
-  - [ ] Align HUD tooltips with the surviving keymap (`-` = dash vs octave).
-  - [ ] Stop calling `onSelectMeasure` from `handleNoteClick`. Measure-empty-area clicks stay on `onSelectMeasure`; note/lyric cell clicks only call `onSelectNote`.
-  - [ ] Remove 望春風-specific hyphen special cases keyed on `measureNumber === 13`. Drive hyphen joining from lyric text only.
-  - [ ] Implement `alignScope === 'verse'` in `handleApply`. Dual mode must write both POJ and Hàn-lô without flattening to `hanlo \|\| poj`.
+  - [✓] Keep **one** score keydown handler (RealSheetCanvas, which already knows `noteInputMode`). ComposerEditor must return early on `e.defaultPrevented` **or** drop duplicate pitch / octave / delete / dash handling. Global Ctrl/Cmd+F and transport keys may remain on the page/editor.
+  - [✓] Align HUD tooltips with the surviving keymap (`-` = dash vs octave).
+  - [✓] Stop calling `onSelectMeasure` from `handleNoteClick`. Measure-empty-area clicks stay on `onSelectMeasure`; note/lyric cell clicks only call `onSelectNote`.
+  - [✓] Remove 望春風-specific hyphen special cases keyed on `measureNumber === 13`. Drive hyphen joining from lyric text only.
+  - [✓] Implement `alignScope === 'verse'` in `handleApply`. Dual mode must write both POJ and Hàn-lô without flattening to `hanlo \|\| poj`.
 - **Verification Gate**:
   - `npm run typecheck` passes.
   - Manual: type 1–7 in progressive-replace — cursor advances; `-` inserts a dash, not octave down; click a note in another bar and land on **that** cell; aligner “this verse” does not rewrite other verses.
@@ -170,7 +170,7 @@ Do **not** “fix” these as part of this plan:
 ---
 
 ### Module 4: Playback Meter & Wake Lock (`INT-4`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: Metronome, chords, and melody share one beat clock; wake lock is released when playback ends.
 - **Touchpoint Files**:
   - `lib/audioEngine.ts`
@@ -191,11 +191,11 @@ Do **not** “fix” these as part of this plan:
   | Bug | `lib/chordArranger.ts` ~151–154 | `!note.pitch` treats rest `0` as skip **without** advancing `currentBeat`. |
 
 - **Detailed TODO List**:
-  - [ ] Drive `beatsPerBar` / expected measure length from `getExpectedMeasureBeats(measure.timeSignature \|\| song.timeSignature)` in `play`, `playMeasure`, `playSystem`, `playVerse`, and `playCountIn`.
-  - [ ] Advance the bar by `max(writtenBeats, expectedBeats)` so incomplete bars pad with silence instead of overlapping the next measure. Align `play()` with `playMeasure`.
-  - [ ] Pass `isDownbeat` (`b === 0`) as the 4th argument of `playChordBeat`. Keep `isChordChange` as a separate flag if groove code needs it; do not overload the downbeat argument.
-  - [ ] Call `wakeLockManager.release()` on pause, stop, and `notifyEnded`. Request the lock from sheet play as well as the header transport (skip when eco mode is on, matching `requestForPlayback`).
-  - [ ] In `extractTimedNotes`, treat `pitch === 0` as a rest that still advances `currentBeat`. Only skip true non-notation / `'empty'` / zero-duration items without time.
+  - [✓] Drive `beatsPerBar` / expected measure length from `getExpectedMeasureBeats(measure.timeSignature \|\| song.timeSignature)` in `play`, `playMeasure`, `playSystem`, `playVerse`, and `playCountIn`.
+  - [✓] Advance the bar by `max(writtenBeats, expectedBeats)` so incomplete bars pad with silence instead of overlapping the next measure. Align `play()` with `playMeasure`.
+  - [✓] Pass `isDownbeat` (`b === 0`) as the 4th argument of `playChordBeat`. Keep `isChordChange` as a separate flag if groove code needs it; do not overload the downbeat argument.
+  - [✓] Call `wakeLockManager.release()` on pause, stop, and `notifyEnded`. Request the lock from sheet play as well as the header transport (skip when eco mode is on, matching `requestForPlayback`).
+  - [✓] In `extractTimedNotes`, treat `pitch === 0` as a rest that still advances `currentBeat`. Only skip true non-notation / `'empty'` / zero-duration items without time.
 - **Verification Gate**:
   - New unit tests: 6/8 schedules 3 quarter-beats; a 3-beat bar in 4/4 does not schedule a 4th click into the next bar; folk/waltz mid-bar chord change is not treated as a downbeat; rest `pitch: 0` advances beat weight.
   - `npm test` and `npm run typecheck` pass.

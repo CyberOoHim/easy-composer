@@ -4,6 +4,7 @@ import {
   getMeasureBeatBudget,
   fillMeasureDeficitWithRests,
   distributeLyricsAcrossNotes,
+  applyLyricTokensToSong,
   calculateMeasureBeats,
 } from '../lib/taigiUtils.ts';
 import type { Song, Measure, NumberedNotationNote } from '../types/song.ts';
@@ -243,5 +244,70 @@ describe('Smart Lyric Distribute Across Notes (MOD-3)', () => {
     const updated = distributeLyricsAcrossNotes('khì--ah', song, 0, 0, 1, 'roman');
     assert.equal(updated.measures[0].notes[0].lyric.poj, 'khì--');
     assert.equal(updated.measures[0].notes[1].lyric.poj, 'ah');
+  });
+});
+
+describe('Apply lyric tokens without flattening (INT-3)', () => {
+  it('writes both POJ and Hàn-lô from dual tokens', () => {
+    const song = createTestSong([
+      createTestMeasure('m1', 1, [1, 1]),
+    ]);
+
+    const updated = applyLyricTokensToSong(song, [
+      { poj: 'Bāng', hanlo: '望' },
+      { poj: 'chhun', hanlo: '春' },
+    ]);
+
+    assert.equal(updated.measures[0].notes[0].lyric.poj, 'Bāng');
+    assert.equal(updated.measures[0].notes[0].lyric.hanlo, '望');
+    assert.equal(updated.measures[0].notes[1].lyric.poj, 'chhun');
+    assert.equal(updated.measures[0].notes[1].lyric.hanlo, '春');
+  });
+
+  it('does not flatten dual tokens to hanlo || poj', () => {
+    const song = createTestSong([
+      createTestMeasure('m1', 1, [1]),
+    ]);
+
+    const updated = applyLyricTokensToSong(song, [{ poj: 'hong', hanlo: '' }]);
+    assert.equal(updated.measures[0].notes[0].lyric.poj, 'hong');
+    assert.equal(updated.measures[0].notes[0].lyric.hanlo, '');
+  });
+
+  it('writes verse 2 without rewriting verse 1', () => {
+    const song = createTestSong([
+      createTestMeasure('m1', 1, [1, 1]),
+    ]);
+    const withVerse1 = applyLyricTokensToSong(song, [
+      { hanlo: '春' },
+      { hanlo: '風' },
+    ], { verseIndex: 1 });
+    const withVerse2 = applyLyricTokensToSong(withVerse1, [
+      { hanlo: '秋' },
+      { hanlo: '月' },
+    ], { verseIndex: 2 });
+
+    assert.equal(withVerse2.measures[0].notes[0].lyric.hanlo, '春');
+    assert.equal(withVerse2.measures[0].notes[1].lyric.hanlo, '風');
+    assert.equal(withVerse2.measures[0].notes[0].lyricsByVerse?.[1]?.hanlo, '春');
+    assert.equal(withVerse2.measures[0].notes[1].lyricsByVerse?.[1]?.hanlo, '風');
+    assert.equal(withVerse2.measures[0].notes[0].lyricsByVerse?.[2]?.hanlo, '秋');
+    assert.equal(withVerse2.measures[0].notes[1].lyricsByVerse?.[2]?.hanlo, '月');
+  });
+
+  it('honors start coordinate so earlier notes stay untouched', () => {
+    const song = createTestSong([
+      createTestMeasure('m1', 1, [1, 1]),
+      createTestMeasure('m2', 2, [1]),
+    ]);
+    const updated = applyLyricTokensToSong(
+      song,
+      [{ poj: 'hong' }],
+      { startMeasureIdx: 0, startNoteIdx: 1 }
+    );
+
+    assert.equal(updated.measures[0].notes[0].lyric.poj, undefined);
+    assert.equal(updated.measures[0].notes[1].lyric.poj, 'hong');
+    assert.equal(updated.measures[1].notes[0].lyric.poj, undefined);
   });
 });

@@ -1,5 +1,10 @@
 import { Song, VerseItem, VerseNoteRef } from '@/types/song';
-import { isNonNotationItem, isPunctuationOrSpacer } from './taigiUtils';
+import {
+  getPaddedMeasureBeats,
+  getPlaybackBeatsPerBar,
+  isNonNotationItem,
+  isPunctuationOrSpacer,
+} from './taigiUtils';
 
 export interface NoteTiming {
   measureIndex: number;
@@ -74,6 +79,7 @@ export function computeVersesTiming(
   let accumulatedTime = 0;
 
   song.measures.forEach((measure, mIdx) => {
+    const measureStart = accumulatedTime;
     measure.notes.forEach((note, nIdx) => {
       const isNonNotation =
         isNonNotationItem(note) ||
@@ -108,6 +114,8 @@ export function computeVersesTiming(
         accumulatedTime += durationSec;
       }
     });
+    const paddedSec = getPaddedMeasureBeats(measure, song.timeSignature || '4/4') * secPerBeat;
+    accumulatedTime = Math.max(accumulatedTime, measureStart + paddedSec);
   });
 
   // Calculate verse-level boundaries and first vocal onset
@@ -210,8 +218,7 @@ export function getKaraokeStageSequenceState(
 
   const effectiveBpm = Math.max(20, (song.bpm || 80) * tempoMultiplier);
   const secPerBeat = 60 / effectiveBpm;
-  const tsParts = (song.measures[0]?.timeSignature || song.timeSignature || '4/4').split('/');
-  const beatsPerBar = parseInt(tsParts[0], 10) || 4;
+  const beatsPerBar = getPlaybackBeatsPerBar(song.measures[0]?.timeSignature || song.timeSignature || '4/4');
 
   let activeIndex = 0;
   let isLeadIn = false;

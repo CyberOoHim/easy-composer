@@ -8,7 +8,7 @@ import {
   isNonNotationItem,
   isPunctuationOrSpacer,
   normalizeSongDurations,
-  distributeLyricsAcrossNotes,
+  applyLyricTokensToSong,
   getSongVerseCount,
 } from '@/lib/taigiUtils';
 import {
@@ -103,12 +103,9 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
       }
       return count;
     }
-    if (alignScope === 'verse') {
-      const v = songVerses[selectedTargetVerse - 1];
-      return v ? v.notes.length : 0;
-    }
+    // 'verse' (parallel lyricsByVerse slot) and 'all' both span every note.
     return totalNotesCount;
-  }, [alignScope, activeCoordinate, selectedStartMeasure, selectedTargetVerse, totalNotesCount, song, songVerses]);
+  }, [alignScope, activeCoordinate, selectedStartMeasure, totalNotesCount, song]);
 
   const totalPreviewTokensCount = useMemo(() => {
     return versePreviews.reduce((acc, vp) => acc + vp.tokens.length, 0);
@@ -253,41 +250,43 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   const handleApply = () => {
     if (versePreviews.length === 0) return;
 
-    // If aligning from selection or specific measure, use distributeLyricsAcrossNotes
+    const allTokens = versePreviews.flatMap(vp => vp.tokens);
+
+    // Selection / measure / verse scopes write tokens as-is so dual mode
+    // keeps both POJ and Hàn-lô instead of flattening to hanlo || poj.
     if (alignScope === 'selection' && activeCoordinate) {
       const [startM, startN] = activeCoordinate;
-      // Flatten all preview tokens into a single text line
-      const allTokensText = versePreviews
-        .flatMap(vp => vp.tokens.map(t => t.hanlo || t.poj || ''))
-        .join(' ');
-
-      const updated = distributeLyricsAcrossNotes(
-        allTokensText,
-        song,
-        startM,
-        startN,
-        selectedTargetVerse,
-        targetField === 'roman' ? 'roman' : targetField === 'hanlo' ? 'hanlo' : 'auto'
+      onApplyLyrics(
+        applyLyricTokensToSong(song, allTokens, {
+          startMeasureIdx: startM,
+          startNoteIdx: startN,
+          verseIndex: selectedTargetVerse,
+        })
       );
-      onApplyLyrics(updated);
       onClose();
       return;
     }
 
     if (alignScope === 'measure') {
-      const allTokensText = versePreviews
-        .flatMap(vp => vp.tokens.map(t => t.hanlo || t.poj || ''))
-        .join(' ');
-
-      const updated = distributeLyricsAcrossNotes(
-        allTokensText,
-        song,
-        selectedStartMeasure,
-        0,
-        selectedTargetVerse,
-        targetField === 'roman' ? 'roman' : targetField === 'hanlo' ? 'hanlo' : 'auto'
+      onApplyLyrics(
+        applyLyricTokensToSong(song, allTokens, {
+          startMeasureIdx: selectedStartMeasure,
+          startNoteIdx: 0,
+          verseIndex: selectedTargetVerse,
+        })
       );
-      onApplyLyrics(updated);
+      onClose();
+      return;
+    }
+
+    if (alignScope === 'verse') {
+      onApplyLyrics(
+        applyLyricTokensToSong(song, allTokens, {
+          startMeasureIdx: 0,
+          startNoteIdx: 0,
+          verseIndex: selectedTargetVerse,
+        })
+      );
       onClose();
       return;
     }

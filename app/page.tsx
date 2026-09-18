@@ -475,6 +475,7 @@ export default function Home() {
     if (!audioEngine) return;
     if (isPlaying) {
       audioEngine.pause();
+      void wakeLockManager.release();
     } else if (audioEngine.getIsPaused()) {
       audioEngine.unlockOnUserGesture();
       void wakeLockManager.requestForPlayback(isEcoMode);

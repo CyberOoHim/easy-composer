@@ -1,6 +1,17 @@
-import type { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, KeySignature, Measure, Song } from '../types/song.ts';
-import { getChordNotes, getEffectiveMeasureChords, getMeasureChords, getPitchFrequency, isNonNotationItem, isSamePitch, isSlurActive, isTieActive } from './taigiUtils.ts';
+import type { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, KeySignature, Song } from '../types/song.ts';
+import {
+  getChordNotes,
+  getEffectiveMeasureChords,
+  getPaddedMeasureBeats,
+  getPlaybackBeatsPerBar,
+  getPitchFrequency,
+  isNonNotationItem,
+  isSamePitch,
+  isSlurActive,
+  isTieActive,
+} from './taigiUtils.ts';
 import { getStoredAccompanimentStyle, type AccompanimentStyle } from './storage.ts';
+import { wakeLockManager } from './wakeLock.ts';
 
 export type { AccompanimentStyle };
 
@@ -45,14 +56,73 @@ interface PendingMelodyEvent {
   isSlurred: boolean;
 }
 
-interface PendingBeatEvent {
+export interface PlaybackBeatEvent {
   songTime: number;
   isDownbeat: boolean;
   chord: string | null;
   isChordChange: boolean;
   beatDuration: number;
-  beatIndexInBar?: number;
-  beatsPerBar?: number;
+  beatIndexInBar: number;
+  beatsPerBar: number;
+}
+
+type PendingBeatEvent = PlaybackBeatEvent;
+
+/**
+ * Metronome/chord events for one bar. `isDownbeat` is only true on beat 0;
+ * a mid-bar chord change sets `isChordChange` without impersonating a downbeat.
+ */
+export function buildMeasureBeatEvents(
+  song: Song,
+  measureIndex: number,
+  measureStartTime: number,
+  secPerBeat: number,
+  startFromSec = 0
+): PlaybackBeatEvent[] {
+  const measure = song.measures[measureIndex];
+  if (!measure) return [];
+
+  const beatsPerBar = getPlaybackBeatsPerBar(measure.timeSignature || song.timeSignature || '4/4');
+  const measureChords = getEffectiveMeasureChords(song, measureIndex);
+  const events: PlaybackBeatEvent[] = [];
+
+  for (let b = 0; b < beatsPerBar; b++) {
+    const beatTime = measureStartTime + b * secPerBeat;
+    if (beatTime < startFromSec) continue;
+
+    const chordIdx =
+      measureChords.length > 0
+        ? Math.min(measureChords.length - 1, Math.floor((b / beatsPerBar) * measureChords.length))
+        : 0;
+    const currentChord = measureChords.length > 0 ? measureChords[chordIdx] : null;
+    const isChordChange =
+      b === 0 ||
+      (measureChords.length > 0 &&
+        chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length));
+
+    events.push({
+      songTime: beatTime,
+      isDownbeat: b === 0,
+      chord: currentChord,
+      isChordChange,
+      beatDuration: secPerBeat,
+      beatIndexInBar: b,
+      beatsPerBar,
+    });
+  }
+
+  return events;
+}
+
+/** Full-song beat clock with incomplete bars padded to the expected meter. */
+export function buildSongBeatEvents(song: Song, secPerBeat: number, startFromSec = 0): PlaybackBeatEvent[] {
+  const events: PlaybackBeatEvent[] = [];
+  let accumulated = 0;
+  song.measures.forEach((measure, mIdx) => {
+    events.push(...buildMeasureBeatEvents(song, mIdx, accumulated, secPerBeat, startFromSec));
+    accumulated += getPaddedMeasureBeats(measure, song.timeSignature) * secPerBeat;
+  });
+  return events;
 }
 
 export class AudioEngine {
@@ -191,7 +261,16 @@ export class AudioEngine {
     this.stateListeners.forEach(l => l(state));
   }
 
+  private holdWakeLock() {
+    void wakeLockManager.requestForPlayback(Boolean(this.options.ecoMode));
+  }
+
+  private releaseWakeLock() {
+    void wakeLockManager.release();
+  }
+
   private notifyEnded() {
+    this.releaseWakeLock();
     const reason = this.playbackEndedReason;
     this.endedListeners.forEach(l => l({ reason }));
   }
@@ -2127,14 +2206,7 @@ export class AudioEngine {
     let totalBeats = 0;
 
     for (const measure of song.measures) {
-      let measureBeats = 0;
-      for (const note of measure.notes) {
-        // Punctuation, annotations, newlines, and blank whitespace do not occupy any time duration when playing
-        if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
-          measureBeats += note.duration;
-        }
-      }
-      totalBeats += measureBeats;
+      totalBeats += getPaddedMeasureBeats(measure, song.timeSignature);
     }
 
     return totalBeats * secPerBeat;
@@ -2160,20 +2232,12 @@ export class AudioEngine {
     this.isPaused = false;
     this.pausedSongTime = 0;
     this.playbackEndedReason = 'preview';
+    this.holdWakeLock();
 
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
 
-    let measureBeats = 0;
-    for (const note of targetMeasure.notes) {
-      if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
-        measureBeats += note.duration;
-      }
-    }
-
-    const tsParts = (targetMeasure.timeSignature || song.timeSignature).split('/');
-    const beatsPerBar = parseInt(tsParts[0], 10) || 4;
-    const totalMeasureDurationSec = Math.max(measureBeats, beatsPerBar) * secPerBeat;
+    const totalMeasureDurationSec = getPaddedMeasureBeats(targetMeasure, song.timeSignature) * secPerBeat;
 
     const audioStart = this.ctx.currentTime + 0.08;
     this.startAudioTime = audioStart;
@@ -2248,18 +2312,11 @@ export class AudioEngine {
     });
 
     // Schedule chord backing & metronome for this measure
-    const measureChords = getEffectiveMeasureChords(song, measureIndex);
-    for (let b = 0; b < beatsPerBar; b++) {
-      const beatTime = audioStart + b * secPerBeat;
-      this.playMetronomeClick(beatTime, b === 0);
-      if (measureChords.length > 0) {
-        const chordIdx = Math.min(
-          measureChords.length - 1,
-          Math.floor((b / beatsPerBar) * measureChords.length)
-        );
-        const currentChord = measureChords[chordIdx];
-        const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
-        this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange, false, b, beatsPerBar);
+    for (const ev of buildMeasureBeatEvents(song, measureIndex, 0, secPerBeat)) {
+      const beatTime = audioStart + ev.songTime;
+      this.playMetronomeClick(beatTime, ev.isDownbeat);
+      if (ev.chord) {
+        this.playChordBeat(ev.chord, beatTime, ev.beatDuration, ev.isDownbeat, false, ev.beatIndexInBar, ev.beatsPerBar);
       }
     }
 
@@ -2297,6 +2354,7 @@ export class AudioEngine {
     this.isPaused = false;
     this.pausedSongTime = 0;
     this.playbackEndedReason = 'preview';
+    this.holdWakeLock();
 
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
@@ -2336,9 +2394,7 @@ export class AudioEngine {
         }
       });
 
-      const tsParts = (measure.timeSignature || song.timeSignature).split('/');
-      const beatsPerBar = parseInt(tsParts[0], 10) || 4;
-      const measureDurationBeats = Math.max(measureBeats, beatsPerBar);
+      const measureDurationBeats = getPaddedMeasureBeats(measure, song.timeSignature);
       systemAccumTime += measureDurationBeats * secPerBeat;
     });
 
@@ -2409,31 +2465,15 @@ export class AudioEngine {
       const measure = song.measures[mIdx];
       if (!measure) return;
 
-      const tsParts = (measure.timeSignature || song.timeSignature).split('/');
-      const beatsPerBar = parseInt(tsParts[0], 10) || 4;
-      const measureChords = getEffectiveMeasureChords(song, mIdx);
-
-      for (let b = 0; b < beatsPerBar; b++) {
-        const beatTime = audioStart + measureAccumTime + b * secPerBeat;
-        this.playMetronomeClick(beatTime, b === 0);
-        if (measureChords.length > 0) {
-          const chordIdx = Math.min(
-            measureChords.length - 1,
-            Math.floor((b / beatsPerBar) * measureChords.length)
-          );
-          const currentChord = measureChords[chordIdx];
-          const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
-          this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange, false, b, beatsPerBar);
+      for (const ev of buildMeasureBeatEvents(song, mIdx, measureAccumTime, secPerBeat)) {
+        const beatTime = audioStart + ev.songTime;
+        this.playMetronomeClick(beatTime, ev.isDownbeat);
+        if (ev.chord) {
+          this.playChordBeat(ev.chord, beatTime, ev.beatDuration, ev.isDownbeat, false, ev.beatIndexInBar, ev.beatsPerBar);
         }
       }
 
-      let mBeats = 0;
-      measure.notes.forEach(n => {
-        if (!isNonNotationItem(n) && n.duration > 0 && n.pitch !== 'empty') {
-          mBeats += n.duration;
-        }
-      });
-      measureAccumTime += Math.max(mBeats, beatsPerBar) * secPerBeat;
+      measureAccumTime += getPaddedMeasureBeats(measure, song.timeSignature) * secPerBeat;
     });
 
     // Start UI tracking loop for real-time note highlighting
@@ -2474,6 +2514,7 @@ export class AudioEngine {
     this.isPaused = false;
     this.pausedSongTime = 0;
     this.playbackEndedReason = 'preview';
+    this.holdWakeLock();
 
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
@@ -2565,25 +2606,12 @@ export class AudioEngine {
 
     // Schedule chords and metronome clicks accurately per measure in the verse
     measureStartTimeMap.forEach((mStartTimeSec, mIdx) => {
-      const targetMeasure = song.measures[mIdx];
-      if (!targetMeasure) return;
-
-      const tsParts = (targetMeasure.timeSignature || song.timeSignature || '4/4').split('/');
-      const beatsPerBar = parseInt(tsParts[0], 10) || 4;
-      const measureChords = getEffectiveMeasureChords(song, mIdx);
-
-      for (let b = 0; b < beatsPerBar; b++) {
-        const beatTime = audioStart + mStartTimeSec + b * secPerBeat;
-        this.playMetronomeClick(beatTime, b === 0);
-
-        if (measureChords.length > 0) {
-          const chordIdx = Math.min(
-            measureChords.length - 1,
-            Math.floor((b / beatsPerBar) * measureChords.length)
-          );
-          const currentChord = measureChords[chordIdx];
-          const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
-          this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange, false, b, beatsPerBar);
+      if (!song.measures[mIdx]) return;
+      for (const ev of buildMeasureBeatEvents(song, mIdx, mStartTimeSec, secPerBeat)) {
+        const beatTime = audioStart + ev.songTime;
+        this.playMetronomeClick(beatTime, ev.isDownbeat);
+        if (ev.chord) {
+          this.playChordBeat(ev.chord, beatTime, ev.beatDuration, ev.isDownbeat, false, ev.beatIndexInBar, ev.beatsPerBar);
         }
       }
     });
@@ -2650,8 +2678,9 @@ export class AudioEngine {
       return;
     }
 
-    const tsParts = (song.measures[0]?.timeSignature || song.timeSignature || '4/4').split('/');
-    const beatsPerBar = parseInt(tsParts[0], 10) || 4;
+    this.holdWakeLock();
+
+    const beatsPerBar = getPlaybackBeatsPerBar(song.measures[0]?.timeSignature || song.timeSignature || '4/4');
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
 
@@ -2711,6 +2740,7 @@ export class AudioEngine {
     this.isPaused = false;
     this.pausedSongTime = startFromSec;
     this.playbackEndedReason = 'song';
+    this.holdWakeLock();
 
     const totalDuration = this.calculateSongDuration(song);
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
@@ -2759,6 +2789,7 @@ export class AudioEngine {
     let songAccumTime = 0;
 
     song.measures.forEach((measure, mIdx) => {
+      const measureStart = songAccumTime;
       measure.notes.forEach((note, nIdx) => {
         const isNon = isNonNotationItem(note) || note.pitch === 'empty' || note.duration <= 0;
         const noteDurSec = isNon ? 0 : note.duration * secPerBeat;
@@ -2774,6 +2805,7 @@ export class AudioEngine {
           songAccumTime += noteDurSec;
         }
       });
+      songAccumTime = measureStart + getPaddedMeasureBeats(measure, song.timeSignature) * secPerBeat;
     });
 
     const flatTotal = flatSongNotes.length;
@@ -2801,11 +2833,6 @@ export class AudioEngine {
     let flatCursor = 0;
     song.measures.forEach((measure, mIdx) => {
       let measureTime = accumulatedSongTime;
-      let measureBeatsCount = 0;
-
-      // Determine time signature beats
-      const tsParts = (measure.timeSignature || song.timeSignature).split('/');
-      const beatsPerBar = parseInt(tsParts[0], 10) || 4;
 
       measure.notes.forEach((note, nIdx) => {
         const currentFlatIdx = flatCursor++;
@@ -2840,39 +2867,14 @@ export class AudioEngine {
 
         if (!isNonNotation && note.duration > 0) {
           measureTime += noteDurationSec;
-          measureBeatsCount += note.duration;
         }
       });
 
-      const measureChords = getEffectiveMeasureChords(song, mIdx);
-      for (let b = 0; b < beatsPerBar; b++) {
-        const beatTime = accumulatedSongTime + b * secPerBeat;
-        if (beatTime >= startFromSec) {
-          const chordIdx =
-            measureChords.length > 0
-              ? Math.min(
-                  measureChords.length - 1,
-                  Math.floor((b / beatsPerBar) * measureChords.length)
-                )
-              : 0;
-          const currentChord = measureChords.length > 0 ? measureChords[chordIdx] : null;
-          const isChordChange =
-            b === 0 ||
-            (measureChords.length > 0 &&
-              chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length));
-          this.pendingBeatEvents.push({
-            songTime: beatTime,
-            isDownbeat: b === 0,
-            chord: currentChord,
-            isChordChange,
-            beatDuration: secPerBeat,
-            beatIndexInBar: b,
-            beatsPerBar,
-          });
-        }
-      }
+      this.pendingBeatEvents.push(
+        ...buildMeasureBeatEvents(song, mIdx, accumulatedSongTime, secPerBeat, startFromSec)
+      );
 
-      accumulatedSongTime += measureBeatsCount * secPerBeat;
+      accumulatedSongTime += getPaddedMeasureBeats(measure, song.timeSignature) * secPerBeat;
     });
 
     this.startTrackingLoop(totalDuration, timelineEvents);
@@ -2917,10 +2919,10 @@ export class AudioEngine {
             ev.chord,
             scheduleAt,
             ev.beatDuration,
-            ev.isChordChange,
+            ev.isDownbeat,
             false,
-            ev.beatIndexInBar ?? 0,
-            ev.beatsPerBar ?? 4
+            ev.beatIndexInBar,
+            ev.beatsPerBar
           );
         }
       }
@@ -3080,6 +3082,7 @@ export class AudioEngine {
     this.isPaused = true;
     this.isPlaying = false;
     this.wasInterruptedByTabSwitch = false;
+    this.releaseWakeLock();
     this.stopAudioNodes();
     this.cancelTrackingLoop();
     this.clearPlaybackSchedule();
@@ -3121,6 +3124,9 @@ export class AudioEngine {
     this.isPaused = false;
     this.pausedSongTime = 0;
     this.wasInterruptedByTabSwitch = false;
+    if (notify) {
+      this.releaseWakeLock();
+    }
     this.stopAllSustainedNotes();
     this.stopAudioNodes();
     this.cancelTrackingLoop();
@@ -3154,13 +3160,7 @@ export class AudioEngine {
 
     const limit = Math.min(measureIndex, song.measures.length);
     for (let i = 0; i < limit; i++) {
-      let measureBeats = 0;
-      for (const note of song.measures[i].notes) {
-        if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
-          measureBeats += note.duration;
-        }
-      }
-      accumulatedTime += measureBeats * secPerBeat;
+      accumulatedTime += getPaddedMeasureBeats(song.measures[i], song.timeSignature) * secPerBeat;
     }
     return accumulatedTime;
   }
@@ -3182,13 +3182,7 @@ export class AudioEngine {
 
     const mLimit = Math.max(0, Math.min(measureIndex, song.measures.length));
     for (let i = 0; i < mLimit; i++) {
-      let measureBeats = 0;
-      for (const note of song.measures[i].notes) {
-        if (!isNonNotationItem(note) && note.duration > 0 && note.pitch !== 'empty') {
-          measureBeats += note.duration;
-        }
-      }
-      accumulatedTime += measureBeats * secPerBeat;
+      accumulatedTime += getPaddedMeasureBeats(song.measures[i], song.timeSignature) * secPerBeat;
     }
 
     if (measureIndex >= 0 && measureIndex < song.measures.length) {
@@ -3224,7 +3218,13 @@ export class AudioEngine {
 
     for (let mIdx = 0; mIdx < song.measures.length; mIdx++) {
       const measure = song.measures[mIdx];
+      const measureStart = accumulatedTime;
       const isLastMeasure = mIdx === song.measures.length - 1;
+      let lastLoc = {
+        measureIndex: mIdx,
+        noteIndex: 0,
+        noteId: measure.notes[0]?.id || null,
+      };
 
       for (let nIdx = 0; nIdx < measure.notes.length; nIdx++) {
         const note = measure.notes[nIdx];
@@ -3232,20 +3232,28 @@ export class AudioEngine {
         const noteDurationSec = isNonNotation ? 0 : note.duration * secPerBeat;
         const isLastNote = isLastMeasure && nIdx === measure.notes.length - 1;
 
+        lastLoc = {
+          measureIndex: mIdx,
+          noteIndex: nIdx,
+          noteId: note.id,
+        };
+
         // If targetTime falls within this note's window or at the end of the song
         if (
           isLastNote ||
           (noteDurationSec > 0 && targetTimeSec < accumulatedTime + noteDurationSec - EPSILON)
         ) {
-          return {
-            measureIndex: mIdx,
-            noteIndex: nIdx,
-            noteId: note.id,
-          };
+          return lastLoc;
         }
 
         accumulatedTime += noteDurationSec;
       }
+
+      const padEnd = measureStart + getPaddedMeasureBeats(measure, song.timeSignature) * secPerBeat;
+      if (isLastMeasure || targetTimeSec < padEnd - EPSILON) {
+        return lastLoc;
+      }
+      accumulatedTime = padEnd;
     }
 
     return {

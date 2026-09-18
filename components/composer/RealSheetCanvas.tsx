@@ -737,7 +737,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       subField?: 'hanlo' | 'poj'
     ) => {
       onSelectNote?.(mIdx, nIdx, previewAudio);
-      onSelectMeasure?.(mIdx);
       setActiveField(targetField);
       if (targetField === 'lyric') {
         setActiveVerseRow(verseRow);
@@ -753,7 +752,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         }
       }
     },
-    [onSelectNote, onSelectMeasure, song]
+    [onSelectNote, song]
   );
 
   // Ensure the sheet scroll starts display from the left-most edge (scrollLeft = 0)
@@ -1671,6 +1670,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       // Ignore if typing in standard input or textarea
       if (
+        e.defaultPrevented ||
         e.target instanceof HTMLInputElement ||
         e.target instanceof HTMLTextAreaElement ||
         editingHeaderField !== null
@@ -1692,6 +1692,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         onRedo?.();
         return;
       }
+
+      // Leave Ctrl/Cmd chords (Find, save, etc.) and Alt+Arrow measure ops to the page/editor.
+      if (e.ctrlKey || e.metaKey) return;
+      if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;
 
       // Space: Toggle play score
       if (e.code === 'Space') {
@@ -1777,7 +1781,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           handleSetPitch(0);
           return;
         }
-        if (e.key === '`' || e.key === '_' || e.key === '␣') {
+        if (e.key === '`' || e.key === '␣') {
           e.preventDefault();
           handleSetPitch('empty');
           return;
@@ -2703,9 +2707,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     key={`measure-${engravedM.measure.id}`}
                     id={`sheet-measure-${engravedM.measureNumber}`}
                     onClick={() => {
-                      if (engravedM.notes.length > 0) {
-                        handleNoteClick(engravedM.measureIndex, 0, activeField, activeVerseRow);
-                      }
+                      onSelectMeasure?.(engravedM.measureIndex);
                     }}
                     style={{
                       flex: sheetWrapMode === 'no_wrap'
@@ -3217,28 +3219,18 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                 const pojText = syl.poj || syl.tl || '';
 
                                 // POJ Syllable & Spacing Logic:
-                                // 1. Semi-hyphen connection: if this syllable ends with '-' or '--',
-                                // or is part of a compound word (e.g., phiau-tì in Measure 13, kó-jiân, bīn-bah)
+                                // Semi-hyphen connection is driven only by lyric text ending in '-' / '--'.
                                 const rawPojTrimmed = pojText.trim();
                                 const connectsToNextWithSemiHyphen =
-                                  rawPojTrimmed.endsWith('-') ||
-                                  rawPojTrimmed.endsWith('--') ||
-                                  (engravedM.measureNumber === 13 && nIdx === 2 && (rawPojTrimmed === 'phiau' || rawPojTrimmed === 'gōa')) ||
-                                  (engravedM.measureNumber === 13 && nIdx === 0 && (rawPojTrimmed === 'kó' || rawPojTrimmed === 'thiaⁿ')) ||
-                                  (engravedM.measureNumber === 13 && nIdx === 4 && (rawPojTrimmed === 'bīn' && vNum === 1));
+                                  rawPojTrimmed.endsWith('-') || rawPojTrimmed.endsWith('--');
 
-                                const effectivePojText =
-                                  connectsToNextWithSemiHyphen && !rawPojTrimmed.endsWith('-') && !rawPojTrimmed.endsWith('--')
-                                    ? `${pojText}-`
-                                    : pojText;
+                                const effectivePojText = pojText;
 
-                                // 2. Check if the previous note in this measure connected to this syllable with a semi-hyphen
+                                // Previous syllable in this measure connected here with a trailing hyphen
                                 const prevNoteSyl = nIdx > 0 ? getNoteVerseSyllable(engravedM.notes[nIdx - 1].note, vNum) : null;
                                 const prevRawPoj = prevNoteSyl ? (prevNoteSyl.poj || prevNoteSyl.tl || '').trim() : '';
                                 const connectedFromPrevSemiHyphen =
-                                  prevRawPoj.endsWith('-') ||
-                                  prevRawPoj.endsWith('--') ||
-                                  (engravedM.measureNumber === 13 && (nIdx === 1 || nIdx === 3));
+                                  prevRawPoj.endsWith('-') || prevRawPoj.endsWith('--');
 
                                 // 3. Check if there is another sung syllable following this one in the same measure
                                 const nextNoteSyl = nIdx < engravedM.notes.length - 1 ? getNoteVerseSyllable(engravedM.notes[nIdx + 1].note, vNum) : null;

@@ -10,6 +10,7 @@ import {
   KEY_SEMITONES,
   getMeasureChords,
   formatMeasureChords,
+  getPlaybackBeatsPerBar,
   isNonNotationItem,
 } from './taigiUtils.ts';
 
@@ -133,7 +134,7 @@ export function getDiatonicCandidateChords(key: KeySignature): CandidateChord[] 
   ];
 }
 
-interface TimedNote {
+export interface TimedNote {
   pitch: number; // 1-7
   accidental: '' | '#' | 'b';
   duration: number;
@@ -142,21 +143,23 @@ interface TimedNote {
 }
 
 /**
- * Extract active pitched notes from a measure with their beat positions and metric weights.
+ * Extract pitched notes from a measure with beat positions and metric weights.
+ * Rests (`pitch === 0`) occupy time and advance `currentBeat`. Only non-notation,
+ * `'empty'` spacers, and zero-duration items are skipped without time.
  */
-function extractTimedNotes(measure: Measure, beatsPerBar: number): TimedNote[] {
+export function extractTimedNotes(measure: Measure, beatsPerBar: number): TimedNote[] {
   const result: TimedNote[] = [];
   let currentBeat = 0;
 
   for (const note of measure.notes) {
-    if (isNonNotationItem(note) || note.pitch === 'empty' || !note.pitch || typeof note.pitch !== 'number') {
+    if (isNonNotationItem(note) || note.pitch === 'empty') {
       continue;
     }
 
     const dur = typeof note.duration === 'number' && note.duration > 0 ? note.duration : 0;
     if (dur <= 0) continue;
 
-    if (note.pitch >= 1 && note.pitch <= 7) {
+    if (typeof note.pitch === 'number' && note.pitch >= 1 && note.pitch <= 7) {
       // Metric weight based on beat placement:
       // Downbeat (beat 0) = 1.6x, Halfway downbeat (e.g. beat 2 in 4/4) = 1.3x, integer beats = 1.0x, syncopations = 0.7x
       let metricMultiplier = 1.0;
@@ -182,7 +185,9 @@ function extractTimedNotes(measure: Measure, beatsPerBar: number): TimedNote[] {
       });
     }
 
-    currentBeat += dur;
+    if (typeof note.pitch === 'number') {
+      currentBeat += dur;
+    }
   }
 
   return result;
@@ -304,8 +309,8 @@ export function suggestChordsForMeasure(
   context: HarmonizationContext = {}
 ): HarmonizationResult {
   const candidates = getDiatonicCandidateChords(key);
-  const tsParts = (measure.timeSignature || timeSignature).split('/');
-  const beatsPerBar = parseInt(tsParts[0], 10) || 4;
+  const ts = measure.timeSignature || timeSignature || '4/4';
+  const beatsPerBar = getPlaybackBeatsPerBar(ts);
   const timedNotes = extractTimedNotes(measure, beatsPerBar);
 
   // 1. Evaluate single chord for the entire measure
@@ -325,7 +330,10 @@ export function suggestChordsForMeasure(
   const bestSingle = singleScores[0];
 
   // 2. Evaluate dual chords if measure has 4 beats (or 6/8) and allowDualChords is enabled
-  const allowDual = context.allowDualChords !== false && beatsPerBar >= 4 && timedNotes.length >= 2;
+  const allowDual =
+    context.allowDualChords !== false &&
+    timedNotes.length >= 2 &&
+    (beatsPerBar >= 4 || String(ts).replace(/\s/g, '') === '6/8');
 
   let dualResult: { chords: string[]; formatted: string; confidence: number; rationale: string } | null = null;
 

@@ -1283,7 +1283,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                     ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
                     : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
                 }`}
-                title="Octave Down (• below) (Key -)"
+                title="Octave Down (• below) (Key _)"
               >
                 <span className="leading-none font-black text-xs sm:text-sm">8vb •</span>
                 <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">Down</span>
@@ -1778,7 +1778,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 type="button"
                 onClick={() => onSetPitch('empty')}
                 className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-mono font-black text-sm sm:text-base flex items-center justify-center text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
-                title="Empty / Zero-beat spacer (␣) [0 beats] (Key ` / _)"
+                title="Empty / Zero-beat spacer (␣) [0 beats] (Key `)"
               >
                 ␣
               </button>
@@ -1806,7 +1806,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                     ? 'bg-amber-500 text-zinc-950 font-black'
                     : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
                 }`}
-                title="Octave Down (• below) (Key -)"
+                title="Octave Down (• below) (Key _)"
               >
                 8vb •
               </button>

@@ -7,9 +7,12 @@
 class WakeLockManager {
   private sentinel: WakeLockSentinel | null = null;
   private isRequested = false;
-  private isSupported = typeof window !== 'undefined' && 'wakeLock' in navigator;
   private reacquireTimer: NodeJS.Timeout | null = null;
   private activeRequest: Promise<boolean> | null = null;
+
+  private isWakeLockSupported(): boolean {
+    return typeof navigator !== 'undefined' && Boolean(navigator.wakeLock);
+  }
 
   constructor() {
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
@@ -85,7 +88,7 @@ class WakeLockManager {
   }
 
   private async acquire(): Promise<boolean> {
-    if (!this.isSupported || typeof navigator === 'undefined' || !navigator.wakeLock) {
+    if (!this.isWakeLockSupported() || typeof navigator === 'undefined' || !navigator.wakeLock) {
       return false;
     }
 
@@ -152,6 +155,11 @@ class WakeLockManager {
 
   public getIsActive(): boolean {
     return Boolean(this.sentinel && !this.sentinel.released);
+  }
+
+  /** True while playback has asked the screen to stay awake (even if the OS denied the lock). */
+  public getIsRequested(): boolean {
+    return this.isRequested;
   }
 }
 
