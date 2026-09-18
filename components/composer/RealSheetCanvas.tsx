@@ -971,7 +971,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     } catch {
       // Gracefully ignore scroll exceptions
     }
-  }, [currentMIdx, currentNIdx, sheetWrapMode]);
+  }, [currentMIdx, currentNIdx, sheetWrapMode, hudStackHeight]);
 
   // Helper to update current selected note
   const updateCurrentNote = useCallback(
