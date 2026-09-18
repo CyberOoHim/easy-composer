@@ -54,6 +54,7 @@ import {
   setStoredAccompanimentStyle,
   getStoredTactileQuickPad,
   setStoredTactileQuickPad,
+  TACTILE_QUICK_PAD_EVENT,
   getStoredPentatonicMode,
   setStoredPentatonicMode,
 } from '@/lib/storage';
@@ -336,11 +337,34 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   });
 
   const handleToggleTactilePad = React.useCallback(() => {
+    if (activeField !== 'pitch') {
+      onToggleActiveField();
+    }
     setShowTactileQuickPad(prev => {
       const nextVal = !prev;
       setStoredTactileQuickPad(nextVal);
       return nextVal;
     });
+  }, [activeField, onToggleActiveField]);
+
+  const handleCloseTactilePad = React.useCallback(() => {
+    setShowTactileQuickPad(false);
+    setStoredTactileQuickPad(false);
+  }, []);
+
+  React.useEffect(() => {
+    const handleTactileEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ show: boolean }>;
+      if (customEvent.detail && typeof customEvent.detail.show === 'boolean') {
+        setShowTactileQuickPad(customEvent.detail.show);
+      }
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener(TACTILE_QUICK_PAD_EVENT, handleTactileEvent);
+      return () => {
+        window.removeEventListener(TACTILE_QUICK_PAD_EVENT, handleTactileEvent);
+      };
+    }
   }, []);
 
   // Pentatonic Mode State (MOD-6)
@@ -1153,7 +1177,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 <button
                   type="button"
                   onClick={handleTogglePentatonic}
-                  className={`min-h-[44px] px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                  className={`min-h-[44px] px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer touch-manipulation flex items-center gap-1 border ${
                     effectivePentatonicMode
                       ? 'bg-amber-500/20 text-amber-400 border-amber-500/60'
                       : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
@@ -1165,8 +1189,8 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowTactileQuickPad(false)}
-                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
+                  onClick={handleCloseTactilePad}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer touch-manipulation"
                   title="Close Quick-Pad"
                 >
                   <X className="w-5 h-5" />
@@ -1177,13 +1201,13 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             {/* Row 1: Pitch Numbers 1-7, 0 (Rest), - (Dash), ␣ (Empty) - Touch Targets ≥44px */}
             <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
               {[
-                { p: 1 as PitchNumber, name: 'Gong 1' },
-                { p: 2 as PitchNumber, name: 'Shang 2' },
-                { p: 3 as PitchNumber, name: 'Jiao 3' },
-                { p: 4 as PitchNumber, name: '4' },
-                { p: 5 as PitchNumber, name: 'Zhi 5' },
-                { p: 6 as PitchNumber, name: 'Yu 6' },
-                { p: 7 as PitchNumber, name: '7' },
+                { p: 1 as PitchNumber, name: '1 Do' },
+                { p: 2 as PitchNumber, name: '2 Re' },
+                { p: 3 as PitchNumber, name: '3 Mi' },
+                { p: 4 as PitchNumber, name: '4 Fa' },
+                { p: 5 as PitchNumber, name: '5 Sol' },
+                { p: 6 as PitchNumber, name: '6 La' },
+                { p: 7 as PitchNumber, name: '7 Ti' },
               ].map(item => {
                 const isPentatonicTone = [1, 2, 3, 5, 6].includes(item.p as number);
                 return (
@@ -1192,7 +1216,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                     id={`quickpad-pitch-${item.p}-btn`}
                     type="button"
                     onClick={() => onSetPitch(item.p)}
-                    className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center border shadow-xs ${
+                    className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
                       effectivePentatonicMode
                         ? isPentatonicTone
                           ? 'bg-gradient-to-b from-amber-500/25 to-amber-600/35 border-amber-400 text-amber-300 hover:from-amber-500/40 hover:to-amber-600/50'
@@ -1203,7 +1227,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                     <span className="leading-none">{item.p}</span>
                     {effectivePentatonicMode && isPentatonicTone && (
                       <span className="text-[9px] font-medium leading-none text-amber-400 mt-0.5">
-                        {item.name.split(' ')[0]}
+                        {item.name.split(' ')[1]}
                       </span>
                     )}
                   </button>
@@ -1215,7 +1239,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="quickpad-pitch-0-btn"
                 type="button"
                 onClick={() => onSetPitch(0)}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center shadow-xs"
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center shadow-xs"
                 title="Rest (0)"
               >
                 <span className="leading-none">0</span>
@@ -1227,7 +1251,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="quickpad-dash-btn"
                 type="button"
                 onClick={onSetDash}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-amber-400 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center shadow-xs"
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-amber-400 transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center shadow-xs"
                 title="Sustain Dash (-)"
               >
                 <span className="leading-none">-</span>
@@ -1239,7 +1263,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="quickpad-empty-btn"
                 type="button"
                 onClick={() => onSetPitch('empty')}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-sm font-bold bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center shadow-xs"
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-sm font-bold bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center shadow-xs"
                 title="Empty Beat Spacer"
               >
                 <span className="leading-none">␣</span>
@@ -1247,40 +1271,132 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               </button>
             </div>
 
-            {/* Row 2: Octave, Duration, and Step Controls - Touch Targets ≥44px */}
-            <div className="grid grid-cols-9 gap-1 sm:gap-1.5">
-              {/* Octave Down */}
+            {/* Row 2: Octaves, Duration Presets, and Multipliers - Touch Targets ≥44px */}
+            <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
+              {/* Octave Down (8vb •) */}
               <button
                 id="quickpad-octave-down-btn"
                 type="button"
                 onClick={() => onSetOctave(-1)}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
-                title="Octave -1 (-8vb)"
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  currentOctave < 0
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Octave Down (• below) (Key -)"
               >
-                -8vb
+                <span className="leading-none font-black text-xs sm:text-sm">8vb •</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">Down</span>
               </button>
 
               {/* Octave Readout / Reset */}
               <button
                 id="quickpad-octave-reset-btn"
                 type="button"
-                onClick={() => onSetOctave(0)}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-extrabold text-xs bg-zinc-800/80 border border-zinc-700 text-amber-400 cursor-pointer flex flex-col items-center justify-center"
+                onClick={() => onSetOctave(-currentOctave)}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-extrabold text-xs bg-zinc-800/90 hover:bg-zinc-700 border border-zinc-700 text-amber-400 cursor-pointer touch-manipulation flex flex-col items-center justify-center transition-all active:scale-95 shadow-xs"
                 title="Reset Octave to 0"
               >
-                <span className="text-[9px] text-zinc-400 uppercase">Octave</span>
-                <span>{currentOctave > 0 ? `+${currentOctave}` : currentOctave}</span>
+                <span className="text-[9px] text-zinc-400 uppercase leading-none">Octave</span>
+                <span className="text-xs sm:text-sm font-black leading-none mt-0.5">
+                  {currentOctave > 0 ? `+${currentOctave}` : currentOctave}
+                </span>
               </button>
 
-              {/* Octave Up */}
+              {/* Octave Up (8va •) */}
               <button
                 id="quickpad-octave-up-btn"
                 type="button"
                 onClick={() => onSetOctave(1)}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
-                title="Octave +1 (+8va)"
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  currentOctave > 0
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Octave Up (• above) (Key +)"
               >
-                +8va
+                <span className="leading-none font-black text-xs sm:text-sm">8va •</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">Up</span>
+              </button>
+
+              {/* Duration: 16th Note (1/4 beat) */}
+              <button
+                id="quickpad-dur-1-4-btn"
+                type="button"
+                onClick={() => onSetDuration(0.25)}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  currentDuration === 0.25
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="16th note (1/4 beat - double beam)"
+              >
+                <span className="underline decoration-double font-black text-sm sm:text-base leading-none">1/4</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">0.25b</span>
+              </button>
+
+              {/* Duration: 8th Note (1/2 beat) */}
+              <button
+                id="quickpad-dur-1-2-btn"
+                type="button"
+                onClick={() => onSetDuration(0.5)}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  currentDuration === 0.5
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="8th note (1/2 beat - single beam) (Key /)"
+              >
+                <span className="underline decoration-2 font-black text-sm sm:text-base leading-none">1/2</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">0.5b</span>
+              </button>
+
+              {/* Duration: Quarter Note (1 beat) */}
+              <button
+                id="quickpad-dur-1-btn"
+                type="button"
+                onClick={() => onSetDuration(1)}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  currentDuration === 1
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Quarter note (1 beat)"
+              >
+                <span className="font-black text-base sm:text-lg leading-none">1</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">1b</span>
+              </button>
+
+              {/* Duration: Half Note (2 beats) */}
+              <button
+                id="quickpad-dur-2-btn"
+                type="button"
+                onClick={() => onSetDuration(2)}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  currentDuration === 2
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Half note (2 beats)"
+              >
+                <span className="font-black text-base sm:text-lg leading-none">2</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">2b</span>
+              </button>
+
+              {/* Duration: Whole Note (4 beats) */}
+              <button
+                id="quickpad-dur-4-btn"
+                type="button"
+                onClick={() => onSetDuration(4)}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  currentDuration === 4
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Whole note (4 beats)"
+              >
+                <span className="font-black text-base sm:text-lg leading-none">4</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">4b</span>
               </button>
 
               {/* Duration Halve (/2) */}
@@ -1292,11 +1408,11 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                   const next = (curr <= 0.125 ? 0.125 : curr / 2) as NoteDuration;
                   onSetDuration(next);
                 }}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center"
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center shadow-xs"
                 title="Halve Duration (/2)"
               >
-                <span>/ 2</span>
-                <span className="text-[9px] text-zinc-400 font-normal">{currentDuration || 1}b</span>
+                <span className="leading-none font-bold">/ 2</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">{currentDuration || 1}b</span>
               </button>
 
               {/* Duration Double (x2) */}
@@ -1308,46 +1424,145 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                   const next = (curr >= 4 ? 4 : curr * 2) as NoteDuration;
                   onSetDuration(next);
                 }}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center"
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center shadow-xs"
                 title="Double Duration (x2)"
               >
-                <span>x 2</span>
-                <span className="text-[9px] text-zinc-400 font-normal">{currentDuration || 1}b</span>
+                <span className="leading-none font-bold">x 2</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">{currentDuration || 1}b</span>
               </button>
+            </div>
 
+            {/* Row 3: Modifiers, Articulations, Navigation & Operations - Touch Targets ≥44px */}
+            <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
               {/* Toggle Dotted Note (•) */}
               <button
                 id="quickpad-dur-dot-btn"
                 type="button"
                 onClick={onToggleDotted}
-                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-base transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center border shadow-xs ${
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
                   isDotted
                     ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
                     : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
                 }`}
-                title="Toggle Dotted Note (•: adds 50% duration)"
+                title="Toggle Dotted Note (•: adds 50% duration) (Key .)"
               >
                 <span className="leading-none text-xl font-black">•</span>
-                <span className="text-[9px] text-zinc-400 font-normal leading-none mt-0.5">Dot</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">Dot</span>
               </button>
 
-              {/* Step Previous */}
+              {/* Toggle Slur (⌒) */}
+              <button
+                id="quickpad-slur-btn"
+                type="button"
+                onClick={onToggleSlur}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  isSlur
+                    ? 'bg-purple-600 text-white font-black border-purple-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Toggle Slur arc across notes (Key S)"
+              >
+                <span className="leading-none text-base font-bold">⌒</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">Slur</span>
+              </button>
+
+              {/* Toggle Tie */}
+              <button
+                id="quickpad-tie-btn"
+                type="button"
+                onClick={onToggleTie}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  isTie
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Toggle Tie sustain same pitch (Key T)"
+              >
+                <span className="leading-none text-xs sm:text-sm font-bold">Tie</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">Sustain</span>
+              </button>
+
+              {/* Sharp Accidental (♯) */}
+              <button
+                id="quickpad-sharp-btn"
+                type="button"
+                onClick={() => onSetAccidental('#')}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  currentAccidental === '#'
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Sharp accidental (Key #)"
+              >
+                <span className="leading-none text-base sm:text-lg font-black">♯</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">Sharp</span>
+              </button>
+
+              {/* Flat Accidental (♭) */}
+              <button
+                id="quickpad-flat-btn"
+                type="button"
+                onClick={() => onSetAccidental('b')}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs ${
+                  currentAccidental === 'b'
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Flat accidental (Key b)"
+              >
+                <span className="leading-none text-base sm:text-lg font-black">♭</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">Flat</span>
+              </button>
+
+              {/* Triplet Toggle (3) */}
+              <button
+                id="quickpad-triplet-btn"
+                type="button"
+                onClick={onToggleTriplet || (() => {})}
+                disabled={!onToggleTriplet}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center border shadow-xs disabled:opacity-40 disabled:cursor-not-allowed ${
+                  isTriplet
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Toggle Triplet duration"
+              >
+                <span className="leading-none text-sm sm:text-base font-black">3</span>
+                <span className="text-[9px] text-zinc-400 font-medium leading-none mt-0.5">Triplet</span>
+              </button>
+
+              {/* Insert Note After */}
+              <button
+                id="quickpad-insert-note-btn"
+                type="button"
+                onClick={onInsertNoteAfter || (() => {})}
+                disabled={!onInsertNoteAfter}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-emerald-400 transition-all active:scale-95 cursor-pointer touch-manipulation flex flex-col items-center justify-center shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Insert new note after cursor"
+              >
+                <Plus className="w-5 h-5 leading-none" />
+                <span className="text-[9px] text-emerald-400 font-medium leading-none mt-0.5">Note</span>
+              </button>
+
+              {/* Step Previous Note */}
               <button
                 id="quickpad-prev-note-btn"
                 type="button"
                 onClick={onStepPrevNote}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-base bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
+                disabled={!onStepPrevNote}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-base bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 title="Step to Previous Note (ArrowLeft)"
               >
                 <ArrowLeft className="w-5 h-5" />
               </button>
 
-              {/* Step Next */}
+              {/* Step Next Note */}
               <button
                 id="quickpad-next-note-btn"
                 type="button"
                 onClick={onStepNextNote}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-base bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
+                disabled={!onStepNextNote}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-base bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
                 title="Step to Next Note (ArrowRight)"
               >
                 <ArrowRight className="w-5 h-5" />
@@ -1358,8 +1573,9 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="quickpad-delete-note-btn"
                 type="button"
                 onClick={onDeleteCurrentNote}
-                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-rose-400 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
-                title="Delete Current Note"
+                disabled={!onDeleteCurrentNote}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-rose-400 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 transition-all active:scale-95 cursor-pointer touch-manipulation flex items-center justify-center shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
+                title="Delete Current Note (Backspace / Delete)"
               >
                 <Trash2 className="w-5 h-5" />
               </button>
@@ -1534,7 +1750,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           )}
 
           {/* Pitch Palette: 1-7, 0, - */}
-          {activeField === 'pitch' && (
+          {activeField === 'pitch' && !showTactileQuickPad && (
             <div className="flex items-center gap-0.5 sm:gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
               {([1, 2, 3, 4, 5, 6, 7] as PitchNumber[]).map(p => (
                 <button
@@ -1579,7 +1795,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           )}
 
           {/* Octave Controls */}
-          {activeField === 'pitch' && (
+          {activeField === 'pitch' && !showTactileQuickPad && (
             <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
               <button
                 id="floating-hud-octave-down-btn"
@@ -1611,7 +1827,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           )}
 
           {/* Duration Selector */}
-          {activeField === 'pitch' && (
+          {activeField === 'pitch' && !showTactileQuickPad && (
             <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
               <button
                 id="floating-hud-dur-quarter-btn"
@@ -1682,7 +1898,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           )}
 
           {/* Dotted, Slur, Tie, Accidentals */}
-          {activeField === 'pitch' && (
+          {activeField === 'pitch' && !showTactileQuickPad && (
             <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
               <button
                 id="floating-hud-toggle-dot-btn"
@@ -1844,10 +2060,14 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                   ? 'bg-indigo-600 text-white font-black shadow-2xs'
                   : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
-              title="Toggle Tactile Quick-Pad (iPad-ergonomic touch-friendly note pad ≥44px)"
+              title={
+                showTactileQuickPad
+                  ? 'Close Tactile Quick-Pad and restore inline ribbon inputs'
+                  : 'Toggle Tactile Quick-Pad (iPad-ergonomic touch-friendly note pad ≥44px)'
+              }
             >
               <LayoutGrid className={`w-4 h-4 ${showTactileQuickPad ? 'text-white' : 'text-indigo-500'}`} />
-              <span className="hidden lg:inline">Quick-Pad</span>
+              <span className="hidden sm:inline">Quick-Pad</span>
             </button>
           </div>
 
@@ -2043,7 +2263,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 title="Auto-fill missing beats with rest notes (0)"
               >
                 <Wand2 className="w-3.5 h-3.5" />
-                <span>Pad</span>
+                <span>Fill Rest</span>
               </button>
             )}
 
