@@ -1524,9 +1524,31 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         case 'ornaments':
           newNotes = embellishWithFolkOrnaments(newNotes);
           break;
-        case 'spark':
-          newNotes = generateMelodySpark(targetMeasure.chord || 'C', song.key, song.timeSignature, 'pentatonic');
+        case 'spark': {
+          const sparkCandidate = generateMelodySpark(
+            targetMeasure.chord || 'C',
+            song.key,
+            song.timeSignature,
+            'pentatonic',
+            targetMeasure.notes
+          );
+          const durationsMatch =
+            targetMeasure.notes.length === sparkCandidate.length &&
+            targetMeasure.notes.every((n, idx) => n.duration === sparkCandidate[idx].duration);
+
+          const hasLyrics = targetMeasure.notes.some(
+            n => (n.lyric && (n.lyric.hanlo || n.lyric.poj)) ||
+                 (n.lyricsByVerse && Object.values(n.lyricsByVerse).some(v => v && (v.hanlo || v.poj)))
+          );
+
+          if (hasLyrics && !durationsMatch && typeof window !== 'undefined') {
+            const confirmed = window.confirm('Replace this measure (lyrics will be cleared)?');
+            if (!confirmed) return;
+          }
+
+          newNotes = sparkCandidate;
           break;
+        }
       }
 
       const updatedMeasures = song.measures.map((m, idx) =>

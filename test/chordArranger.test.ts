@@ -44,6 +44,12 @@ describe('Chord Arranger: Diatonic Candidate Chords', () => {
     const chords = candidates.map(c => c.chord);
     assert.deepStrictEqual(chords, ['G', 'Am', 'Bm', 'C', 'D', 'D7', 'Em']);
   });
+
+  it('omits leading-tone vii from the auto-accompaniment candidate set', () => {
+    const degrees = getDiatonicCandidateChords('C').map(c => c.degree);
+    assert.deepStrictEqual(degrees, ['I', 'ii', 'iii', 'IV', 'V', 'V7', 'vi']);
+    assert.equal(degrees.some(d => d.toLowerCase() === 'vii'), false);
+  });
 });
 
 describe('Chord Arranger: Measure Chord Suggestion', () => {

@@ -1,11 +1,11 @@
-import {
+import type {
   GraceNote,
   InstrumentType,
   KeySignature,
   NumberedNotationNote,
   Song,
   TimeSignature,
-} from '@/types/song';
+} from '../types/song.ts';
 import {
   KEY_SEMITONES,
   SCALE_DEGREE_SEMITONES,
@@ -13,7 +13,7 @@ import {
   isNonNotationItem,
   isSamePitch,
   isTieActive,
-} from './taigiUtils';
+} from './taigiUtils.ts';
 
 export type MidiLyricMode = 'hanlo' | 'poj' | 'both' | 'none';
 
@@ -116,34 +116,61 @@ export function calculateMidiNote(
  */
 export function getChordMidiNotes(chordName: string, transposeSemitones: number = 0): number[] {
   if (!chordName || chordName.trim() === '') return [];
-  const rootMatch = chordName.match(/^([A-G][#b]?)(.*)$/);
+  const cleanName = chordName.trim().replace(/[()]/g, '').replace(/♭/g, 'b').replace(/♯/g, '#');
+  if (/^N\.?C\.?$/i.test(cleanName) || cleanName.toLowerCase() === 'none') {
+    return [];
+  }
+
+  const [mainChord, slashBass] = cleanName.split('/');
+
+  const rootMatch = mainChord.trim().match(/^([A-G][#b]?)(.*)$/);
   if (!rootMatch) return [];
 
-  const rootStr = rootMatch[1];
+  const rootStr = rootMatch[1] as KeySignature;
   const quality = rootMatch[2].toLowerCase();
   const rootSemitone = (KEY_SEMITONES[rootStr] ?? 0) + transposeSemitones;
-  const rootMidi = 48 + rootSemitone; // C3 baseline for accompaniment
+  const rootMidi = 48 + (((rootSemitone % 12) + 12) % 12); // C3 baseline for accompaniment
 
   let intervals = [0, 4, 7]; // Major triad
+
   if (quality.includes('m') && !quality.includes('maj')) {
-    intervals = [0, 3, 7]; // Minor triad
+    if (quality.includes('m7')) {
+      intervals = [0, 3, 7, 10];
+    } else if (quality.includes('m6')) {
+      intervals = [0, 3, 7, 9];
+    } else {
+      intervals = [0, 3, 7]; // Minor triad
+    }
   } else if (quality.includes('dim')) {
-    intervals = [0, 3, 6];
+    intervals = quality.includes('7') ? [0, 3, 6, 9] : [0, 3, 6];
   } else if (quality.includes('aug')) {
     intervals = [0, 4, 8];
   } else if (quality.includes('sus4')) {
     intervals = [0, 5, 7];
+  } else if (quality.includes('sus2')) {
+    intervals = [0, 2, 7];
+  } else if (quality.includes('add9')) {
+    intervals = [0, 4, 7, 14];
+  } else if (quality.includes('6')) {
+    intervals = [0, 4, 7, 9];
   } else if (quality.includes('7')) {
     if (quality.includes('maj7')) {
       intervals = [0, 4, 7, 11];
-    } else if (quality.includes('m7')) {
-      intervals = [0, 3, 7, 10];
     } else {
       intervals = [0, 4, 7, 10]; // Dominant 7th
     }
   }
 
-  return intervals.map(i => Math.min(127, Math.max(0, rootMidi + i)));
+  const harmonyMidis = intervals.map(i => Math.min(127, Math.max(0, rootMidi + i)));
+
+  const trimmedSlashBass = slashBass ? slashBass.trim() : '';
+  if (trimmedSlashBass && KEY_SEMITONES[trimmedSlashBass as KeySignature] !== undefined) {
+    const bassSemitone = (KEY_SEMITONES[trimmedSlashBass as KeySignature] ?? 0) + transposeSemitones;
+    const bassMidi = 36 + (((bassSemitone % 12) + 12) % 12);
+    return [bassMidi, ...harmonyMidis];
+  }
+
+  return harmonyMidis;
 }
 
 interface TimedMidiEvent {

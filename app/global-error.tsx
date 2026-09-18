@@ -18,7 +18,7 @@ export default function GlobalError({
 
   const handleDownloadBackup = () => {
     try {
-      const raw = localStorage.getItem('taigi_composer_current_song') || localStorage.getItem('taigi_composer_last_active_song');
+      const raw = localStorage.getItem('taigi_composer_current_song');
       if (raw) {
         const blob = new Blob([raw], { type: 'application/json' });
         const url = URL.createObjectURL(blob);

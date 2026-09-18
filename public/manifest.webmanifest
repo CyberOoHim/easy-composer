@@ -41,21 +41,6 @@
       "type": "image/svg+xml",
       "purpose": "any"
     }
-  ],
-  "shortcuts": [
-    {
-      "name": "Karaoke Player",
-      "short_name": "Karaoke",
-      "description": "Play and sing along with real-time bouncing ball lyrics",
-      "url": "./?mode=karaoke",
-      "icons": [{ "src": "icons/icon-192x192.png", "sizes": "192x192" }]
-    },
-    {
-      "name": "Score Editor",
-      "short_name": "Editor",
-      "description": "Edit notes, chords, and Taigi syllables",
-      "url": "./?mode=editor",
-      "icons": [{ "src": "icons/icon-192x192.png", "sizes": "192x192" }]
-    }
   ]
 }
+

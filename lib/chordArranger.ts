@@ -8,6 +8,7 @@ import type {
 } from '../types/song.ts';
 import {
   KEY_SEMITONES,
+  getChordRootName,
   getMeasureChords,
   formatMeasureChords,
   getPlaybackBeatsPerBar,
@@ -45,31 +46,12 @@ export interface HarmonizationContext {
  * Get the diatonic candidate chords for a key signature with their scale degree constituents.
  */
 export function getDiatonicCandidateChords(key: KeySignature): CandidateChord[] {
-  const flatKeys: KeySignature[] = ['F', 'Bb', 'Eb', 'Ab', 'Db'];
-  const preferFlats = flatKeys.includes(key);
-
-  const getRootName = (semitone: number): string => {
-    const mod = ((semitone % 12) + 12) % 12;
-    if (preferFlats) {
-      const flatMap: Record<number, string> = {
-        0: 'C', 1: 'Db', 2: 'D', 3: 'Eb', 4: 'E', 5: 'F',
-        6: 'Gb', 7: 'G', 8: 'Ab', 9: 'A', 10: 'Bb', 11: 'B',
-      };
-      return flatMap[mod];
-    } else {
-      const sharpMap: Record<number, string> = {
-        0: 'C', 1: 'C#', 2: 'D', 3: 'D#', 4: 'E', 5: 'F',
-        6: 'F#', 7: 'G', 8: 'G#', 9: 'A', 10: 'A#', 11: 'B',
-      };
-      return sharpMap[mod];
-    }
-  };
-
   const base = KEY_SEMITONES[key] ?? 0;
+  const root = (offset: number) => getChordRootName(key, base + offset);
 
   return [
     {
-      chord: getRootName(base),
+      chord: root(0),
       degree: 'I',
       label: 'Tonic (I)',
       rootSemitone: (base + 0) % 12,
@@ -78,7 +60,7 @@ export function getDiatonicCandidateChords(key: KeySignature): CandidateChord[] 
       quality: 'major',
     },
     {
-      chord: `${getRootName(base + 2)}m`,
+      chord: `${root(2)}m`,
       degree: 'ii',
       label: 'Supertonic (ii)',
       rootSemitone: (base + 2) % 12,
@@ -87,7 +69,7 @@ export function getDiatonicCandidateChords(key: KeySignature): CandidateChord[] 
       quality: 'minor',
     },
     {
-      chord: `${getRootName(base + 4)}m`,
+      chord: `${root(4)}m`,
       degree: 'iii',
       label: 'Mediant (iii)',
       rootSemitone: (base + 4) % 12,
@@ -96,7 +78,7 @@ export function getDiatonicCandidateChords(key: KeySignature): CandidateChord[] 
       quality: 'minor',
     },
     {
-      chord: getRootName(base + 5),
+      chord: root(5),
       degree: 'IV',
       label: 'Subdominant (IV)',
       rootSemitone: (base + 5) % 12,
@@ -105,7 +87,7 @@ export function getDiatonicCandidateChords(key: KeySignature): CandidateChord[] 
       quality: 'major',
     },
     {
-      chord: getRootName(base + 7),
+      chord: root(7),
       degree: 'V',
       label: 'Dominant (V)',
       rootSemitone: (base + 7) % 12,
@@ -114,7 +96,7 @@ export function getDiatonicCandidateChords(key: KeySignature): CandidateChord[] 
       quality: 'major',
     },
     {
-      chord: `${getRootName(base + 7)}7`,
+      chord: `${root(7)}7`,
       degree: 'V7',
       label: 'Dominant 7th (V7)',
       rootSemitone: (base + 7) % 12,
@@ -123,7 +105,7 @@ export function getDiatonicCandidateChords(key: KeySignature): CandidateChord[] 
       quality: 'dom7',
     },
     {
-      chord: `${getRootName(base + 9)}m`,
+      chord: `${root(9)}m`,
       degree: 'vi',
       label: 'Submediant (vi)',
       rootSemitone: (base + 9) % 12,

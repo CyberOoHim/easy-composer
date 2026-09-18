@@ -9,8 +9,8 @@
 | **Target Scope** | Persistence truth (IndexedDB / localStorage / import), shared song sanitizer, single editor keyboard owner, playback meter alignment, creativity/MIDI fidelity, and CI/PWA operational health. |
 | **Language Policy** | **100% English UI text across all buttons, dialogs, menus, tooltips, and prompts. Song titles, lyrics, Han-Lo, and Pe̍h-ōe-jī (POJ) remain preserved in their authentic native language.** |
 | **Backend Dependency** | **Zero Backend API Dependencies (100% Client-Side SPA / PWA execution).** |
-| **Status** | **In Progress — INT-1, INT-2, INT-3, and INT-4 complete** |
-| **Baseline (2026-09-18)** | `tsc --noEmit` clean. `npm test` **259/259 pass** after INT-1 + INT-2 + INT-3 + INT-4. Uncommitted `lib/creativityEngine.ts` change is English copy only (two chord-preset descriptions) and is safe to keep. |
+| **Status** | **Completed — All modules INT-1 through INT-6 complete** |
+| **Baseline (2026-09-18)** | `tsc --noEmit` clean. `npm test` / `bun run test` **263/263 pass** across all modules INT-1 through INT-6. Clean ESLint with zero warnings. |
 
 ---
 
@@ -33,8 +33,8 @@ Turns 5 and 6 may run in parallel with 3 or 4. Do **not** start INT-2 until INT-
 | `[✓]` | **INT-2** | **Shared Song Sanitizer** | One `sanitizeSong` on every load path; require lyric objects; reject empty measures; JSON/text parser tests including dotted-half round-trip. | `lib/songParser.ts`, `lib/indexedDb.ts`, `lib/storage.ts`, `app/page.tsx`, `test/songParser.test.ts` | INT-1 | `Implement Module INT-2` |
 | `[✓]` | **INT-3** | **Editor Input Ownership** | Single score keydown owner; note click must land on the tapped cell; remove measure-13 hyphen hacks; lyric aligner verse + dual-field apply. | `components/ComposerEditor.tsx`, `components/composer/RealSheetCanvas.tsx`, `components/QuickLyricAlignerModal.tsx` | None | `Implement Module INT-3` |
 | `[✓]` | **INT-4** | **Playback Meter & Wake Lock** | Drive beats from `getExpectedMeasureBeats`; pad incomplete bars; pass `isDownbeat` correctly; release wake lock; rest duration in chord arranger. | `lib/audioEngine.ts`, `lib/wakeLock.ts`, `lib/chordArranger.ts`, `app/page.tsx`, `test/audioEngine.test.ts` | None | `Implement Module INT-4` |
-| `[ ]` | **INT-5** | **Creativity & MIDI Fidelity** | Melody spark must not wipe lyrics; folk grace degree-7 neighbor; diatonic VII from key; MIDI `m7`/slash bass; drop unused import. | `lib/creativityEngine.ts`, `lib/midiExport.ts`, `components/composer/RealSheetCanvas.tsx`, `test/creativityEngine.test.ts` | None | `Implement Module INT-5` |
-| `[ ]` | **INT-6** | **CI & PWA Health** | Run tests in CI; Node engine vs strip-types; global-error backup key; SW cache cap/version; unused manifest shortcuts. | `.github/workflows/deploy.yml`, `package.json`, `app/global-error.tsx`, `public/sw.js`, `public/manifest.webmanifest` | None | `Implement Module INT-6` |
+| `[✓]` | **INT-5** | **Creativity & MIDI Fidelity** | Melody spark must not wipe lyrics; folk grace degree-7 neighbor; diatonic VII from key; MIDI `m7`/slash bass; drop unused import. | `lib/creativityEngine.ts`, `lib/midiExport.ts`, `components/composer/RealSheetCanvas.tsx`, `test/creativityEngine.test.ts` | None | `Implement Module INT-5` |
+| `[✓]` | **INT-6** | **CI & PWA Health** | Run tests in CI; Node engine vs strip-types; global-error backup key; SW cache cap/version; unused manifest shortcuts. | `.github/workflows/deploy.yml`, `package.json`, `app/global-error.tsx`, `public/sw.js`, `public/manifest.webmanifest` | None | `Implement Module INT-6` |
 
 ---
 
@@ -204,7 +204,7 @@ Do **not** “fix” these as part of this plan:
 ---
 
 ### Module 5: Creativity & MIDI Fidelity (`INT-5`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: Creative tools and MIDI export must not destroy lyrics or emit the wrong chord quality.
 - **Touchpoint Files**:
   - `lib/creativityEngine.ts`
@@ -222,11 +222,11 @@ Do **not** “fix” these as part of this plan:
   | Nit | `lib/creativityEngine.ts` | Unused `normalizeSongDurations` / `Measure` imports. |
 
 - **Detailed TODO List**:
-  - [ ] Melody spark: map generated pitches onto existing notes by duration **or** show a confirm “Replace this measure (lyrics will be cleared)”. Prefer preserving `id` + `lyric` / `lyricsByVerse` when durations match.
-  - [ ] Folk grace: degree 1 lower neighbor = 7 at octave−1; degree 7 upper neighbor = 1 at octave+1. Clamp resulting octave to `[-2, 2]`.
-  - [ ] Resolve diatonic VII from `getDiatonicCandidateChords(key)`; do not hardcode `Bdim`.
-  - [ ] MIDI: parse `m7` / `maj7` / slash bass in the same order as `getChordNotes`. Block-chord export may remain block (no groove requirement in this module).
-  - [ ] Wire `normalizeSongDurations` after spark, or drop the unused import.
+  - [✓] Melody spark: map generated pitches onto existing notes by duration **or** show a confirm “Replace this measure (lyrics will be cleared)”. Prefer preserving `id` + `lyric` / `lyricsByVerse` when durations match.
+  - [✓] Folk grace: degree 1 lower neighbor = 7 at octave−1; degree 7 upper neighbor = 1 at octave+1. Clamp resulting octave to `[-2, 2]`.
+  - [✓] Resolve diatonic VII from `getDiatonicCandidateChords(key)`; do not hardcode `Bdim`.
+  - [✓] MIDI: parse `m7` / `maj7` / slash bass in the same order as `getChordNotes`. Block-chord export may remain block (no groove requirement in this module).
+  - [✓] Wire `normalizeSongDurations` after spark, or drop the unused import.
 - **Verification Gate**:
   - `test/creativityEngine.test.ts` covers spark lyric preservation (or documented confirm path), degree-7 grace octave, and VII in a non-C key.
   - MIDI chord helper test: `Am7` includes the minor 7th; `C/E` includes bass E.
@@ -235,7 +235,7 @@ Do **not** “fix” these as part of this plan:
 ---
 
 ### Module 6: CI & PWA Health (`INT-6`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: Regressions cannot ship unnoticed; crash recovery and service-worker cache stay truthful.
 - **Touchpoint Files**:
   - `.github/workflows/deploy.yml`
@@ -255,12 +255,12 @@ Do **not** “fix” these as part of this plan:
   | Low | `manifest.webmanifest` shortcuts `?mode=karaoke` / `?mode=editor` | Nothing in the app reads `mode`. |
 
 - **Detailed TODO List**:
-  - [ ] Add `bun run test` (or `npm test`) to the CI build job **before** the static export.
-  - [ ] Pin `engines.node` to `>=22.6.0` **or** change the test runner so Node 20 works. Do not leave the engine range lying.
-  - [ ] `global-error.tsx`: read only `taigi_composer_current_song` (`STORAGE_KEYS.CURRENT_SONG`). IndexedDB may be unavailable in a root crash. Keep `error.tsx` as the IDB-first backup path.
-  - [ ] Service worker: bump `CACHE_NAME` when shipping cache-policy changes; cap cache entries (delete oldest when over limit); keep navigation **network-first**. Do not swallow `cache.addAll` failure silently without logging.
-  - [ ] Manifest shortcuts: implement `?mode=` in `app/page.tsx` **or** remove the unused shortcuts. Do not leave dead PWA entries.
-  - [ ] Optional: stop `bun install --frozen-lockfile \|\| bun install` from masking lockfile drift (prefer fail-on-mismatch in CI).
+  - [✓] Add `bun run test` (or `npm test`) to the CI build job **before** the static export.
+  - [✓] Pin `engines.node` to `>=22.6.0` **or** change the test runner so Node 20 works. Do not leave the engine range lying.
+  - [✓] `global-error.tsx`: read only `taigi_composer_current_song` (`STORAGE_KEYS.CURRENT_SONG`). IndexedDB may be unavailable in a root crash. Keep `error.tsx` as the IDB-first backup path.
+  - [✓] Service worker: bump `CACHE_NAME` when shipping cache-policy changes; cap cache entries (delete oldest when over limit); keep navigation **network-first**. Do not swallow `cache.addAll` failure silently without logging.
+  - [✓] Manifest shortcuts: implement `?mode=` in `app/page.tsx` **or** remove the unused shortcuts. Do not leave dead PWA entries.
+  - [✓] Optional: stop `bun install --frozen-lockfile \|\| bun install` from masking lockfile drift (prefer fail-on-mismatch in CI).
 - **Verification Gate**:
   - CI log shows the test suite (207+ tests) before deploy.
   - PWA update toast still appears after a `CACHE_NAME` bump.

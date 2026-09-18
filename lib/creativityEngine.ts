@@ -1,6 +1,5 @@
 import type {
   KeySignature,
-  Measure,
   NumberedNotationNote,
   PitchNumber,
   Song,
@@ -8,7 +7,7 @@ import type {
   NoteDuration,
   GraceNote,
 } from '../types/song.ts';
-import { getExpectedMeasureBeats, normalizeSongDurations } from './taigiUtils.ts';
+import { getExpectedMeasureBeats, KEY_SEMITONES, getChordRootName } from './taigiUtils.ts';
 import { getDiatonicCandidateChords } from './chordArranger.ts';
 
 export interface ChordProgressionPreset {
@@ -91,8 +90,11 @@ export function getDiatonicChordForDegree(key: KeySignature, degree: string): st
     case 'VIM':
       return candidates.find(c => c.degree === 'vi')?.chord || 'Am';
     case 'VII':
-    case 'VIIDIM':
-      return 'Bdim';
+    case 'VIIDIM': {
+      // Leading-tone dim is omitted from getDiatonicCandidateChords so auto-accompaniment scoring stays I–vi.
+      const base = KEY_SEMITONES[key] ?? 0;
+      return `${getChordRootName(key, base + 11)}dim`;
+    }
     default:
       return candidates[0]?.chord || 'C';
   }
@@ -245,7 +247,12 @@ export function embellishWithFolkOrnaments(
     ) {
       // Create a step-wise upper or lower auxiliary grace note
       const gracePitch = (n.pitch === 7 ? 1 : n.pitch === 1 ? 7 : (n.pitch + 1)) as 1 | 2 | 3 | 4 | 5 | 6 | 7;
-      const graceOctave = n.pitch === 1 && gracePitch === 7 ? (n.octave || 0) - 1 : (n.octave || 0);
+      let graceOctave = n.octave || 0;
+      if (n.pitch === 1 && gracePitch === 7) {
+        graceOctave -= 1;
+      } else if (n.pitch === 7 && gracePitch === 1) {
+        graceOctave += 1;
+      }
 
       const grace: GraceNote = {
         id: `grace-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -294,7 +301,8 @@ export function generateMelodySpark(
   chordName: string,
   key: KeySignature = 'C',
   timeSignature: TimeSignature = '4/4',
-  style: 'folk' | 'ballad' | 'pentatonic' = 'pentatonic'
+  style: 'folk' | 'ballad' | 'pentatonic' = 'pentatonic',
+  existingNotes?: NumberedNotationNote[]
 ): NumberedNotationNote[] {
   const totalBeats = getExpectedMeasureBeats(timeSignature);
 
@@ -323,8 +331,25 @@ export function generateMelodySpark(
     durations = [1, 1, 1, 1];
   }
 
+  const durationsMatch = Boolean(
+    existingNotes &&
+    existingNotes.length === durations.length &&
+    existingNotes.every((n, i) => n.duration === durations[i])
+  );
+
   const notes: NumberedNotationNote[] = durations.map((dur, i) => {
     const pitch = validTones[i % validTones.length] as PitchNumber;
+    if (durationsMatch && existingNotes) {
+      const existing = existingNotes[i];
+      return {
+        ...existing,
+        pitch,
+        octave: 0,
+        accidental: undefined,
+        duration: dur,
+      };
+    }
+
     return {
       id: `spark-${Date.now()}-${i}-${Math.random().toString(36).slice(2, 6)}`,
       pitch,

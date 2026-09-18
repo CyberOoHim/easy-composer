@@ -37,6 +37,19 @@ export const KEY_SEMITONES: Record<string, number> = {
   'B': 11,
 };
 
+const FLAT_KEY_NAMES = new Set(['F', 'Bb', 'Eb', 'Ab', 'Db']);
+const ROOT_NAME_FLATS = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'] as const;
+const ROOT_NAME_SHARPS = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
+
+/**
+ * Spell a pitch-class as a chord root using the key's accidental preference.
+ * Flat keys (F, Bb, Eb, Ab, Db) use flats; all others use sharps.
+ */
+export function getChordRootName(key: KeySignature, semitone: number): string {
+  const names = FLAT_KEY_NAMES.has(key) ? ROOT_NAME_FLATS : ROOT_NAME_SHARPS;
+  return names[((semitone % 12) + 12) % 12];
+}
+
 // Major scale scale degree intervals from root 1 (in semitones)
 // 1 = 0, 2 = 2, 3 = 4, 4 = 5, 5 = 7, 6 = 9, 7 = 11
 export const SCALE_DEGREE_SEMITONES: Record<string, number> = {
@@ -1457,67 +1470,48 @@ export interface DiatonicChordOption {
  * Generate diatonic chords for any key signature (I, ii, iii, IV, V, vi, vii°, V7)
  */
 export function getDiatonicChords(key: KeySignature): DiatonicChordOption[] {
-  const flatKeys: KeySignature[] = ['F', 'Bb', 'Eb', 'Ab', 'Db'];
-  const preferFlats = flatKeys.includes(key);
-
-  const getRootName = (semitone: number): string => {
-    const mod = ((semitone % 12) + 12) % 12;
-    if (preferFlats) {
-      const flatMap: Record<number, string> = {
-        0: 'C', 1: 'Db', 2: 'D', 3: 'Eb', 4: 'E', 5: 'F',
-        6: 'Gb', 7: 'G', 8: 'Ab', 9: 'A', 10: 'Bb', 11: 'B'
-      };
-      return flatMap[mod];
-    } else {
-      const sharpMap: Record<number, string> = {
-        0: 'C', 1: 'C#', 2: 'D', 3: 'D#', 4: 'E', 5: 'F',
-        6: 'F#', 7: 'G', 8: 'G#', 9: 'A', 10: 'A#', 11: 'B'
-      };
-      return sharpMap[mod];
-    }
-  };
-
   const base = KEY_SEMITONES[key] ?? 0;
+  const root = (offset: number) => getChordRootName(key, base + offset);
 
   return [
     {
-      chord: getRootName(base),
+      chord: root(0),
       degree: 'I',
       label: 'Tonic (I)',
       colorClass: 'bg-amber-100 hover:bg-amber-200 dark:bg-amber-950/60 dark:hover:bg-amber-900/60 text-amber-900 dark:text-amber-300 border-amber-300 dark:border-amber-700',
     },
     {
-      chord: `${getRootName(base + 2)}m`,
+      chord: `${root(2)}m`,
       degree: 'ii',
       label: 'Supertonic (ii)',
       colorClass: 'bg-blue-100 hover:bg-blue-200 dark:bg-blue-950/60 dark:hover:bg-blue-900/60 text-blue-900 dark:text-blue-300 border-blue-300 dark:border-blue-700',
     },
     {
-      chord: `${getRootName(base + 4)}m`,
+      chord: `${root(4)}m`,
       degree: 'iii',
       label: 'Mediant (iii)',
       colorClass: 'bg-indigo-100 hover:bg-indigo-200 dark:bg-indigo-950/60 dark:hover:bg-indigo-900/60 text-indigo-900 dark:text-indigo-300 border-indigo-300 dark:border-indigo-700',
     },
     {
-      chord: getRootName(base + 5),
+      chord: root(5),
       degree: 'IV',
       label: 'Subdominant (IV)',
       colorClass: 'bg-emerald-100 hover:bg-emerald-200 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/60 text-emerald-900 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700',
     },
     {
-      chord: getRootName(base + 7),
+      chord: root(7),
       degree: 'V',
       label: 'Dominant (V)',
       colorClass: 'bg-orange-100 hover:bg-orange-200 dark:bg-orange-950/60 dark:hover:bg-orange-900/60 text-orange-900 dark:text-orange-300 border-orange-300 dark:border-orange-700',
     },
     {
-      chord: `${getRootName(base + 9)}m`,
+      chord: `${root(9)}m`,
       degree: 'vi',
       label: 'Submediant (vi)',
       colorClass: 'bg-purple-100 hover:bg-purple-200 dark:bg-purple-950/60 dark:hover:bg-purple-900/60 text-purple-900 dark:text-purple-300 border-purple-300 dark:border-purple-700',
     },
     {
-      chord: `${getRootName(base + 7)}7`,
+      chord: `${root(7)}7`,
       degree: 'V7',
       label: 'Dominant 7th (V7)',
       colorClass: 'bg-rose-100 hover:bg-rose-200 dark:bg-rose-950/60 dark:hover:bg-rose-900/60 text-rose-900 dark:text-rose-300 border-rose-300 dark:border-rose-700',

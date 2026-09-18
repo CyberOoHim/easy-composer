@@ -1,5 +1,6 @@
 // Taigi Composer & Karaoke Studio Service Worker
-const CACHE_NAME = 'taigi-composer-cache-v3';
+const CACHE_NAME = 'taigi-composer-cache-v5';
+const MAX_CACHE_ENTRIES = 75;
 
 const PRECACHE_RESOURCES = [
   './',
@@ -13,11 +14,47 @@ const PRECACHE_RESOURCES = [
   './icons/apple-touch-icon.png'
 ];
 
+function precacheUrlSet() {
+  return new Set(PRECACHE_RESOURCES.map((path) => new URL(path, self.location).href));
+}
+
+async function trimCache(cacheName, maxItems) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length <= maxItems) return;
+
+    // keys() is insertion order; precache is added first. Skip those URLs so
+    // offline navigation can still fall back to caches.match('./').
+    const protectedUrls = precacheUrlSet();
+    const excess = keys.length - maxItems;
+    let deleted = 0;
+    for (const request of keys) {
+      if (deleted >= excess) break;
+      if (protectedUrls.has(request.url)) continue;
+      await cache.delete(request);
+      deleted += 1;
+    }
+  } catch (err) {
+    console.warn('[SW] Cache trim error:', err);
+  }
+}
+
+async function putWithCap(cacheName, request, response) {
+  try {
+    const cache = await caches.open(cacheName);
+    await cache.put(request, response);
+    await trimCache(cacheName, MAX_CACHE_ENTRIES);
+  } catch (err) {
+    console.warn('[SW] Cache put failed:', err);
+  }
+}
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
       return cache.addAll(PRECACHE_RESOURCES).catch((err) => {
-        console.warn('Precache partial warning:', err);
+        console.error('[SW] Precache failed:', err);
       });
     }).then(() => self.skipWaiting())
   );
@@ -59,7 +96,7 @@ self.addEventListener('fetch', (event) => {
         .then((response) => {
           if (response.status === 200) {
             const responseClone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+            event.waitUntil(putWithCap(CACHE_NAME, event.request, responseClone));
           }
           return response;
         })
@@ -76,19 +113,20 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stale-while-revalidate for static assets
+  // Stale-while-revalidate for static assets with cache capping
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
-        // Asynchronously update cache in background
-        fetch(event.request)
-          .then((networkResponse) => {
-            if (networkResponse && networkResponse.status === 200) {
-              const responseClone = networkResponse.clone();
-              caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
-            }
-          })
-          .catch(() => {});
+        event.waitUntil(
+          fetch(event.request)
+            .then((networkResponse) => {
+              if (networkResponse && networkResponse.status === 200) {
+                const responseClone = networkResponse.clone();
+                return putWithCap(CACHE_NAME, event.request, responseClone);
+              }
+            })
+            .catch(() => {})
+        );
         return cachedResponse;
       }
 
@@ -97,7 +135,7 @@ self.addEventListener('fetch', (event) => {
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const responseClone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(event.request, responseClone));
+            event.waitUntil(putWithCap(CACHE_NAME, event.request, responseClone));
           }
           return networkResponse;
         })
