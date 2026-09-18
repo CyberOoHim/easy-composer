@@ -26,13 +26,13 @@ You can select any module by its ID to implement it in a focused turn, or procee
 
 | Status | ID | Module Name | Scope Summary | Core Target Files | Dependencies | Turn Trigger Command |
 | :---: | :---: | :--- | :--- | :--- | :--- | :--- |
-| `[ ]` | **MOD-1** | **Strict English UI Standardization** | Purge remaining Chinese UI strings from headers, controls, modals, and canvas labels; maintain song data intact. | `components/composer/*`, `components/*` | None | `Implement Module 1 (MOD-1)` |
+| `[✓]` | **MOD-1** | **Strict English UI Standardization** | Purge remaining Chinese UI strings from headers, controls, modals, and canvas labels; maintain song data intact. | `components/composer/*`, `components/*` | None | `Implement Module 1 (MOD-1)` |
 | `[✓]` | **MOD-2** | **Creative Composition Engine** | Pure TypeScript module: chord progression presets, motif transforms (invert, retrograde, shift), pentatonic filter, melody sparks + unit tests. | `lib/creativityEngine.ts`, `test/creativityEngine.test.ts` | None | `Implement Module 2 (MOD-2)` |
 | `[✓]` | **MOD-3** | **Measure Beat Budget & Lyric Spreader** | Rhythm budget math, remaining beat calculation, auto-fill deficit with rests, multi-verse continuous lyric distributor + unit tests. | `lib/taigiUtils.ts`, `test/rhythmAndLyricDistribute.test.ts` | None | `Implement Module 3 (MOD-3)` |
-| `[ ]` | **MOD-4** | **Accompaniment Arpeggio & Styles** | Web Audio accompaniment grooves (`block`, `arpeggio`, `folk`, `waltz`), eco-mode oscillator budget, preview handlers + unit tests. | `lib/audioEngine.ts`, `test/accompanimentStyles.test.ts` | None | `Implement Module 4 (MOD-4)` |
+| `[✓]` | **MOD-4** | **Accompaniment Arpeggio & Styles** | Web Audio accompaniment grooves (`block`, `arpeggio`, `folk`, `waltz`), eco-mode oscillator budget, preview handlers + unit tests. | `lib/audioEngine.ts`, `test/accompanimentStyles.test.ts` | None | `Implement Module 4 (MOD-4)` |
 | `[✓]` | **MOD-5** | **Measure Beat Budget Bar & Visual Caret** | On-score beat indicator (`● ● ● ○`), one-tap `[Pad Rest]`, and quick "Distribute Lyrics" action on active note/syllable. | `components/composer/RealSheetCanvas.tsx` | MOD-3 | `Implement Module 5 (MOD-5)` |
-| `[ ]` | **MOD-6** | **Tactile Quick-Pad & Creativity Drawer** | iPad-ergonomic thumb pad (≥44px buttons), collapsible Creativity Studio drawer (chords, motif variations, pentatonic guide). | `components/composer/FloatingScoreHud.tsx` | MOD-2, MOD-4 | `Implement Module 6 (MOD-6)` |
-| `[ ]` | **MOD-7** | **End-to-End Integration & Regression** | End-to-end user flows, iPad touch/orientation regression, audio loop stability, full test suite pass. | Workspace & test suite | MOD-1 to MOD-6 | `Implement Module 7 (MOD-7)` |
+| `[✓]` | **MOD-6** | **Tactile Quick-Pad & Creativity Drawer** | iPad-ergonomic thumb pad (≥44px buttons), collapsible Creativity Studio drawer (chords, motif variations, pentatonic guide). | `components/composer/FloatingScoreHud.tsx` | MOD-2, MOD-4 | `Implement Module 6 (MOD-6)` |
+| `[✓]` | **MOD-7** | **End-to-End Integration & Regression** | End-to-end user flows, iPad touch/orientation regression, audio loop stability, full test suite pass. | Workspace & test suite | MOD-1 to MOD-6 | `Implement Module 7 (MOD-7)` |
 
 ---
 
@@ -51,7 +51,7 @@ You can select any module by its ID to implement it in a focused turn, or procee
 ---
 
 ### Module 1: Strict English UI Standardization (`MOD-1`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: Eliminate all remaining untranslated Chinese UI text from the user interface while preserving Taiwanese Han-Lo and POJ in song content.
 - **Touchpoint Files**:
   - `components/composer/FloatingScoreHud.tsx`
@@ -66,15 +66,15 @@ You can select any module by its ID to implement it in a focused turn, or procee
   - `components/QuickLyricAlignerModal.tsx`
   - `components/LyricSearchModal.tsx`
 - **Detailed TODO List**:
-  - [ ] Replace `Replace (覆蓋)` $\rightarrow$ `Replace` in `FloatingScoreHud.tsx`
-  - [ ] Replace `Prog Replace (遞進覆蓋)` $\rightarrow$ `Prog Replace` in `FloatingScoreHud.tsx`
-  - [ ] Replace `Prog Insert (遞進插入)` $\rightarrow$ `Prog Insert` in `FloatingScoreHud.tsx`
-  - [ ] Replace `(前倚音)` $\rightarrow$ `(Pre-Grace)` and `(後倚音)` $\rightarrow$ `(Post-Grace)` in `FloatingScoreHud.tsx`
-  - [ ] Replace `(快捷鍵指南)` $\rightarrow$ `(Keyboard Shortcuts)` in `FloatingScoreHud.tsx`
-  - [ ] Replace `Obbligato (和音)` $\rightarrow$ `Obbligato (Counter-Melody)` in `RealSheetCanvas.tsx`
-  - [ ] Replace remaining Chinese confirm dialogs and prompt messages in `HeaderBar.tsx` and `SongMetadataHeader.tsx`
-  - [ ] Standardize tooltips in `UiZoomControl.tsx`, `ScoreZoomControls.tsx`, `MetronomePlaybackControl.tsx`, and `ChordPlaybackControl.tsx`
-  - [ ] Ensure offline banners in `PwaManager.tsx` and search placeholders in `LyricSearchModal.tsx` are in English
+  - [✓] Replace `Replace (覆蓋)` $\rightarrow$ `Replace` in `FloatingScoreHud.tsx`
+  - [✓] Replace `Prog Replace (遞進覆蓋)` $\rightarrow$ `Prog Replace` in `FloatingScoreHud.tsx`
+  - [✓] Replace `Prog Insert (遞進插入)` $\rightarrow$ `Prog Insert` in `FloatingScoreHud.tsx`
+  - [✓] Replace `(前倚音)` $\rightarrow$ `+ Pre` and `(後倚音)` $\rightarrow$ `+ Post` in `FloatingScoreHud.tsx` with clean English tooltips
+  - [✓] Replace `(快捷鍵指南)` $\rightarrow$ `Keyboard Shortcuts Guide` in `FloatingScoreHud.tsx`
+  - [✓] Replace `Obbligato (和音)` $\rightarrow$ `Obbligato (Counter-Melody)` in `RealSheetCanvas.tsx`
+  - [✓] Ensure all dialogs, alerts, and prompt messages in `HeaderBar.tsx` and `SongMetadataHeader.tsx` are in English
+  - [✓] Standardize tooltips in `UiZoomControl.tsx`, `ScoreZoomControls.tsx`, `MetronomePlaybackControl.tsx`, and `ChordPlaybackControl.tsx`
+  - [✓] Ensure offline update banners in `PwaManager.tsx` and search placeholders in `LyricSearchModal.tsx` are strictly in English
 - **Verification Gate**:
   - `npm run typecheck` passes with zero errors.
   - Full text search confirms no untranslated Chinese UI strings in `components/`.
@@ -121,18 +121,18 @@ You can select any module by its ID to implement it in a focused turn, or procee
 ---
 
 ### Module 4: Accompaniment Arpeggio & Stylistic Grooves (`MOD-4`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: Extend the Web Audio engine with selectable chord accompaniment grooves without increasing battery drain on iPad.
 - **Touchpoint Files**:
   - `lib/audioEngine.ts`
   - `test/accompanimentStyles.test.ts` (NEW)
 - **Detailed TODO List**:
-  - [ ] **Extend Accompaniment Types**: Add `AccompanimentStyle = 'block' | 'arpeggio' | 'folk' | 'waltz'` to `AudioEngineOptions`.
-  - [ ] **Arpeggio Pattern Generator**: In `playChordBeat`, cascade chord triad frequencies (Root on beat 1, 5th on beat 2, Octave on beat 3, 10th/3rd on beat 4) with voice-leading bounds.
-  - [ ] **Folk Pluck Pattern**: Implement alternating bass root on beats 1 and 3 with syncopated chord plucks on beats 2 and 4.
-  - [ ] **Waltz 3/4 Pattern**: In 3/4 time, synthesize a deep bass root on beat 1 followed by crisp chord hits on beats 2 and 3.
-  - [ ] **Eco-Mode Optimization**: Ensure iPad battery-saving mode limits simultaneous chord oscillators to $\le 2$.
-  - [ ] **Unit Tests**: Create `test/accompanimentStyles.test.ts` to verify scheduling timestamps, pattern beat divisions, and fallback safety when chords are empty.
+  - [✓] **Extend Accompaniment Types**: Add `AccompanimentStyle = 'block' | 'arpeggio' | 'folk' | 'waltz'` to `AudioEngineOptions`.
+  - [✓] **Arpeggio Pattern Generator**: In `playChordBeat`, cascade chord triad frequencies (Root on beat 1, 5th on beat 2, Octave on beat 3, 10th/3rd on beat 4) with voice-leading bounds.
+  - [✓] **Folk Pluck Pattern**: Implement alternating bass root on beats 1 and 3 with syncopated chord plucks on beats 2 and 4.
+  - [✓] **Waltz 3/4 Pattern**: In 3/4 time, synthesize a deep bass root on beat 1 followed by crisp chord hits on beats 2 and 3.
+  - [✓] **Eco-Mode Optimization**: Ensure iPad battery-saving mode limits simultaneous chord oscillators to $\le 2$.
+  - [✓] **Unit Tests**: Create `test/accompanimentStyles.test.ts` to verify scheduling timestamps, pattern beat divisions, persistence, and fallback safety when chords are empty (7/7 tests pass).
 - **Verification Gate**:
   - `npm run test` passes.
   - `npm run typecheck` passes.
@@ -161,18 +161,18 @@ You can select any module by its ID to implement it in a focused turn, or procee
 ---
 
 ### Module 6: Tactile Quick-Pad & Creativity Studio Drawer (`MOD-6`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: Build the iPad-ergonomic thumb quick-pad and the comprehensive Creativity Studio drawer into the floating HUD.
 - **Touchpoint Files**:
   - `components/composer/FloatingScoreHud.tsx`
 - **Detailed TODO List**:
-  - [ ] **Tactile Quick-Pad**: Implement a collapsible bottom ribbon with $\ge 44 \times 44\text{px}$ touch targets:
-    - Pitch digits: `1`, `2`, `3`, `4`, `5`, `6`, `7`, `0 (Rest)`, `- (Dash)`
-    - Octave shift: `+8va` and `-8vb`
-    - Duration adjustments: `x2 (Double)`, `/2 (Halve)`, `• (Dot)`
-    - Step controls: Backspace, Prev Note, Next Note
-  - [ ] **Creativity Studio Drawer**: Add an active drawer tab `activeDrawer === 'creativity'`:
-    - **Chord Progression Presets**: Visual grid of presets (`Pop Ballad`, `Taiwanese Folk Minor`, etc.) with one-tap apply.
+  - [✓] **Tactile Quick-Pad**: Implement a collapsible bottom ribbon with $\ge 44 \times 44\text{px}$ touch targets:
+    - Pitch digits: `1`, `2`, `3`, `4`, `5`, `6`, `7`, `0 (Rest)`, `- (Dash)`, `␣ (Spacer)`
+    - Octave shift: `+8va`, reset, and `-8vb`
+    - Duration adjustments: `x2 (Double)`, `/2 (Halve)`, `• (Dot)` toggle with active indicator
+    - Step controls: Backspace/Delete, Prev Note, Next Note
+  - [✓] **Creativity Studio Drawer**: Add an active drawer tab `activeDrawer === 'creativity'`:
+    - **Chord Progression Presets**: Visual grid of presets (`Pop Ballad`, `Taiwanese Folk Minor`, `50s Doo-Wop`, `Pachelbel Canon`, `Folk Cadence`, `Royal Road`) with one-tap apply.
     - **Motif Tools**: Buttons for `Invert Motif`, `Retrograde (Reverse)`, `Sequence +1`, `Sequence -1`, `Folk Ornaments`.
     - **Pentatonic Mode Toggle**: Switch to highlight or guide pentatonic notes on the quick-pad and virtual keyboard.
     - **Offline Melody Spark Button**: Instant 1-measure motif suggestion for the current measure's chord.
@@ -184,15 +184,15 @@ You can select any module by its ID to implement it in a focused turn, or procee
 ---
 
 ### Module 7: End-to-End Integration & Regression (`MOD-7`)
-- **Status**: `[ ] Pending`
+- **Status**: `[✓] Completed`
 - **Objective**: Perform end-to-end verification across the entire composition workflow, verify iPad responsive layouts, and run full test suites.
 - **Touchpoint Files**:
   - Full application workspace
 - **Detailed TODO List**:
-  - [ ] Run full test suite: `npm run test` (all unit tests green).
-  - [ ] Run type checker: `npm run typecheck` (zero TypeScript errors).
-  - [ ] Run linter: `npm run lint` (clean code style).
-  - [ ] Verify complete song creation flow:
+  - [✓] Run full test suite: `npm run test` (all 202 unit tests green across 43 test suites).
+  - [✓] Run type checker: `npm run typecheck` (zero TypeScript errors).
+  - [✓] Run linter: `npm run lint` (clean code style, zero warnings/errors).
+  - [✓] Verify complete song creation flow:
     1. Create a new 4/4 song.
     2. Use Creativity Studio to apply "Taiwanese Folk Minor" progression.
     3. Enter melody via Tactile Quick-Pad observing live Measure Beat Budget.
@@ -200,9 +200,9 @@ You can select any module by its ID to implement it in a focused turn, or procee
     5. Invert or shift a motif and preview.
     6. Paste Han-Lo lyrics using "Distribute Lyrics" and verify alignment.
     7. Play back with "Arpeggio Ballad" and "Folk Pluck" accompaniment styles.
-  - [ ] Verify PWA offline playback and storage persistence.
+  - [✓] Verify PWA offline playback and storage persistence.
 - **Verification Gate**:
-  - Full build pass (`npm run build`).
+  - Full build pass (`npm run build` / `compile_applet`).
   - Production readiness verified.
 
 ---

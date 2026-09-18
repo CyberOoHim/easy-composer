@@ -238,7 +238,7 @@ export class AudioEngine {
     }
   };
 
-  constructor() {
+  constructor(initialOptions?: Partial<AudioEngineOptions>) {
     // AudioContext and lifecycle management
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
       // Document visibility change (switching tabs, minimizing browser, screen lock)
@@ -297,6 +297,10 @@ export class AudioEngine {
           this.options.accompanimentStyle = savedStyle;
         }
       } catch {}
+    }
+
+    if (initialOptions) {
+      this.options = { ...this.options, ...initialOptions };
     }
   }
 

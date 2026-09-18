@@ -545,7 +545,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                     type="button"
                     onClick={() => onAddGraceNote('pre', 5, 0)}
                     className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all"
-                    title="Add Pre-Grace Note (Pre-Grace)"
+                    title="Add Pre-Grace Note"
                   >
                     + Pre
                   </button>
@@ -553,7 +553,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                     type="button"
                     onClick={() => onAddGraceNote('post', 6, 0)}
                     className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all"
-                    title="Add Post-Grace Note (Post-Grace)"
+                    title="Add Post-Grace Note"
                   >
                     + Post
                   </button>
@@ -1248,7 +1248,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             </div>
 
             {/* Row 2: Octave, Duration, and Step Controls - Touch Targets ≥44px */}
-            <div className="grid grid-cols-8 gap-1 sm:gap-1.5">
+            <div className="grid grid-cols-9 gap-1 sm:gap-1.5">
               {/* Octave Down */}
               <button
                 id="quickpad-octave-down-btn"
@@ -1313,6 +1313,22 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               >
                 <span>x 2</span>
                 <span className="text-[9px] text-zinc-400 font-normal">{currentDuration || 1}b</span>
+              </button>
+
+              {/* Toggle Dotted Note (•) */}
+              <button
+                id="quickpad-dur-dot-btn"
+                type="button"
+                onClick={onToggleDotted}
+                className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-base transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center border shadow-xs ${
+                  isDotted
+                    ? 'bg-amber-500 text-zinc-950 font-black border-amber-400 shadow-2xs'
+                    : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-200'
+                }`}
+                title="Toggle Dotted Note (•: adds 50% duration)"
+              >
+                <span className="leading-none text-xl font-black">•</span>
+                <span className="text-[9px] text-zinc-400 font-normal leading-none mt-0.5">Dot</span>
               </button>
 
               {/* Step Previous */}
@@ -2105,7 +2121,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               type="button"
               onClick={() => setShowShortcutsModal(true)}
               className="p-1 h-7 sm:h-8 w-7 sm:w-8 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-amber-500 hover:text-zinc-950 flex items-center justify-center transition-all cursor-pointer"
-              title="Keyboard Shortcuts Guide (Keyboard Shortcuts)"
+              title="Keyboard Shortcuts Guide"
             >
               <Command className="w-3.5 h-3.5 text-amber-500" />
             </button>

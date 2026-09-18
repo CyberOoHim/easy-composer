@@ -18,3 +18,6 @@
 - **Fast Pre-Commit Verification**: Use `npm run typecheck` or `bun run lint && bun run typecheck` for verification.
 - **Static Export & Client-Side SPA**: Pure client-side SPA score editor with zero backend API dependencies, compatible with static exports.
 - **Strictly Sheet-Centric Architecture**: All composition, editing, playback, and creative features must strictly be built directly around the realistic sheet score canvas (WYSIWYG on-paper experience; no detached DAW windowing or fragmented card deck chrome).
+- **Strict English-Only UI Requirement**:
+  - All user interface (UI) text, labels, buttons, tooltips, menus, dialogs, placeholders, and user-facing copy must strictly and exclusively be in English.
+  - No Chinese characters, Chinese terminology, or Chinese-translated words are permitted anywhere across the UI.
