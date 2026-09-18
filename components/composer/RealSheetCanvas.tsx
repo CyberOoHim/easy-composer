@@ -950,19 +950,30 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Keep stable refs for zero-latency lookups and to avoid re-triggering playback auto-scroll effects
   const systemsRef = useRef(systems);
-  systemsRef.current = systems;
   const noteLocationMapRef = useRef(noteLocationMap);
-  noteLocationMapRef.current = noteLocationMap;
   const measureToSystemIndexMapRef = useRef(measureToSystemIndexMap);
-  measureToSystemIndexMapRef.current = measureToSystemIndexMap;
   const activeLyricNoteIdByVerseRef = useRef(activeLyricNoteIdByVerse);
-  activeLyricNoteIdByVerseRef.current = activeLyricNoteIdByVerse;
   const activeFieldRef = useRef(activeField);
-  activeFieldRef.current = activeField;
   const activeVerseRowRef = useRef(activeVerseRow);
-  activeVerseRowRef.current = activeVerseRow;
   const hudStackHeightRef = useRef(hudStackHeight);
-  hudStackHeightRef.current = hudStackHeight;
+
+  useEffect(() => {
+    systemsRef.current = systems;
+    noteLocationMapRef.current = noteLocationMap;
+    measureToSystemIndexMapRef.current = measureToSystemIndexMap;
+    activeLyricNoteIdByVerseRef.current = activeLyricNoteIdByVerse;
+    activeFieldRef.current = activeField;
+    activeVerseRowRef.current = activeVerseRow;
+    hudStackHeightRef.current = hudStackHeight;
+  }, [
+    systems,
+    noteLocationMap,
+    measureToSystemIndexMap,
+    activeLyricNoteIdByVerse,
+    activeField,
+    activeVerseRow,
+    hudStackHeight,
+  ]);
 
   const isSheetExtended = sheetWrapMode === 'no_wrap' && extendedSheetWidth > standardSheetWidth;
 

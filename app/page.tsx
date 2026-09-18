@@ -154,9 +154,12 @@ export default function Home() {
   const hasInitializedRef = React.useRef(false);
   const selectSongSeqRef = React.useRef(0);
   const songRef = useRef(song);
-  songRef.current = song;
   const isDirtyRef = useRef(isDirty);
-  isDirtyRef.current = isDirty;
+
+  useEffect(() => {
+    songRef.current = song;
+    isDirtyRef.current = isDirty;
+  }, [song, isDirty]);
 
   // Bootstrap IndexedDB on mount: check URL for shared song, migrate legacy localStorage, load active song
   useEffect(() => {

@@ -27,21 +27,22 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
   onClose,
   song,
 }) => {
-  const [shareResult, setShareResult] = useState<ShareUrlResult | null>(null);
+  const [shareResultData, setShareResultData] = useState<{ song: Song; result: ShareUrlResult } | null>(null);
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+
+  const shareResult = (shareResultData && shareResultData.song === song) ? shareResultData.result : null;
 
   // Generate share URL whenever modal opens or song changes
   useEffect(() => {
     if (!isOpen) return;
 
-    setShareResult(null);
     let isMounted = true;
     void createShareableSongUrl(song)
       .then(result => {
         if (isMounted) {
-          setShareResult(result);
+          setShareResultData({ song, result });
         }
       })
       .catch(err => {
