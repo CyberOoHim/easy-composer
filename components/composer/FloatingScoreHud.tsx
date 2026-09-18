@@ -42,12 +42,25 @@ import {
   RectangleHorizontal,
   RectangleVertical,
   Bookmark,
+  LayoutGrid,
+  Lightbulb,
 } from 'lucide-react';
-import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode, VerseDisplayOption, SheetWrapMode, SheetOrientation } from '@/types/song';
+import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode, VerseDisplayOption, SheetWrapMode, SheetOrientation, KeySignature, TimeSignature } from '@/types/song';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import { COMMON_PUNCTUATIONS, COMMON_ANNOTATIONS } from '@/lib/taigiUtils';
+import {
+  type AccompanimentStyle,
+  getStoredAccompanimentStyle,
+  setStoredAccompanimentStyle,
+  getStoredTactileQuickPad,
+  setStoredTactileQuickPad,
+  getStoredPentatonicMode,
+  setStoredPentatonicMode,
+} from '@/lib/storage';
+import { CHORD_PROGRESSION_PRESETS } from '@/lib/creativityEngine';
+import { audioEngine } from '@/lib/audioEngine';
 
-export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit';
+export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit' | 'creativity';
 
 export interface FloatingScoreHudProps {
   // Playback
@@ -125,9 +138,19 @@ export interface FloatingScoreHudProps {
   chordSuggestions?: string[];
   onAutoHarmonize?: () => void;
 
-  // Mutually exclusive drawer / popovers (Piano Bed, Ornaments, Chords, Edit)
+  // Accompaniment Style & Creativity Studio (MOD-4 / MOD-6)
+  accompanimentStyle?: AccompanimentStyle;
+  onChangeAccompanimentStyle?: (style: AccompanimentStyle) => void;
+  isPentatonicMode?: boolean;
+  onTogglePentatonicMode?: () => void;
+  onApplyChordProgressionPreset?: (presetId: string) => void;
+  onApplyMotifTool?: (tool: 'invert' | 'retrograde' | 'seq_up' | 'seq_down' | 'ornaments' | 'spark') => void;
+  songKey?: KeySignature;
+  songTimeSignature?: TimeSignature;
+
+  // Mutually exclusive drawer / popovers (Piano Bed, Ornaments, Chords, Edit, Creativity)
   activeDrawer?: HudDrawerType;
-  onToggleDrawer?: (drawer: 'piano' | 'ornaments' | 'chords' | 'edit') => void;
+  onToggleDrawer?: (drawer: 'piano' | 'ornaments' | 'chords' | 'edit' | 'creativity') => void;
   onCloseDrawer?: () => void;
 
   // Piano Bed & Keyboard Transcription (Legacy/Direct slot support)
@@ -237,6 +260,14 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   onUpdateMeasureSection,
   chordSuggestions = ['C', 'Dm', 'Em', 'F', 'G', 'Am', 'G7'],
   onAutoHarmonize,
+  accompanimentStyle,
+  onChangeAccompanimentStyle,
+  isPentatonicMode,
+  onTogglePentatonicMode,
+  onApplyChordProgressionPreset,
+  onApplyMotifTool,
+  songKey = 'C',
+  songTimeSignature = '4/4',
   activeDrawer,
   onToggleDrawer,
   onCloseDrawer,
@@ -283,6 +314,49 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   const [showShortcutsModal, setShowShortcutsModal] = React.useState<boolean>(false);
   const [addDelimiterActiveKey, setAddDelimiterActiveKey] = React.useState<string | null>(null);
 
+  // Accompaniment Style State (MOD-4)
+  const [internalAccompanimentStyle, setInternalAccompanimentStyle] = React.useState<AccompanimentStyle>(() => {
+    return accompanimentStyle !== undefined ? accompanimentStyle : getStoredAccompanimentStyle('block');
+  });
+
+  const effectiveAccompanimentStyle = accompanimentStyle !== undefined ? accompanimentStyle : internalAccompanimentStyle;
+
+  const handleSelectAccompanimentStyle = React.useCallback((style: AccompanimentStyle) => {
+    setInternalAccompanimentStyle(style);
+    setStoredAccompanimentStyle(style);
+    audioEngine.setAccompanimentStyle(style);
+    onChangeAccompanimentStyle?.(style);
+    // Audition preview
+    audioEngine.previewChord(currentMeasureChord || 'C');
+  }, [currentMeasureChord, onChangeAccompanimentStyle]);
+
+  // Tactile Quick-Pad State (MOD-6)
+  const [showTactileQuickPad, setShowTactileQuickPad] = React.useState<boolean>(() => {
+    return getStoredTactileQuickPad(false);
+  });
+
+  const handleToggleTactilePad = React.useCallback(() => {
+    setShowTactileQuickPad(prev => {
+      const nextVal = !prev;
+      setStoredTactileQuickPad(nextVal);
+      return nextVal;
+    });
+  }, []);
+
+  // Pentatonic Mode State (MOD-6)
+  const [internalPentatonic, setInternalPentatonic] = React.useState<boolean>(() => {
+    return isPentatonicMode !== undefined ? isPentatonicMode : getStoredPentatonicMode(false);
+  });
+
+  const effectivePentatonicMode = isPentatonicMode !== undefined ? isPentatonicMode : internalPentatonic;
+
+  const handleTogglePentatonic = React.useCallback(() => {
+    const nextVal = !effectivePentatonicMode;
+    setInternalPentatonic(nextVal);
+    setStoredPentatonicMode(nextVal);
+    onTogglePentatonicMode?.();
+  }, [effectivePentatonicMode, onTogglePentatonicMode]);
+
   // Determine current active drawer (controlled or internal)
   const currentDrawer: HudDrawerType =
     activeDrawer !== undefined
@@ -294,7 +368,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   const currentSelectionKey = `ornaments-${selectedMeasureNumber}-${selectedNoteNumber}`;
   const isAddDelimiterActive = currentDrawer === 'ornaments' && addDelimiterActiveKey === currentSelectionKey;
 
-  const handleToggleDrawer = (target: 'piano' | 'ornaments' | 'chords' | 'edit') => {
+  const handleToggleDrawer = (target: 'piano' | 'ornaments' | 'chords' | 'edit' | 'creativity') => {
     if (onToggleDrawer) {
       onToggleDrawer(target);
     } else if (target === 'piano' && onTogglePianoBed) {
@@ -886,6 +960,168 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           </div>
         )}
 
+        {/* Creativity Studio Drawer (MOD-4 & MOD-6) */}
+        {currentDrawer === 'creativity' && (
+          <div
+            id="floating-score-hud-creativity-bar"
+            className="pointer-events-auto w-full bg-white/95 dark:bg-[#151921]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 text-sm overflow-x-auto whitespace-nowrap scrollbar-none animate-in fade-in slide-in-from-bottom-1 duration-150"
+          >
+            {/* Title / Studio Header */}
+            <div className="flex items-center gap-1.5 text-amber-500 shrink-0 font-bold">
+              <Wand2 className="w-4 h-4" />
+              <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-100 shrink-0">
+                Creativity Studio:
+              </span>
+            </div>
+
+            {/* Accompaniment Styles Group (MOD-4) */}
+            <div className="flex items-center gap-1 shrink-0 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
+              <span className="text-2xs font-extrabold text-zinc-500 uppercase px-1 hidden md:inline">
+                Style:
+              </span>
+              {(
+                [
+                  { id: 'block', label: 'Block', desc: 'Block Chords (Steady 4-beat piano)' },
+                  { id: 'arpeggio', label: 'Arpeggio', desc: 'Rolling 8th-note Arpeggios' },
+                  { id: 'folk', label: 'Folk', desc: 'Folk Boom-Chick (Bass + offbeat strum)' },
+                  { id: 'waltz', label: 'Waltz', desc: 'Waltz 3/4 (Bass + dual chords)' },
+                ] as const
+              ).map(st => (
+                <button
+                  key={st.id}
+                  id={`floating-hud-style-${st.id}-btn`}
+                  type="button"
+                  onClick={() => handleSelectAccompanimentStyle(st.id)}
+                  className={`min-h-[44px] px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
+                    effectiveAccompanimentStyle === st.id
+                      ? 'bg-amber-500 text-zinc-950 font-black shadow-xs'
+                      : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                  }`}
+                  title={`${st.desc} · Click to select and audition preview`}
+                >
+                  {st.label}
+                </button>
+              ))}
+            </div>
+
+            <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
+
+            {/* Pentatonic Scale Mode Toggle (MOD-6) */}
+            <div className="flex items-center gap-1 shrink-0">
+              <button
+                id="floating-hud-pentatonic-toggle-btn"
+                type="button"
+                onClick={handleTogglePentatonic}
+                className={`min-h-[44px] px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
+                  effectivePentatonicMode
+                    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/60 font-black shadow-xs'
+                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+                title="Toggle Pentatonic Mode: Highlights Gong/Yu 5-tone degrees (1, 2, 3, 5, 6) across HUD and dims 4 & 7"
+              >
+                <Lightbulb className={`w-4 h-4 ${effectivePentatonicMode ? 'text-amber-500' : 'text-zinc-400'}`} />
+                <span>Pentatonic: {effectivePentatonicMode ? 'ON' : 'OFF'}</span>
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
+
+            {/* Melodic Motif Variations Group (MOD-6) */}
+            <div className="flex items-center gap-1 shrink-0 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
+              <span className="text-2xs font-extrabold text-zinc-500 uppercase px-1 hidden lg:inline">
+                Bar #{selectedMeasureNumber || 1} Motif:
+              </span>
+              <button
+                id="floating-hud-motif-invert-btn"
+                type="button"
+                onClick={() => onApplyMotifTool?.('invert')}
+                className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer flex items-center gap-1"
+                title="Invert Motif: Diatonically flip pitch contours across first note axis"
+              >
+                Invert
+              </button>
+              <button
+                id="floating-hud-motif-retrograde-btn"
+                type="button"
+                onClick={() => onApplyMotifTool?.('retrograde')}
+                className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer flex items-center gap-1"
+                title="Retrograde: Reverse pitch order while preserving durations and lyrics"
+              >
+                Retrograde
+              </button>
+              <button
+                id="floating-hud-motif-seq-up-btn"
+                type="button"
+                onClick={() => onApplyMotifTool?.('seq_up')}
+                className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer flex items-center gap-1"
+                title="Sequence +1: Diatonic transpose scale degrees up by 1 step"
+              >
+                Seq +1
+              </button>
+              <button
+                id="floating-hud-motif-seq-down-btn"
+                type="button"
+                onClick={() => onApplyMotifTool?.('seq_down')}
+                className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer flex items-center gap-1"
+                title="Sequence -1: Diatonic transpose scale degrees down by 1 step"
+              >
+                Seq -1
+              </button>
+              <button
+                id="floating-hud-motif-ornaments-btn"
+                type="button"
+                onClick={() => onApplyMotifTool?.('ornaments')}
+                className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer flex items-center gap-1"
+                title="Folk Ornaments: Embellish notes ≥ 0.5 beat with authentic Taiwanese grace notes"
+              >
+                Folk Ornaments
+              </button>
+              <button
+                id="floating-hud-motif-spark-btn"
+                type="button"
+                onClick={() => onApplyMotifTool?.('spark')}
+                className="min-h-[44px] px-3 bg-amber-500 text-zinc-950 font-black rounded-lg text-xs hover:bg-amber-400 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                title="Melody Spark: Generate a 1-measure pentatonic melodic motif matching current chord"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>⚡ Spark</span>
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
+
+            {/* Chord Progression Presets Group (MOD-6) */}
+            <div className="flex items-center gap-1 shrink-0 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
+              <span className="text-2xs font-extrabold text-zinc-500 uppercase px-1 hidden xl:inline">
+                Harmonic Presets:
+              </span>
+              {CHORD_PROGRESSION_PRESETS.map(preset => (
+                <button
+                  key={preset.id}
+                  id={`floating-hud-preset-${preset.id}-btn`}
+                  type="button"
+                  onClick={() => onApplyChordProgressionPreset?.(preset.id)}
+                  className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-indigo-600 hover:text-white transition-all cursor-pointer flex flex-col justify-center items-start leading-tight"
+                  title={`${preset.name}: ${preset.degrees.join(' - ')} · ${preset.description}`}
+                >
+                  <span className="font-extrabold">{preset.name.split(' (')[0]}</span>
+                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{preset.degrees.slice(0, 4).join('-')}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Close Button */}
+            <button
+              type="button"
+              onClick={handleCloseDrawer}
+              className="min-h-[44px] min-w-[44px] hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0 ml-auto cursor-pointer flex items-center justify-center"
+              title="Close Creativity Studio (Esc)"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+        )}
+
         {/* Docked Piano Bed Slot (Mutually Exclusive) */}
         {currentDrawer === 'piano' && pianoBedSlot && (
           <div className="pointer-events-auto w-full flex justify-center">
@@ -894,6 +1130,226 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
         )}
 
       <div className="pointer-events-auto flex flex-col items-center gap-1 p-1 sm:p-1.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl transition-all duration-200">
+        {/* Tactile Quick-Pad (MOD-6: iPad-ergonomic thumb pad ≥44px touch targets) */}
+        {showTactileQuickPad && (
+          <div
+            id="floating-score-hud-tactile-quickpad"
+            className="w-full bg-zinc-900/95 text-white dark:bg-zinc-950/95 backdrop-blur-md rounded-2xl border border-amber-500/40 p-2 sm:p-2.5 shadow-2xl flex flex-col gap-1.5 animate-in fade-in slide-in-from-bottom-2 duration-150 select-none mb-1"
+          >
+            {/* Top Bar / Header of Quick-Pad */}
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-extrabold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <LayoutGrid className="w-4 h-4 text-amber-500" />
+                  Tactile Quick-Pad
+                </span>
+                {effectivePentatonicMode && (
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                    Pentatonic Active
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleTogglePentatonic}
+                  className={`min-h-[44px] px-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 border ${
+                    effectivePentatonicMode
+                      ? 'bg-amber-500/20 text-amber-400 border-amber-500/60'
+                      : 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
+                  }`}
+                  title="Toggle Pentatonic Mode"
+                >
+                  <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                  <span>5-Tone</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowTactileQuickPad(false)}
+                  className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-xl bg-zinc-800 hover:bg-zinc-700 text-zinc-300 cursor-pointer"
+                  title="Close Quick-Pad"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {/* Row 1: Pitch Numbers 1-7, 0 (Rest), - (Dash), ␣ (Empty) - Touch Targets ≥44px */}
+            <div className="grid grid-cols-10 gap-1 sm:gap-1.5">
+              {[
+                { p: 1 as PitchNumber, name: 'Gong 1' },
+                { p: 2 as PitchNumber, name: 'Shang 2' },
+                { p: 3 as PitchNumber, name: 'Jiao 3' },
+                { p: 4 as PitchNumber, name: '4' },
+                { p: 5 as PitchNumber, name: 'Zhi 5' },
+                { p: 6 as PitchNumber, name: 'Yu 6' },
+                { p: 7 as PitchNumber, name: '7' },
+              ].map(item => {
+                const isPentatonicTone = [1, 2, 3, 5, 6].includes(item.p as number);
+                return (
+                  <button
+                    key={`quickpad-pitch-${item.p}`}
+                    id={`quickpad-pitch-${item.p}-btn`}
+                    type="button"
+                    onClick={() => onSetPitch(item.p)}
+                    className={`min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center border shadow-xs ${
+                      effectivePentatonicMode
+                        ? isPentatonicTone
+                          ? 'bg-gradient-to-b from-amber-500/25 to-amber-600/35 border-amber-400 text-amber-300 hover:from-amber-500/40 hover:to-amber-600/50'
+                          : 'bg-zinc-800/60 border-zinc-700/60 text-zinc-400 opacity-45 hover:opacity-100'
+                        : 'bg-zinc-800 hover:bg-zinc-700 border-zinc-700 text-zinc-100'
+                    }`}
+                  >
+                    <span className="leading-none">{item.p}</span>
+                    {effectivePentatonicMode && isPentatonicTone && (
+                      <span className="text-[9px] font-medium leading-none text-amber-400 mt-0.5">
+                        {item.name.split(' ')[0]}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+
+              {/* 0 (Rest) */}
+              <button
+                id="quickpad-pitch-0-btn"
+                type="button"
+                onClick={() => onSetPitch(0)}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-100 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center shadow-xs"
+                title="Rest (0)"
+              >
+                <span className="leading-none">0</span>
+                <span className="text-[9px] font-medium text-zinc-400 mt-0.5">Rest</span>
+              </button>
+
+              {/* - (Sustain Dash) */}
+              <button
+                id="quickpad-dash-btn"
+                type="button"
+                onClick={onSetDash}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-base sm:text-lg font-black bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-amber-400 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center shadow-xs"
+                title="Sustain Dash (-)"
+              >
+                <span className="leading-none">-</span>
+                <span className="text-[9px] font-medium text-zinc-400 mt-0.5">Dash</span>
+              </button>
+
+              {/* ␣ (Empty Beat Spacer) */}
+              <button
+                id="quickpad-empty-btn"
+                type="button"
+                onClick={() => onSetPitch('empty')}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl text-sm font-bold bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center shadow-xs"
+                title="Empty Beat Spacer"
+              >
+                <span className="leading-none">␣</span>
+                <span className="text-[9px] font-medium text-zinc-400 mt-0.5">Empty</span>
+              </button>
+            </div>
+
+            {/* Row 2: Octave, Duration, and Step Controls - Touch Targets ≥44px */}
+            <div className="grid grid-cols-8 gap-1 sm:gap-1.5">
+              {/* Octave Down */}
+              <button
+                id="quickpad-octave-down-btn"
+                type="button"
+                onClick={() => onSetOctave(-1)}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
+                title="Octave -1 (-8vb)"
+              >
+                -8vb
+              </button>
+
+              {/* Octave Readout / Reset */}
+              <button
+                id="quickpad-octave-reset-btn"
+                type="button"
+                onClick={() => onSetOctave(0)}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-extrabold text-xs bg-zinc-800/80 border border-zinc-700 text-amber-400 cursor-pointer flex flex-col items-center justify-center"
+                title="Reset Octave to 0"
+              >
+                <span className="text-[9px] text-zinc-400 uppercase">Octave</span>
+                <span>{currentOctave > 0 ? `+${currentOctave}` : currentOctave}</span>
+              </button>
+
+              {/* Octave Up */}
+              <button
+                id="quickpad-octave-up-btn"
+                type="button"
+                onClick={() => onSetOctave(1)}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
+                title="Octave +1 (+8va)"
+              >
+                +8va
+              </button>
+
+              {/* Duration Halve (/2) */}
+              <button
+                id="quickpad-dur-halve-btn"
+                type="button"
+                onClick={() => {
+                  const curr = currentDuration || 1;
+                  const next = (curr <= 0.125 ? 0.125 : curr / 2) as NoteDuration;
+                  onSetDuration(next);
+                }}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center"
+                title="Halve Duration (/2)"
+              >
+                <span>/ 2</span>
+                <span className="text-[9px] text-zinc-400 font-normal">{currentDuration || 1}b</span>
+              </button>
+
+              {/* Duration Double (x2) */}
+              <button
+                id="quickpad-dur-double-btn"
+                type="button"
+                onClick={() => {
+                  const curr = currentDuration || 1;
+                  const next = (curr >= 4 ? 4 : curr * 2) as NoteDuration;
+                  onSetDuration(next);
+                }}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-xs bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex flex-col items-center justify-center"
+                title="Double Duration (x2)"
+              >
+                <span>x 2</span>
+                <span className="text-[9px] text-zinc-400 font-normal">{currentDuration || 1}b</span>
+              </button>
+
+              {/* Step Previous */}
+              <button
+                id="quickpad-prev-note-btn"
+                type="button"
+                onClick={onStepPrevNote}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-base bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
+                title="Step to Previous Note (ArrowLeft)"
+              >
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+
+              {/* Step Next */}
+              <button
+                id="quickpad-next-note-btn"
+                type="button"
+                onClick={onStepNextNote}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-base bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-200 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
+                title="Step to Next Note (ArrowRight)"
+              >
+                <ArrowRight className="w-5 h-5" />
+              </button>
+
+              {/* Delete Note */}
+              <button
+                id="quickpad-delete-note-btn"
+                type="button"
+                onClick={onDeleteCurrentNote}
+                className="min-h-[44px] min-w-[44px] h-11 sm:h-12 rounded-xl font-bold text-rose-400 bg-rose-950/40 hover:bg-rose-900/60 border border-rose-800/60 transition-all active:scale-95 cursor-pointer flex items-center justify-center"
+                title="Delete Current Note"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+            </div>
+          </div>
+        )}
         {/* Main Ribbon Buttons */}
         <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-center">
           {/* Play/Stop Sheet Button */}
@@ -1344,6 +1800,38 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             >
               <Music className={`w-4 h-4 ${currentDrawer === 'chords' ? 'text-zinc-950' : 'text-amber-500'}`} />
               <span className="hidden md:inline">Chords</span>
+            </button>
+
+            {/* Creativity Studio Popover Toggle (MOD-4 & MOD-6) */}
+            <button
+              id="floating-hud-creativity-btn"
+              type="button"
+              onClick={() => handleToggleDrawer('creativity')}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                currentDrawer === 'creativity'
+                  ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              }`}
+              title="Creativity Studio: Accompaniment Styles, Melodic Motif Tools & Pentatonic Scale Mode"
+            >
+              <Wand2 className={`w-4 h-4 ${currentDrawer === 'creativity' ? 'text-zinc-950' : 'text-amber-500'}`} />
+              <span className="hidden md:inline">Creativity</span>
+            </button>
+
+            {/* Tactile Quick-Pad Toggle (MOD-6: iPad-ergonomic thumb pad) */}
+            <button
+              id="floating-hud-tactile-pad-toggle-btn"
+              type="button"
+              onClick={handleToggleTactilePad}
+              className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                showTactileQuickPad
+                  ? 'bg-indigo-600 text-white font-black shadow-2xs'
+                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+              }`}
+              title="Toggle Tactile Quick-Pad (iPad-ergonomic touch-friendly note pad ≥44px)"
+            >
+              <LayoutGrid className={`w-4 h-4 ${showTactileQuickPad ? 'text-white' : 'text-indigo-500'}`} />
+              <span className="hidden lg:inline">Quick-Pad</span>
             </button>
           </div>
 

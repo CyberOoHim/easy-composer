@@ -21,8 +21,10 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
   const {
     chordEnabled,
     chordVolume,
+    accompanimentStyle,
     toggleChordEnabled,
     setChordVolume,
+    setAccompanimentStyle,
   } = useChordPlayback();
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -33,6 +35,16 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
   const handlePointerUp = () => {
     // If not actively playing, give subtle audition feedback of chord at new volume
     if (!audioEngine.getIsPlaying() && chordEnabled && chordVolume > 0.05) {
+      audioEngine.previewChord(previewKeyChord);
+    }
+  };
+
+  const handleCycleStyle = () => {
+    const styles: Array<'block' | 'arpeggio' | 'folk' | 'waltz'> = ['block', 'arpeggio', 'folk', 'waltz'];
+    const nextIdx = (styles.indexOf(accompanimentStyle) + 1) % styles.length;
+    const nextStyle = styles[nextIdx];
+    setAccompanimentStyle(nextStyle);
+    if (!audioEngine.getIsPlaying() && chordEnabled) {
       audioEngine.previewChord(previewKeyChord);
     }
   };
@@ -189,6 +201,22 @@ export const ChordPlaybackControl: React.FC<ChordPlaybackControlProps> = ({
           {Math.round(chordVolume * 100)}%
         </span>
       </div>
+
+      {/* Accompaniment Style Cycle Button */}
+      <button
+        id={`${idPrefix}-style-cycle-btn`}
+        type="button"
+        disabled={!chordEnabled}
+        onClick={handleCycleStyle}
+        className={`px-2 py-1 rounded-md text-[11px] font-bold capitalize transition-all cursor-pointer shrink-0 border border-zinc-200 dark:border-zinc-700/60 ${
+          !chordEnabled
+            ? 'opacity-30 cursor-not-allowed text-zinc-400 bg-zinc-100 dark:bg-zinc-800'
+            : 'bg-zinc-200/80 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 hover:border-amber-500'
+        }`}
+        title={`Accompaniment Style: ${accompanimentStyle} (click to cycle: block, arpeggio, folk, waltz)`}
+      >
+        {accompanimentStyle}
+      </button>
     </div>
   );
 };

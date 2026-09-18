@@ -65,6 +65,10 @@ export const STORAGE_KEYS = {
   SEARCH_SCOPE: 'taigi_composer_search_scope',
   SEARCH_MATCH_FILTER: 'taigi_composer_search_match_filter',
   IN_SONG_FILTER: 'taigi_composer_in_song_filter',
+  // Accompaniment & Creativity Studio (MOD-4 / MOD-6)
+  ACCOMPANIMENT_STYLE: 'taigi_composer_accompaniment_style',
+  SHOW_TACTILE_QUICK_PAD: 'taigi_composer_show_tactile_quick_pad',
+  PENTATONIC_MODE: 'taigi_composer_pentatonic_mode',
 } as const;
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -76,7 +80,8 @@ export type PianoOctaveView = 'low_mid' | 'mid_high' | 'all' | 'mid';
 export type PianoLabelMode = 'both' | 'numberedNotations' | 'note';
 export type PianoQuantizeGrid = 'quarter' | 'eighth' | 'sixteenth' | 'thirtysecond';
 export type PianoDeckMode = 'step' | 'transcribe';
-export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit';
+export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit' | 'creativity';
+export type AccompanimentStyle = 'block' | 'arpeggio' | 'folk' | 'waltz';
 export type ExportFormat = 'json' | 'text' | 'midi';
 export type MidiLyricMode = 'hanlo' | 'poj' | 'both' | 'none';
 export type SearchScope = 'all' | 'current';
@@ -721,7 +726,14 @@ export function setStoredSheetZoom(zoom: number): void {
 
 export function getStoredHudDrawer(defaultVal: HudDrawerType = 'none'): HudDrawerType {
   const val = safeGetItem(STORAGE_KEYS.HUD_DRAWER);
-  if (val === 'none' || val === 'piano' || val === 'ornaments' || val === 'chords' || val === 'edit') {
+  if (
+    val === 'none' ||
+    val === 'piano' ||
+    val === 'ornaments' ||
+    val === 'chords' ||
+    val === 'edit' ||
+    val === 'creativity'
+  ) {
     return val;
   }
   return defaultVal;
@@ -729,6 +741,56 @@ export function getStoredHudDrawer(defaultVal: HudDrawerType = 'none'): HudDrawe
 
 export function setStoredHudDrawer(drawer: HudDrawerType): void {
   safeSetItem(STORAGE_KEYS.HUD_DRAWER, drawer);
+}
+
+// ============================================================================
+// Accompaniment Style & Creativity Settings (MOD-4 / MOD-6)
+// ============================================================================
+export const ACCOMPANIMENT_STYLE_EVENT = 'taigi_composer_accompaniment_style_change';
+
+export function getStoredAccompanimentStyle(defaultVal: AccompanimentStyle = 'block'): AccompanimentStyle {
+  const val = safeGetItem(STORAGE_KEYS.ACCOMPANIMENT_STYLE);
+  if (val === 'block' || val === 'arpeggio' || val === 'folk' || val === 'waltz') {
+    return val;
+  }
+  return defaultVal;
+}
+
+export function setStoredAccompanimentStyle(style: AccompanimentStyle): void {
+  safeSetItem(STORAGE_KEYS.ACCOMPANIMENT_STYLE, style);
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(ACCOMPANIMENT_STYLE_EVENT, { detail: { style } }));
+  }
+}
+
+export const TACTILE_QUICK_PAD_EVENT = 'taigi_composer_tactile_quick_pad_change';
+
+export function getStoredTactileQuickPad(defaultVal = false): boolean {
+  const val = safeGetItem(STORAGE_KEYS.SHOW_TACTILE_QUICK_PAD);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredTactileQuickPad(show: boolean): void {
+  safeSetItem(STORAGE_KEYS.SHOW_TACTILE_QUICK_PAD, String(show));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(TACTILE_QUICK_PAD_EVENT, { detail: { show } }));
+  }
+}
+
+export const PENTATONIC_MODE_EVENT = 'taigi_composer_pentatonic_mode_change';
+
+export function getStoredPentatonicMode(defaultVal = false): boolean {
+  const val = safeGetItem(STORAGE_KEYS.PENTATONIC_MODE);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredPentatonicMode(enabled: boolean): void {
+  safeSetItem(STORAGE_KEYS.PENTATONIC_MODE, String(enabled));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(PENTATONIC_MODE_EVENT, { detail: { enabled } }));
+  }
 }
 
 // ============================================================================
@@ -966,6 +1028,9 @@ export function resetAllSettingsToDefault(): void {
   setStoredPianoAllowTriplets(false);
   setStoredPianoDeckMode('step');
   setStoredHudDrawer('none');
+  setStoredAccompanimentStyle('block');
+  setStoredTactileQuickPad(false);
+  setStoredPentatonicMode(false);
   setStoredAutoTransposeChords(true);
   setStoredSyncAllMeasures(true);
   setStoredQuickAlignTarget('roman');

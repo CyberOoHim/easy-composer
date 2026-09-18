@@ -1,5 +1,8 @@
 import type { ArticulationType, GraceNote, InstrumentType, NumberedNotationNote, KeySignature, Measure, Song } from '../types/song.ts';
 import { getChordNotes, getEffectiveMeasureChords, getMeasureChords, getPitchFrequency, isNonNotationItem, isSamePitch, isSlurActive, isTieActive } from './taigiUtils.ts';
+import { getStoredAccompanimentStyle, type AccompanimentStyle } from './storage.ts';
+
+export type { AccompanimentStyle };
 
 export interface PlaybackState {
   isPlaying: boolean;
@@ -22,6 +25,7 @@ export interface AudioEngineOptions {
   melodyVolume?: number;    // 0 to 1
   backingVolume?: number;   // 0 to 1 (chord accompaniment volume)
   chordEnabled?: boolean;   // chord accompaniment toggle (default true)
+  accompanimentStyle?: AccompanimentStyle; // 'block' | 'arpeggio' | 'folk' | 'waltz' (MOD-4)
   metronomeVolume?: number; // 0 to 1
   metronomeEnabled?: boolean; // metronome click toggle (default true)
   transpose?: number;       // Semitones (-12 to +12)
@@ -47,6 +51,8 @@ interface PendingBeatEvent {
   chord: string | null;
   isChordChange: boolean;
   beatDuration: number;
+  beatIndexInBar?: number;
+  beatsPerBar?: number;
 }
 
 export class AudioEngine {
@@ -63,6 +69,7 @@ export class AudioEngine {
     melodyVolume: 0.85,
     backingVolume: 0.6,
     chordEnabled: true,
+    accompanimentStyle: 'block',
     metronomeVolume: 0.45,
     metronomeEnabled: true,
     transpose: 0,
@@ -284,6 +291,10 @@ export class AudioEngine {
           savedInst === 'cello'
         ) {
           this.options.instrument = savedInst;
+        }
+        const savedStyle = getStoredAccompanimentStyle();
+        if (savedStyle) {
+          this.options.accompanimentStyle = savedStyle;
         }
       } catch {}
     }
@@ -602,6 +613,37 @@ export class AudioEngine {
 
   public getOptions(): Required<AudioEngineOptions> {
     return { ...this.options };
+  }
+
+  public getAccompanimentStyle(): AccompanimentStyle {
+    return this.options.accompanimentStyle;
+  }
+
+  public setAccompanimentStyle(style: AccompanimentStyle): void {
+    this.setOptions({ accompanimentStyle: style });
+  }
+
+  /**
+   * Play an immediate audition preview for a given chord using the current accompaniment style
+   */
+  public previewChord(chordName: string, durationSec = 1.0): void {
+    if (typeof window === 'undefined') return;
+    this.initContext();
+    if (!this.ctx) return;
+    this.cancelAutoSuspend();
+
+    const doPlay = () => {
+      if (!this.ctx) return;
+      const now = this.ctx.currentTime;
+      this.playChordBeat(chordName, now + 0.005, durationSec, true, true, 0, 4);
+      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
+    };
+
+    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
+      this.ctx.resume().then(doPlay).catch(doPlay);
+    } else {
+      doPlay();
+    }
   }
 
   /**
@@ -1162,29 +1204,6 @@ export class AudioEngine {
       this.stopSustainedNote(voiceId, 0.04);
     }
     this.activeSustainedVoices.clear();
-  }
-
-  /**
-   * Preview a chord sound instantly when selecting from the chord palette
-   */
-  public previewChord(chordName: string) {
-    if (!chordName) return;
-    this.initContext();
-    if (!this.ctx) return;
-    this.cancelAutoSuspend();
-
-    const doPlay = () => {
-      if (!this.ctx) return;
-      const now = this.ctx.currentTime;
-      this.playChordBeat(chordName, now + 0.005, 0.7, true, true);
-      this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
-    };
-
-    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
-      this.ctx.resume().then(doPlay).catch(doPlay);
-    } else {
-      doPlay();
-    }
   }
 
   /**
@@ -1911,9 +1930,10 @@ export class AudioEngine {
   }
 
   /**
-   * Play chord accompaniment pattern with low bass foundation and warm harmonic pad.
+   * Play chord accompaniment pattern with selectable accompaniment styles:
+   * 'block' (default), 'arpeggio', 'folk', or 'waltz' (MOD-4).
    * Chords are routed through the backing low-pass filter to ensure clarity for the melody.
-   * When ecoMode is active, uses an energy-efficient reduced oscillator graph (2 voices, direct routing)
+   * When ecoMode is active, uses an energy-efficient reduced oscillator graph (<= 2 voices, direct routing)
    * to conserve CPU and battery without muting the harmonic accompaniment.
    */
   private playChordBeat(
@@ -1921,13 +1941,16 @@ export class AudioEngine {
     startTime: number,
     beatDuration: number,
     isDownbeat: boolean,
-    forcePreview = false
+    forcePreview = false,
+    beatIndexInBar = 0,
+    beatsPerBar = 4
   ) {
     if (!forcePreview && this.options.chordEnabled === false) return;
     if (!this.ctx || (!this.backingGain && !this.masterGain)) return;
     if (!forcePreview && this.options.backingVolume <= 0.01) return;
+    if (!chordName || chordName.trim() === '') return;
     const chordFrequencies = getChordNotes(chordName, this.options.transpose);
-    if (chordFrequencies.length === 0) return;
+    if (!chordFrequencies || chordFrequencies.length === 0) return;
 
     const isEco = !forcePreview && Boolean(this.options.ecoMode);
     // In ecoMode, bypass the biquad lowpass filter DSP to conserve processing power
@@ -1937,40 +1960,158 @@ export class AudioEngine {
     }
     const now = this.ctx.currentTime;
     const safeStart = Math.max(startTime, now + 0.005);
+    const style: AccompanimentStyle = this.options.accompanimentStyle || 'block';
 
-    // In ecoMode, synthesize a streamlined harmonic set to cut oscillator overhead by ~60-75%:
-    // - On downbeats: bass root + primary harmonic tone
-    // - On offbeats: bass root only
-    const activeFrequencies = isEco
-      ? (isDownbeat
-          ? [chordFrequencies[0], chordFrequencies[Math.min(2, chordFrequencies.length - 1)]]
-          : [chordFrequencies[0]])
-      : chordFrequencies;
+    const bassRoot = chordFrequencies[0];
+    const harmonyRoot = chordFrequencies.length > 1 ? chordFrequencies[1] : bassRoot * 2;
+    const third = chordFrequencies.length > 2 ? chordFrequencies[2] : harmonyRoot * 1.25;
+    const fifth = chordFrequencies.length > 3 ? chordFrequencies[3] : third * 1.2;
+    const octave = bassRoot * 2;
+    const tenth = third * 2;
 
-    activeFrequencies.forEach((freq, idx) => {
-      const isBass = idx === 0;
-
-      // Skip stagger timing ramps in ecoMode to reduce timer complexity
-      const stagger = !isEco && isDownbeat && !isBass ? (idx - 1) * 0.016 : 0;
-      const noteTime = safeStart + stagger;
-      const noteDuration = isDownbeat ? beatDuration * 0.94 : beatDuration * 0.78;
-      const stopTime = noteTime + noteDuration + 0.04;
-
-      const osc = this.createVoiceOsc(isBass ? 'triangle' : 'sine', freq, noteTime, stopTime);
-
-      const vol = isDownbeat
-        ? (isBass ? 0.38 : 0.26)
-        : (isBass ? 0.20 : 0.18);
-
-      const attackTime = 0.012;
-      const decayDuration = Math.max(0.06, noteDuration);
-      const gain = this.createVoiceGain(noteTime, 0.0001);
-      gain.gain.linearRampToValueAtTime(vol, noteTime + attackTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, noteTime + decayDuration);
-
+    const playVoice = (
+      type: OscillatorType,
+      freq: number,
+      time: number,
+      duration: number,
+      vol: number,
+      attack = 0.012
+    ) => {
+      // Voice-leading bounds: clamp frequency to pleasant, non-piercing range (45Hz - 1100Hz)
+      const clampedFreq = Math.max(45, Math.min(1100, freq));
+      const stopTime = time + duration + 0.04;
+      const osc = this.createVoiceOsc(type, clampedFreq, time, stopTime);
+      const gain = this.createVoiceGain(time, 0.0001);
+      gain.gain.linearRampToValueAtTime(vol, time + attack);
+      gain.gain.exponentialRampToValueAtTime(0.0001, time + Math.max(0.05, duration));
       osc.connect(gain);
       gain.connect(targetDestination);
-    });
+    };
+
+    switch (style) {
+      case 'arpeggio': {
+        if (forcePreview) {
+          // Preview audition: subdivide preview duration into cascading broken chord roll
+          const subDiv = Math.min(0.2, beatDuration / 4);
+          const arpNotes = [bassRoot, fifth, octave, tenth];
+          arpNotes.forEach((f, idx) => {
+            const t = safeStart + idx * subDiv;
+            playVoice(idx === 0 ? 'triangle' : 'sine', f, t, subDiv * 1.8, idx === 0 ? 0.35 : 0.22, 0.008);
+          });
+          break;
+        }
+
+        if (isEco) {
+          // Eco Mode: max 2 osc on downbeat, 1 osc on offbeats
+          if (isDownbeat) {
+            playVoice('triangle', bassRoot, safeStart, beatDuration * 0.95, 0.38, 0.012);
+            playVoice('sine', harmonyRoot, safeStart + 0.01, beatDuration * 0.85, 0.22, 0.012);
+          } else {
+            const arpTarget = beatIndexInBar % 3 === 1 ? fifth : beatIndexInBar % 3 === 2 ? octave : third;
+            playVoice('sine', arpTarget, safeStart, beatDuration * 0.85, 0.24, 0.012);
+          }
+        } else {
+          // Standard Arpeggio: cascading broken chord pattern across beats
+          if (isDownbeat) {
+            playVoice('triangle', bassRoot, safeStart, beatDuration * 1.05, 0.38, 0.012);
+            playVoice('sine', harmonyRoot, safeStart + 0.012, beatDuration * 0.88, 0.24, 0.012);
+          } else {
+            let noteFreq = fifth;
+            if (beatsPerBar === 3) {
+              noteFreq = beatIndexInBar === 1 ? third : fifth;
+            } else {
+              noteFreq = beatIndexInBar === 1 ? fifth : beatIndexInBar === 2 ? octave : tenth;
+            }
+            playVoice('sine', noteFreq, safeStart, beatDuration * 0.88, 0.24, 0.012);
+          }
+        }
+        break;
+      }
+
+      case 'folk': {
+        // Taiwanese folk pluck pattern:
+        // Alternating bass root on downbeats & alternating beats; crisp acoustic syncopated chord plucks on backbeats
+        const isAlternatingBassBeat = (beatsPerBar <= 3 && beatIndexInBar === 0) || (beatsPerBar > 3 && beatIndexInBar % 2 === 0);
+
+        if (forcePreview) {
+          playVoice('triangle', bassRoot, safeStart, beatDuration * 0.65, 0.38, 0.008);
+          const pluckT1 = safeStart + beatDuration * 0.33;
+          const pluckT2 = safeStart + beatDuration * 0.66;
+          const pluckDur = beatDuration * 0.28;
+          playVoice('sine', third, pluckT1, pluckDur, 0.22, 0.004);
+          playVoice('sine', fifth, pluckT1 + 0.004, pluckDur, 0.20, 0.004);
+          playVoice('sine', third, pluckT2, pluckDur, 0.22, 0.004);
+          playVoice('sine', fifth, pluckT2 + 0.004, pluckDur, 0.20, 0.004);
+          break;
+        }
+
+        if (isAlternatingBassBeat) {
+          const bassFreq = beatIndexInBar === 0 ? bassRoot : (fifth > 130 ? fifth * 0.5 : fifth);
+          playVoice('triangle', bassFreq, safeStart, beatDuration * 0.85, 0.38, 0.008);
+        } else {
+          const pluckDuration = Math.min(0.24, beatDuration * 0.45);
+          if (isEco) {
+            playVoice('sine', third, safeStart, pluckDuration, 0.24, 0.004);
+          } else {
+            playVoice('sine', third, safeStart, pluckDuration, 0.22, 0.004);
+            playVoice('sine', fifth, safeStart + 0.006, pluckDuration, 0.20, 0.004);
+          }
+        }
+        break;
+      }
+
+      case 'waltz': {
+        // Classic Oom-Pah-Pah pattern:
+        // Beat 1: deep resonant bass root
+        // Subsequent beats: punchy, staccato chord triad ("Pah - Pah")
+        if (forcePreview) {
+          playVoice('triangle', bassRoot, safeStart, beatDuration * 0.65, 0.40, 0.01);
+          const stabT1 = safeStart + beatDuration * 0.35;
+          const stabT2 = safeStart + beatDuration * 0.70;
+          const stabDur = beatDuration * 0.26;
+          playVoice('sine', third, stabT1, stabDur, 0.24, 0.005);
+          playVoice('sine', fifth, stabT1 + 0.004, stabDur, 0.22, 0.005);
+          playVoice('sine', third, stabT2, stabDur, 0.24, 0.005);
+          playVoice('sine', fifth, stabT2 + 0.004, stabDur, 0.22, 0.005);
+          break;
+        }
+
+        if (isDownbeat) {
+          playVoice('triangle', bassRoot, safeStart, beatDuration * 0.92, 0.40, 0.01);
+        } else {
+          const stabDuration = Math.min(0.26, beatDuration * 0.42);
+          if (isEco) {
+            playVoice('sine', third, safeStart, stabDuration, 0.25, 0.005);
+          } else {
+            playVoice('sine', third, safeStart, stabDuration, 0.24, 0.005);
+            playVoice('sine', fifth, safeStart + 0.005, stabDuration, 0.22, 0.005);
+          }
+        }
+        break;
+      }
+
+      case 'block':
+      default: {
+        // Standard Block Chord
+        const activeFrequencies = isEco
+          ? (isDownbeat
+              ? [chordFrequencies[0], chordFrequencies[Math.min(2, chordFrequencies.length - 1)]]
+              : [chordFrequencies[0]])
+          : chordFrequencies;
+
+        activeFrequencies.forEach((freq, idx) => {
+          const isBass = idx === 0;
+          const stagger = !isEco && isDownbeat && !isBass ? (idx - 1) * 0.016 : 0;
+          const noteTime = safeStart + stagger;
+          const noteDuration = isDownbeat ? beatDuration * 0.94 : beatDuration * 0.78;
+          const vol = isDownbeat
+            ? (isBass ? 0.38 : 0.26)
+            : (isBass ? 0.20 : 0.18);
+          playVoice(isBass ? 'triangle' : 'sine', freq, noteTime, noteDuration, vol, 0.012);
+        });
+        break;
+      }
+    }
   }
 
   /**
@@ -2114,7 +2255,7 @@ export class AudioEngine {
         );
         const currentChord = measureChords[chordIdx];
         const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
-        this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange);
+        this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange, false, b, beatsPerBar);
       }
     }
 
@@ -2278,7 +2419,7 @@ export class AudioEngine {
           );
           const currentChord = measureChords[chordIdx];
           const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
-          this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange);
+          this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange, false, b, beatsPerBar);
         }
       }
 
@@ -2438,7 +2579,7 @@ export class AudioEngine {
           );
           const currentChord = measureChords[chordIdx];
           const isChordChange = b === 0 || chordIdx !== Math.floor(((b - 1) / beatsPerBar) * measureChords.length);
-          this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange);
+          this.playChordBeat(currentChord, beatTime, secPerBeat, isChordChange, false, b, beatsPerBar);
         }
       }
     });
@@ -2721,6 +2862,8 @@ export class AudioEngine {
             chord: currentChord,
             isChordChange,
             beatDuration: secPerBeat,
+            beatIndexInBar: b,
+            beatsPerBar,
           });
         }
       }
@@ -2766,7 +2909,15 @@ export class AudioEngine {
       if (scheduleAt >= audioNow - 0.01) {
         this.playMetronomeClick(scheduleAt, ev.isDownbeat);
         if (ev.chord) {
-          this.playChordBeat(ev.chord, scheduleAt, ev.beatDuration, ev.isChordChange);
+          this.playChordBeat(
+            ev.chord,
+            scheduleAt,
+            ev.beatDuration,
+            ev.isChordChange,
+            false,
+            ev.beatIndexInBar ?? 0,
+            ev.beatsPerBar ?? 4
+          );
         }
       }
       this.beatScheduleCursor += 1;

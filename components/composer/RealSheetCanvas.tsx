@@ -76,9 +76,22 @@ import {
   setStoredSheetOrientation,
   getStoredPianoDeckMode,
   setStoredPianoDeckMode,
+  getStoredPentatonicMode,
+  setStoredPentatonicMode,
+  getStoredAccompanimentStyle,
+  setStoredAccompanimentStyle,
+  AccompanimentStyle,
   SETTINGS_RESET_EVENT,
   SHEET_ZOOM_EVENT,
 } from '@/lib/storage';
+import {
+  applyChordProgression,
+  invertMotif,
+  retrogradeMotif,
+  sequenceShiftMotif,
+  embellishWithFolkOrnaments,
+  generateMelodySpark,
+} from '@/lib/creativityEngine';
 import {
   getMeasureRhythmReport,
   getMeasureBeatBudget,
@@ -1454,6 +1467,76 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       onUpdateSong(arranged);
     }
   }, [onAutoHarmonize, song, onUpdateSong]);
+
+  // Pentatonic Mode and Accompaniment Style (MOD-4 & MOD-6)
+  const [isPentatonicMode, setIsPentatonicMode] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') return getStoredPentatonicMode(false);
+    return false;
+  });
+  const [accompanimentStyle, setAccompanimentStyle] = useState<AccompanimentStyle>(() => {
+    if (typeof window !== 'undefined') return getStoredAccompanimentStyle('block');
+    return 'block';
+  });
+
+  const handleTogglePentatonicMode = useCallback(() => {
+    setIsPentatonicMode(prev => {
+      const next = !prev;
+      setStoredPentatonicMode(next);
+      return next;
+    });
+  }, []);
+
+  const handleChangeAccompanimentStyle = useCallback((style: AccompanimentStyle) => {
+    setAccompanimentStyle(style);
+    setStoredAccompanimentStyle(style);
+    const eng = audioEngine || defaultAudioEngine;
+    eng.setAccompanimentStyle(style);
+  }, [audioEngine]);
+
+  // Apply Chord Progression Preset (MOD-6)
+  const handleApplyChordProgressionPreset = useCallback(
+    (presetId: string) => {
+      const updated = applyChordProgression(song, presetId, currentMIdx);
+      onUpdateSong(updated);
+    },
+    [song, currentMIdx, onUpdateSong]
+  );
+
+  // Apply Melodic Motif Creativity Tools (MOD-6)
+  const handleApplyMotifTool = useCallback(
+    (tool: 'invert' | 'retrograde' | 'seq_up' | 'seq_down' | 'ornaments' | 'spark') => {
+      if (!song.measures || song.measures.length === 0 || currentMIdx < 0 || currentMIdx >= song.measures.length) return;
+      const targetMeasure = song.measures[currentMIdx];
+      let newNotes = [...targetMeasure.notes];
+
+      switch (tool) {
+        case 'invert':
+          newNotes = invertMotif(newNotes, song.key);
+          break;
+        case 'retrograde':
+          newNotes = retrogradeMotif(newNotes);
+          break;
+        case 'seq_up':
+          newNotes = sequenceShiftMotif(newNotes, 1);
+          break;
+        case 'seq_down':
+          newNotes = sequenceShiftMotif(newNotes, -1);
+          break;
+        case 'ornaments':
+          newNotes = embellishWithFolkOrnaments(newNotes);
+          break;
+        case 'spark':
+          newNotes = generateMelodySpark(targetMeasure.chord || 'C', song.key, song.timeSignature, 'pentatonic');
+          break;
+      }
+
+      const updatedMeasures = song.measures.map((m, idx) =>
+        idx === currentMIdx ? { ...m, notes: newNotes } : m
+      );
+      onUpdateSong({ ...song, measures: updatedMeasures });
+    },
+    [song, currentMIdx, onUpdateSong]
+  );
 
   // Measure operations
   const handleAddMeasureClick = useCallback(() => {
@@ -3554,6 +3637,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         onUpdateMeasureSection={(sec) => handleSaveSection(currentMIdx, sec)}
         chordSuggestions={chordSuggestions}
         onAutoHarmonize={handleAutoHarmonize}
+        accompanimentStyle={accompanimentStyle}
+        onChangeAccompanimentStyle={handleChangeAccompanimentStyle}
+        isPentatonicMode={isPentatonicMode}
+        onTogglePentatonicMode={handleTogglePentatonicMode}
+        onApplyChordProgressionPreset={handleApplyChordProgressionPreset}
+        onApplyMotifTool={handleApplyMotifTool}
+        songKey={song.key}
+        songTimeSignature={song.timeSignature}
         activeDrawer={activeHudDrawer}
         onToggleDrawer={drawer => setActiveHudDrawer(prev => (prev === drawer ? 'none' : drawer))}
         onCloseDrawer={() => setActiveHudDrawer('none')}
