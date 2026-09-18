@@ -32,13 +32,20 @@ import {
   Sparkles,
   Type,
   Share2,
+  Layers,
 } from 'lucide-react';
 import { UiZoomControl } from '@/components/UiZoomControl';
 import { NoteZoomControl, LyricZoomControl } from '@/components/ScoreZoomControls';
 import { ChordPlaybackControl } from '@/components/ChordPlaybackControl';
 import { MetronomePlaybackControl } from '@/components/MetronomePlaybackControl';
 import { KeyboardShortcutsModal } from '@/components/composer/KeyboardShortcutsModal';
-import { resetAllSettingsToDefault } from '@/lib/storage';
+import {
+  resetAllSettingsToDefault,
+  getStoredBackgroundPlaybackMode,
+  setStoredBackgroundPlaybackMode,
+  type BackgroundPlaybackMode,
+} from '@/lib/storage';
+import { audioEngine } from '@/lib/audioEngine';
 
 interface HeaderBarProps {
   song: Song;
@@ -59,6 +66,8 @@ interface HeaderBarProps {
   futureCount?: number;
   isEcoMode?: boolean;
   onToggleEcoMode?: () => void;
+  backgroundPlaybackMode?: BackgroundPlaybackMode;
+  onChangeBackgroundPlaybackMode?: (mode: BackgroundPlaybackMode) => void;
   batteryLevel?: number | null;
   isCharging?: boolean | null;
   onSave?: () => void;
@@ -131,6 +140,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   futureCount = 0,
   isEcoMode = false,
   onToggleEcoMode,
+  backgroundPlaybackMode,
+  onChangeBackgroundPlaybackMode,
   batteryLevel,
   isCharging,
   onSave,
@@ -160,6 +171,19 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isStudioOpen = isStudioMenuOpen && !isAnyModalOpen;
   const isScoreMenuOpen = isScoreActionMenuOpen && !isAnyModalOpen;
+
+  const [internalBgMode, setInternalBgMode] = useState<BackgroundPlaybackMode>(() => {
+    return backgroundPlaybackMode || getStoredBackgroundPlaybackMode('pause');
+  });
+
+  const effectiveBgMode = backgroundPlaybackMode || internalBgMode;
+
+  const handleSetBackgroundMode = useCallback((mode: BackgroundPlaybackMode) => {
+    setInternalBgMode(mode);
+    setStoredBackgroundPlaybackMode(mode);
+    audioEngine.setOptions({ backgroundPlaybackMode: mode });
+    onChangeBackgroundPlaybackMode?.(mode);
+  }, [onChangeBackgroundPlaybackMode]);
 
   const handleToggleScoreMenu = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -651,6 +675,59 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 )}
               </button>
             )}
+
+            {/* Background Audio / Cross-Tab Behavior */}
+            <div
+              id="header-background-playback-card"
+              className="p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750 flex flex-col gap-1.5"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Layers className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span className="text-xs font-bold text-zinc-800 dark:text-zinc-100">
+                    Background Audio
+                  </span>
+                </div>
+                <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono font-bold">
+                  {effectiveBgMode === 'continuous' ? 'Continuous' : 'Auto-Pause'}
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-1.5 pt-0.5">
+                <button
+                  id="header-bg-mode-pause-btn"
+                  type="button"
+                  onClick={() => handleSetBackgroundMode('pause')}
+                  className={`px-2 py-1.5 rounded-lg text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer ${
+                    effectiveBgMode === 'pause'
+                      ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                      : 'bg-white/80 dark:bg-zinc-800/80 hover:bg-zinc-200/60 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200'
+                  }`}
+                  title="Pause audio cleanly when switching tabs or apps to conserve battery"
+                >
+                  <span className="truncate">Auto-Pause</span>
+                  {effectiveBgMode === 'pause' && <Check className="w-3 h-3 text-zinc-950 stroke-[3] shrink-0" />}
+                </button>
+                <button
+                  id="header-bg-mode-continuous-btn"
+                  type="button"
+                  onClick={() => handleSetBackgroundMode('continuous')}
+                  className={`px-2 py-1.5 rounded-lg text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer ${
+                    effectiveBgMode === 'continuous'
+                      ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                      : 'bg-white/80 dark:bg-zinc-800/80 hover:bg-zinc-200/60 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200'
+                  }`}
+                  title="Keep audio playing smoothly across browser tabs and app toggling via lookahead buffering"
+                >
+                  <span className="truncate">Continuous</span>
+                  {effectiveBgMode === 'continuous' && <Check className="w-3 h-3 text-zinc-950 stroke-[3] shrink-0" />}
+                </button>
+              </div>
+              <p className="text-[10px] text-zinc-500 dark:text-zinc-400 leading-tight">
+                {effectiveBgMode === 'continuous'
+                  ? 'Continues playing in background with 3.5s lookahead buffer and Media Session controls.'
+                  : 'Saves battery by pausing smoothly when leaving tab or locking screen.'}
+              </p>
+            </div>
           </div>
 
           {/* Section 2: Lyric Display Format (4-Stage Rotational Toggle & Direct Selector) */}
