@@ -29,6 +29,12 @@ import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { AudioEngine, audioEngine as defaultAudioEngine } from '@/lib/audioEngine';
 import { autoArrangeSongChords, getDiatonicCandidateChords } from '@/lib/chordArranger';
 import {
+  calculateVerticalPlaybackScroll,
+  calculateHorizontalPlaybackScroll,
+  getVerticalSafeZone,
+  USER_INTERACTION_GRACE_PERIOD_MS,
+} from '@/lib/playbackScroll';
+import {
   Printer,
   ZoomIn,
   ZoomOut,
@@ -217,8 +223,6 @@ function hasActualLyricWord(note: NumberedNotationNote, verseIndex: number): boo
   }
 }
 
-const SCROLL_JITTER_TOLERANCE_PX = 6;
-
 /**
  * Smoothly scrolls the window so that a target line element (system row or measure)
  * is positioned comfortably within the safe viewport zone between the sticky header
@@ -230,29 +234,22 @@ function scrollLineIntoSafeZone(lineEl: HTMLElement, fallbackHudHeight: number =
   const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : fallbackHudHeight;
   const headerEl = document.getElementById('header-bar') || document.querySelector('header');
   const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
-  const safeTop = headerHeight + 12;
 
-  const hudRect = hudEl?.getBoundingClientRect();
-  const hudTop = hudRect && hudRect.top > 0 ? hudRect.top : window.innerHeight - currentHudHeight;
-  const safeBottom = hudTop - 20;
-
+  const viewport = {
+    viewportHeight: window.innerHeight,
+    currentScrollY: window.scrollY || document.documentElement.scrollTop,
+    headerHeight,
+    hudHeight: currentHudHeight,
+  };
   const lineRect = lineEl.getBoundingClientRect();
-  const currentScrollY = window.scrollY || document.documentElement.scrollTop;
-
-  if (lineRect.bottom > safeBottom || lineRect.top < safeTop) {
-    const availableSafeHeight = Math.max(100, safeBottom - safeTop);
-    const targetTopInViewport =
-      lineRect.height <= availableSafeHeight
-        ? safeTop + Math.min(32, Math.max(16, (availableSafeHeight - lineRect.height) * 0.25))
-        : safeTop + 8;
-    const targetScrollY = Math.max(0, currentScrollY + lineRect.top - targetTopInViewport);
-
-    if (Math.abs(currentScrollY - targetScrollY) > SCROLL_JITTER_TOLERANCE_PX) {
-      window.scrollTo({
-        top: targetScrollY,
-        behavior: 'smooth',
-      });
-    }
+  const res = calculateVerticalPlaybackScroll(viewport, lineRect, null, {
+    isInitialOrTopSystem: false,
+  });
+  if (res.shouldScroll) {
+    window.scrollTo({
+      top: res.targetScrollY,
+      behavior: 'smooth',
+    });
   }
 }
 
@@ -263,10 +260,15 @@ function scrollLineIntoSafeZone(lineEl: HTMLElement, fallbackHudHeight: number =
 function scrollMeasureIntoHorizontalView(wrapper: HTMLElement, targetEl: HTMLElement): void {
   const wrapperRect = wrapper.getBoundingClientRect();
   const tRect = targetEl.getBoundingClientRect();
-  if (tRect.left < wrapperRect.left + 40 || tRect.right > wrapperRect.right - 40) {
-    const scrollLeftTarget = wrapper.scrollLeft + (tRect.left - wrapperRect.left) - 80;
+  const bounds = {
+    wrapperWidth: wrapperRect.width,
+    currentScrollLeft: wrapper.scrollLeft,
+    containerLeft: wrapperRect.left,
+  };
+  const res = calculateHorizontalPlaybackScroll(bounds, tRect);
+  if (res.shouldScroll) {
     wrapper.scrollTo({
-      left: Math.max(0, scrollLeftTarget),
+      left: res.targetScrollLeft,
       behavior: 'smooth',
     });
   }
@@ -622,6 +624,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   const canvasWrapperRef = useRef<HTMLDivElement>(null);
   const activeNoteElementRef = useRef<HTMLDivElement>(null);
   const isFirstMountRef = useRef(true);
+  const lastScrolledSysIdxRef = useRef<number | null>(null);
+  const lastScrolledMIdxRef = useRef<number | null>(null);
+  const isUserInteractingRef = useRef<boolean>(false);
+  const userInteractionTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Resolved safe coordinates
   const currentMIdx = Math.max(0, Math.min(song.measures.length - 1, selectedMeasureIndex ?? 0));
@@ -707,6 +713,60 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       clearTimeout(t2);
     };
   }, [activeHudDrawer]);
+
+  // Track user touch / scroll gestures during playback to avoid fighting the user
+  useEffect(() => {
+    if (!isPlaying) {
+      isUserInteractingRef.current = false;
+      if (userInteractionTimerRef.current) {
+        clearTimeout(userInteractionTimerRef.current);
+        userInteractionTimerRef.current = null;
+      }
+      lastScrolledSysIdxRef.current = null;
+      lastScrolledMIdxRef.current = null;
+      return;
+    }
+
+    const handleInteractionStart = () => {
+      if (userInteractionTimerRef.current) {
+        clearTimeout(userInteractionTimerRef.current);
+        userInteractionTimerRef.current = null;
+      }
+      isUserInteractingRef.current = true;
+    };
+
+    const handleInteractionEnd = () => {
+      if (userInteractionTimerRef.current) {
+        clearTimeout(userInteractionTimerRef.current);
+      }
+      userInteractionTimerRef.current = setTimeout(() => {
+        isUserInteractingRef.current = false;
+      }, USER_INTERACTION_GRACE_PERIOD_MS);
+    };
+
+    const handleWheel = () => {
+      handleInteractionStart();
+      handleInteractionEnd();
+    };
+
+    window.addEventListener('touchstart', handleInteractionStart, { passive: true });
+    window.addEventListener('touchmove', handleInteractionStart, { passive: true });
+    window.addEventListener('touchend', handleInteractionEnd, { passive: true });
+    window.addEventListener('touchcancel', handleInteractionEnd, { passive: true });
+    window.addEventListener('wheel', handleWheel, { passive: true });
+
+    return () => {
+      window.removeEventListener('touchstart', handleInteractionStart);
+      window.removeEventListener('touchmove', handleInteractionStart);
+      window.removeEventListener('touchend', handleInteractionEnd);
+      window.removeEventListener('touchcancel', handleInteractionEnd);
+      window.removeEventListener('wheel', handleWheel);
+      if (userInteractionTimerRef.current) {
+        clearTimeout(userInteractionTimerRef.current);
+        userInteractionTimerRef.current = null;
+      }
+    };
+  }, [isPlaying]);
 
   // Standard realistic physical sheet widths (A4)
   // Portrait: 210mm (~896px / max-w-4xl)
@@ -797,6 +857,33 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     if (sheetWrapMode !== 'no_wrap') return standardSheetWidth;
     return Math.max(standardSheetWidth, longestSystemLineWidth + 80);
   }, [sheetWrapMode, standardSheetWidth, longestSystemLineWidth]);
+
+  // Fast note location map (note ID -> measure and note index) for zero-latency lookups
+  const noteLocationMap = useMemo(() => {
+    const map = new Map<string, { mIdx: number; nIdx: number }>();
+    if (!song?.measures || !Array.isArray(song.measures)) return map;
+    song.measures.forEach((m, mIdx) => {
+      if (m?.notes && Array.isArray(m.notes)) {
+        m.notes.forEach((n, nIdx) => {
+          if (n && n.id) {
+            map.set(n.id, { mIdx, nIdx });
+          }
+        });
+      }
+    });
+    return map;
+  }, [song]);
+
+  // Fast measure to system index mapping for lookahead and system-boundary tracking
+  const measureToSystemIndexMap = useMemo(() => {
+    const map = new Map<number, number>();
+    systems.forEach(sys => {
+      sys.measures.forEach(m => {
+        map.set(m.measureIndex, sys.systemIndex);
+      });
+    });
+    return map;
+  }, [systems]);
 
   const isSheetExtended = sheetWrapMode === 'no_wrap' && extendedSheetWidth > standardSheetWidth;
 
@@ -923,11 +1010,88 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
   }, [song.key]);
 
-  // Smoothly scroll active playback line of measures (including all notes and lyrics) into view above the HUD stack
+  // Smoothly and predictively scroll active playback line into view above the HUD stack
   useEffect(() => {
     if (!isPlaying || !activePlaybackNoteId) return;
+    if (isUserInteractingRef.current) return;
 
     try {
+      const noteLoc = noteLocationMap.get(activePlaybackNoteId);
+      if (noteLoc) {
+        const currentPlayMIdx = noteLoc.mIdx;
+        const currentPlaySysIdx = measureToSystemIndexMap.get(currentPlayMIdx) ?? 0;
+        const currentSystemObj = systems[currentPlaySysIdx];
+        const isLastMeasureInSystem =
+          currentSystemObj &&
+          currentSystemObj.measures.length > 0 &&
+          currentSystemObj.measures[currentSystemObj.measures.length - 1].measureIndex === currentPlayMIdx;
+
+        // In vertical mode, only re-query and adjust when the system changes or on the lookahead measure
+        if (sheetWrapMode !== 'no_wrap') {
+          if (currentPlaySysIdx !== lastScrolledSysIdxRef.current || isLastMeasureInSystem) {
+            const systemEl =
+              document.getElementById(`sheet-system-${currentPlaySysIdx}`) ||
+              document.getElementById(`sheet-measure-${currentPlayMIdx + 1}`);
+            if (systemEl) {
+              const nextSystemEl = document.getElementById(`sheet-system-${currentPlaySysIdx + 1}`);
+              const hudEl = document.getElementById('floating-score-hud-container');
+              const currentHudHeight = hudEl
+                ? Math.max(hudEl.getBoundingClientRect().height, 120)
+                : hudStackHeight;
+              const headerEl = document.getElementById('header-bar') || document.querySelector('header');
+              const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
+
+              const viewport = {
+                viewportHeight: window.innerHeight,
+                currentScrollY: window.scrollY || document.documentElement.scrollTop,
+                headerHeight,
+                hudHeight: currentHudHeight,
+              };
+              const activeRect = systemEl.getBoundingClientRect();
+              const nextRect = nextSystemEl ? nextSystemEl.getBoundingClientRect() : null;
+              const isInitialOrTop = currentPlaySysIdx <= 1 && viewport.currentScrollY <= 20;
+
+              const scrollResult = calculateVerticalPlaybackScroll(viewport, activeRect, nextRect, {
+                isInitialOrTopSystem: isInitialOrTop,
+              });
+
+              if (scrollResult.shouldScroll) {
+                window.scrollTo({
+                  top: scrollResult.targetScrollY,
+                  behavior: 'smooth',
+                });
+              }
+              lastScrolledSysIdxRef.current = currentPlaySysIdx;
+            }
+          }
+        } else {
+          // Horizontal continuous (no_wrap) mode: smoothly track active measure at ~33% width
+          if (currentPlayMIdx !== lastScrolledMIdxRef.current && canvasWrapperRef.current) {
+            const wrapper = canvasWrapperRef.current;
+            const measureEl = document.getElementById(`sheet-measure-${currentPlayMIdx + 1}`);
+            if (measureEl) {
+              const wrapperRect = wrapper.getBoundingClientRect();
+              const mRect = measureEl.getBoundingClientRect();
+              const bounds = {
+                wrapperWidth: wrapperRect.width,
+                currentScrollLeft: wrapper.scrollLeft,
+                containerLeft: wrapperRect.left,
+              };
+              const hResult = calculateHorizontalPlaybackScroll(bounds, mRect);
+              if (hResult.shouldScroll) {
+                wrapper.scrollTo({
+                  left: hResult.targetScrollLeft,
+                  behavior: 'smooth',
+                });
+              }
+              lastScrolledMIdxRef.current = currentPlayMIdx;
+            }
+          }
+        }
+        return;
+      }
+
+      // Fallback for custom/unmapped note IDs
       const currentLyricNoteId = activeLyricNoteIdByVerse[activeVerseRow];
       const noteEl = document.getElementById(`sheet-note-${activePlaybackNoteId}`);
       const lyricEl = currentLyricNoteId
@@ -936,14 +1100,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       const targetEl = (activeField === 'lyric' ? (lyricEl || noteEl) : noteEl) || noteEl;
       if (!targetEl) return;
 
-      // Find the enclosing system (row / line of measures) or measure
       const systemEl = targetEl.closest('[id^="sheet-system-"]') as HTMLElement | null;
       const measureEl = targetEl.closest('[id^="sheet-measure-"]') as HTMLElement | null;
       const lineEl = systemEl || measureEl || targetEl;
 
       scrollLineIntoSafeZone(lineEl, hudStackHeight);
 
-      // In no-wrap horizontal scrolling mode, ensure the active measure is visible horizontally
       if (sheetWrapMode === 'no_wrap' && canvasWrapperRef.current && (measureEl || targetEl)) {
         scrollMeasureIntoHorizontalView(canvasWrapperRef.current, measureEl || targetEl);
       }
@@ -957,6 +1119,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     activeVerseRow,
     activeLyricNoteIdByVerse,
     sheetWrapMode,
+    systems,
+    noteLocationMap,
+    measureToSystemIndexMap,
+    hudStackHeight,
   ]);
 
   // Step to Next Note
