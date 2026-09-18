@@ -113,7 +113,7 @@ You can select any module by its ID to implement it in a focused turn, or procee
   - [✓] **Measure Beat Budget Helper**: Implement `getMeasureBeatBudget(measure, timeSignature)` returning `currentBeats`, `expectedBeats`, `remainingBeats`, `isFull`, `isDeficit`, `isOverbeat`, `beatProgressPercent`, and `beatIndicators: ('filled' | 'partial' | 'empty')[]`.
   - [✓] **Auto-Fill Deficit with Rests**: Implement `fillMeasureDeficitWithRests(measure, timeSignature)` to calculate and append the minimal rest notes needed to complete the bar.
   - [✓] **Smart Inline Lyric Distribute**: Implement `distributeLyricsAcrossNotes(rawText, song, startMeasureIdx, startNoteIdx, verseIndex, field)` to tokenize text into syllables (handling Han-Lo characters, punctuation, and POJ hyphens) and distribute them across subsequent notes.
-  - [✓] **Unit Tests**: Create `test/rhythmAndLyricDistribute.test.ts` covering beat budget across 4/4, 3/4, 2/4, and 6/8 meters, edge cases with tied notes, and multi-measure lyric distribution (9/9 tests pass).
+  - [✓] **Unit Tests**: Create `test/rhythmAndLyricDistribute.test.ts` covering beat budget across 4/4, 3/4, 2/4, and 6/8 meters, edge cases with tied notes, and multi-measure lyric distribution (13/13 tests pass).
 - **Verification Gate**:
   - `npm run test` passes for `test/rhythmAndLyricDistribute.test.ts`.
   - `npm run typecheck` passes.
@@ -150,6 +150,7 @@ You can select any module by its ID to implement it in a focused turn, or procee
   - [✓] **Beat Budget Header**: In `RealSheetCanvas.tsx`, render a non-intrusive beat budget indicator directly above the active measure: `● ● ● ○` (3 / 4 beats).
   - [✓] **Color Status Coding**: Use soft neutral styling: green for complete bar, amber for deficit, red badge for overbeat.
   - [✓] **Quick Action `[Pad Rest]`**: One-tap button next to the deficit indicator to auto-insert rests filling the remaining bar duration.
+  - [✓] **Visual Caret & Empty Measure Indicator**: Implemented responsive visual caret indicating insert vs. replace mode (left vertical insertion bar in `progressive_insert` mode, underline caret in `replace` mode), plus pulsing insertion prompt for empty measures.
   - [✓] **Inline Distribute Lyric Popover**: Clicking on an active note's lyric field displays a subtle `[Spread]` button that opens an inline text box to paste and spread lyrics across consecutive notes.
   - [✓] **Floating HUD & Modal Integration**: Added "Spread Lyrics" button to `FloatingScoreHud.tsx` and updated `QuickLyricAlignerModal.tsx` with scope selection, dual Han-Lo/POJ inputs, and interactive token editing.
   - [✓] **Touch Optimization**: Ensure all clickable chips on the canvas meet iPad touch target sizes.

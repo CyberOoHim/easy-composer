@@ -85,6 +85,67 @@ describe('Measure Beat Budget (MOD-3)', () => {
     assert.equal(budget.expectedBeats, 3);
     assert.equal(budget.isFull, true);
   });
+
+  it('correctly handles 2/4 meter (March time: 2 beats expected)', () => {
+    const fullMeasure = createTestMeasure('m-24-full', 1, [1, 1], '2/4');
+    const budgetFull = getMeasureBeatBudget(fullMeasure, '2/4');
+    assert.equal(budgetFull.currentBeats, 2);
+    assert.equal(budgetFull.expectedBeats, 2);
+    assert.equal(budgetFull.isFull, true);
+    assert.equal(budgetFull.isDeficit, false);
+    assert.deepEqual(budgetFull.beatIndicators, ['filled', 'filled']);
+
+    const deficitMeasure = createTestMeasure('m-24-def', 2, [0.5], '2/4');
+    const budgetDef = getMeasureBeatBudget(deficitMeasure, '2/4');
+    assert.equal(budgetDef.currentBeats, 0.5);
+    assert.equal(budgetDef.expectedBeats, 2);
+    assert.equal(budgetDef.remainingBeats, 1.5);
+    assert.equal(budgetDef.isDeficit, true);
+    assert.deepEqual(budgetDef.beatIndicators, ['partial', 'empty']);
+  });
+
+  it('accurately calculates beat budget with tied notes and dotted notes', () => {
+    const tiedNotes: NumberedNotationNote[] = [
+      {
+        id: 'n-tied-1',
+        pitch: 5,
+        octave: 0,
+        duration: 1.5,
+        isDotted: true,
+        tieToNext: true,
+        lyric: {},
+      },
+      {
+        id: 'n-tied-2',
+        pitch: 5,
+        octave: 0,
+        duration: 0.5,
+        isTied: true,
+        lyric: {},
+      },
+      {
+        id: 'n-tied-3',
+        pitch: 3,
+        octave: 0,
+        duration: 2,
+        lyric: {},
+      },
+    ];
+
+    const measure: Measure = {
+      id: 'm-tied',
+      measureNumber: 1,
+      notes: tiedNotes,
+    };
+
+    const budget = getMeasureBeatBudget(measure, '4/4');
+    // 1.5 + 0.5 + 2 = 4 beats total
+    assert.equal(budget.currentBeats, 4);
+    assert.equal(budget.expectedBeats, 4);
+    assert.equal(budget.remainingBeats, 0);
+    assert.equal(budget.isFull, true);
+    assert.deepEqual(budget.beatIndicators, ['filled', 'filled', 'filled', 'filled']);
+  });
 });
 
 describe('Auto-Fill Deficit with Rests (MOD-3)', () => {
@@ -148,5 +209,39 @@ describe('Smart Lyric Distribute Across Notes (MOD-3)', () => {
     const updatedRoman = distributeLyricsAcrossNotes('chhun hong', song, 0, 0, 1, 'auto');
     assert.equal(updatedRoman.measures[0].notes[0].lyric.poj, 'chhun');
     assert.equal(updatedRoman.measures[0].notes[1].lyric.poj, 'hong');
+  });
+
+  it('distributes lyrics to verse 2 in lyricsByVerse without overwriting verse 1', () => {
+    const song = createTestSong([
+      createTestMeasure('m1', 1, [1, 1]),
+      createTestMeasure('m2', 2, [1, 1]),
+    ]);
+
+    // First assign verse 1
+    const v1Song = distributeLyricsAcrossNotes('春風 吹來', song, 0, 0, 1, 'hanlo');
+    // Then assign verse 2
+    const v2Song = distributeLyricsAcrossNotes('秋月 明圓', v1Song, 0, 0, 2, 'hanlo');
+
+    // Verse 1 preserved
+    assert.equal(v2Song.measures[0].notes[0].lyricsByVerse?.[1]?.hanlo, '春');
+    assert.equal(v2Song.measures[0].notes[1].lyricsByVerse?.[1]?.hanlo, '風');
+    assert.equal(v2Song.measures[1].notes[0].lyricsByVerse?.[1]?.hanlo, '吹');
+    assert.equal(v2Song.measures[1].notes[1].lyricsByVerse?.[1]?.hanlo, '來');
+
+    // Verse 2 populated
+    assert.equal(v2Song.measures[0].notes[0].lyricsByVerse?.[2]?.hanlo, '秋');
+    assert.equal(v2Song.measures[0].notes[1].lyricsByVerse?.[2]?.hanlo, '月');
+    assert.equal(v2Song.measures[1].notes[0].lyricsByVerse?.[2]?.hanlo, '明');
+    assert.equal(v2Song.measures[1].notes[1].lyricsByVerse?.[2]?.hanlo, '圓');
+  });
+
+  it('handles double-hyphenated enclitics and POJ tone marks gracefully', () => {
+    const song = createTestSong([
+      createTestMeasure('m1', 1, [1, 1]),
+    ]);
+
+    const updated = distributeLyricsAcrossNotes('khì--ah', song, 0, 0, 1, 'roman');
+    assert.equal(updated.measures[0].notes[0].lyric.poj, 'khì--');
+    assert.equal(updated.measures[0].notes[1].lyric.poj, 'ah');
   });
 });

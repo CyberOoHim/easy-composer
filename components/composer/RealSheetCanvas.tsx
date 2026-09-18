@@ -2825,8 +2825,26 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                       )}
 
                       {/* Notes within Measure */}
-                      <div className="flex-1 flex items-center justify-around">
-                        {engravedM.notes.map((engNote, nIdx) => {
+                      <div className="flex-1 flex items-center justify-around min-h-[32px]">
+                        {engravedM.notes.length === 0 ? (
+                          <div
+                            className={`flex items-center justify-center w-full py-1 text-xs font-mono select-none ${
+                              isSelectedMeasure
+                                ? 'text-amber-600 dark:text-amber-400 font-bold'
+                                : 'text-zinc-300 dark:text-zinc-600'
+                            }`}
+                          >
+                            {isSelectedMeasure ? (
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30">
+                                <span className="inline-block w-[2px] h-3.5 bg-amber-500 rounded-full animate-pulse" />
+                                <span className="text-[10px]">Enter notes (1-7, 0)</span>
+                              </span>
+                            ) : (
+                              <span className="opacity-40">—</span>
+                            )}
+                          </div>
+                        ) : (
+                          engravedM.notes.map((engNote, nIdx) => {
                           const isSelectedNote =
                             isSelectedMeasure && nIdx === currentNIdx && activeField === 'pitch';
                           // When in lyric mode, the cue cursor when playing is on the word/syllable, not on the notes as in note mode
@@ -2942,7 +2960,27 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                 )}
 
                                 {/* Pitch Digit */}
-                                <span>{engNote.pitchDisplay}</span>
+                                <span className="relative inline-flex items-center justify-center">
+                                  {engNote.pitchDisplay}
+                                  {/* Visual Caret Indicator (MOD-5) */}
+                                  {isSelectedNote && (
+                                    <>
+                                      {noteInputMode === 'progressive_insert' ? (
+                                        <span
+                                          id={`caret-insert-${engNote.note.id}`}
+                                          className="absolute -left-1 top-0 bottom-0 w-[2.5px] bg-amber-500 dark:bg-amber-400 rounded-full animate-pulse shadow-sm pointer-events-none"
+                                          title="Insertion Caret (Insert Mode)"
+                                        />
+                                      ) : (
+                                        <span
+                                          id={`caret-underline-${engNote.note.id}`}
+                                          className="absolute -bottom-1 left-0 right-0 h-[2.5px] bg-amber-500 dark:bg-amber-400 rounded-full animate-pulse shadow-xs pointer-events-none"
+                                          title="Focus Caret (Replace Mode)"
+                                        />
+                                      )}
+                                    </>
+                                  )}
+                                </span>
 
                                 {/* Post-Grace Notes */}
                                 {engNote.note.postGraceNotes && engNote.note.postGraceNotes.length > 0 && (
@@ -3032,8 +3070,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               </div>
                             </div>
                           );
-                        })}
-                      </div>
+                        })
+                      )}
+                    </div>
 
                       {/* Prelude Close Parenthesis ')' */}
                       {engravedM.isPrelude && isLastInSystem && (
