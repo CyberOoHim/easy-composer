@@ -47,6 +47,11 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
     if (!isOpen) return;
     let isCancelled = false;
 
+    // Reuse already generated share URL if song hasn't changed, preventing redundant compression and CPU usage
+    if (shareData && shareData.song === song && !error) {
+      return;
+    }
+
     createShareableSongUrl(song)
       .then(result => {
         if (!isCancelled) {
@@ -67,7 +72,7 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
         clearTimeout(copyTimerRef.current);
       }
     };
-  }, [isOpen, song, retryTrigger]);
+  }, [isOpen, song, retryTrigger, shareData, error]);
 
   const handleClose = useCallback(() => {
     setCopied(false);

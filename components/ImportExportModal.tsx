@@ -122,6 +122,11 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     if (!isOpen || activeTab !== 'export' || exportFormat !== 'url') return;
     let isCancelled = false;
 
+    // Reuse existing share result if song hasn't changed
+    if (shareData && shareData.song === currentSong && !urlGenerationError) {
+      return;
+    }
+
     createShareableSongUrl(currentSong)
       .then(res => {
         if (!isCancelled) {
@@ -139,7 +144,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [isOpen, activeTab, exportFormat, currentSong, urlRetryCount]);
+  }, [isOpen, activeTab, exportFormat, currentSong, urlRetryCount, shareData, urlGenerationError]);
 
   const [midiAccompaniment, setMidiAccompanimentState] = useState(() => {
     if (typeof window !== 'undefined') return getStoredMidiAccompaniment(true);

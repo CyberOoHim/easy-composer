@@ -133,6 +133,11 @@ export function base64UrlToUint8Array(base64url: string): Uint8Array {
   return new Uint8Array(0);
 }
 
+// Maximum supported sizes to protect against memory explosion, zip bombs, or CPU pegging
+const MAX_URL_PAYLOAD_CHARS = 300_000;      // 300KB maximum base64 URL payload string
+const MAX_DECOMPRESSED_BYTES = 5 * 1024 * 1024; // 5MB maximum decompressed JSON text
+const MAX_COMPRESSED_BYTES = 2 * 1024 * 1024;   // 2MB maximum compressed binary stream
+
 function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error(errorMsg)), ms);
@@ -172,7 +177,7 @@ async function tryCompressWithStream(
     }
   }
 
-  // Method 2: Manual stream writer/reader fallback
+  // Method 2: Manual stream writer/reader fallback with resource release guards
   const cs = new CompressionStream(format);
   const writer = cs.writable.getWriter();
   const writePromise = writer
@@ -184,15 +189,34 @@ async function tryCompressWithStream(
   const chunks: Uint8Array[] = [];
   let totalLength = 0;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) {
-      chunks.push(value);
-      totalLength += value.byteLength;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        totalLength += value.byteLength;
+        if (totalLength > MAX_COMPRESSED_BYTES) {
+          await reader.cancel('Compressed size exceeds safety threshold');
+          throw new Error('Compressed song payload exceeds maximum size limit (2MB)');
+        }
+      }
+    }
+    await writePromise;
+  } catch (streamErr) {
+    try {
+      await reader.cancel();
+    } catch {
+      // ignore secondary cancel error
+    }
+    throw streamErr;
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // ignore
     }
   }
-  await writePromise;
 
   const result = new Uint8Array(totalLength);
   let offset = 0;
@@ -267,7 +291,7 @@ async function tryDecompressWithStream(
     }
   }
 
-  // Method 2: Manual stream writer/reader fallback
+  // Method 2: Manual stream writer/reader fallback with memory & zip-bomb protection
   const ds = new DecompressionStream(format);
   const writer = ds.writable.getWriter();
   const writePromise = writer
@@ -279,15 +303,34 @@ async function tryDecompressWithStream(
   const chunks: Uint8Array[] = [];
   let totalLength = 0;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    if (value) {
-      chunks.push(value);
-      totalLength += value.byteLength;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (value) {
+        chunks.push(value);
+        totalLength += value.byteLength;
+        if (totalLength > MAX_DECOMPRESSED_BYTES) {
+          await reader.cancel('Decompressed size exceeds safety threshold');
+          throw new Error('Decompressed song payload exceeds maximum size limit (5MB)');
+        }
+      }
+    }
+    await writePromise;
+  } catch (streamErr) {
+    try {
+      await reader.cancel();
+    } catch {
+      // ignore secondary cancel error
+    }
+    throw streamErr;
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // ignore
     }
   }
-  await writePromise;
 
   const combined = new Uint8Array(totalLength);
   let offset = 0;
@@ -379,6 +422,10 @@ export async function decodeSongFromUrlPayload(payload: string): Promise<Song> {
   const trimmed = payload.trim();
   if (!trimmed) {
     throw new Error('Empty song URL payload');
+  }
+
+  if (trimmed.length > MAX_URL_PAYLOAD_CHARS) {
+    throw new Error(`Song URL payload exceeds maximum safe length (${MAX_URL_PAYLOAD_CHARS} chars)`);
   }
 
   let text: string;
