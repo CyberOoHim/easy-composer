@@ -58,16 +58,35 @@ export function cleanSongForUrl(song: Song): Record<string, unknown> {
  * Compatible with all browsers including iOS/iPadOS Safari WebKit.
  */
 export function uint8ArrayToBase64Url(bytes: Uint8Array): string {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(bytes).toString('base64url');
+  // In browser environments, always use native btoa. This completely avoids browser
+  // Buffer polyfill quirks (e.g. throwing "Unknown encoding: base64url").
+  if (typeof window !== 'undefined' && typeof btoa === 'function') {
+    let binary = '';
+    const len = bytes.length;
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
+
+  // In Node.js or server-side runtimes, use native Buffer with standard 'base64'
+  if (typeof Buffer !== 'undefined') {
+    try {
+      const b64 = Buffer.from(bytes).toString('base64');
+      return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+    } catch {
+      // Fallback to btoa
+    }
+  }
+
+  // Universal fallback
   let binary = '';
   const len = bytes.length;
-  // Direct character code iteration avoids Function.prototype.apply TypeError on TypedArrays in Safari WebKit
   for (let i = 0; i < len; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
-  const base64 = btoa(binary);
+  const base64 = typeof btoa === 'function' ? btoa(binary) : '';
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 }
 
@@ -79,16 +98,39 @@ export function base64UrlToUint8Array(base64url: string): Uint8Array {
   while (base64.length % 4 !== 0) {
     base64 += '=';
   }
+
+  // In browser environments, always use native atob
+  if (typeof window !== 'undefined' && typeof atob === 'function') {
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
+  }
+
+  // In Node.js, use Buffer
   if (typeof Buffer !== 'undefined') {
-    return new Uint8Array(Buffer.from(base64, 'base64'));
+    try {
+      return new Uint8Array(Buffer.from(base64, 'base64'));
+    } catch {
+      // Fallback
+    }
   }
-  const binary = atob(base64);
-  const len = binary.length;
-  const bytes = new Uint8Array(len);
-  for (let i = 0; i < len; i++) {
-    bytes[i] = binary.charCodeAt(i);
+
+  // Universal fallback
+  if (typeof atob === 'function') {
+    const binary = atob(base64);
+    const len = binary.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes;
   }
-  return bytes;
+
+  return new Uint8Array(0);
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {

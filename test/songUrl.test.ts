@@ -429,4 +429,58 @@ describe('Song URL Compression & Sharing Engine (songUrl)', () => {
     assert.equal(parsedNew.song.measures.length, 1);
     assert.equal(parsedNew.song.measures[0].notes.length, 2);
   });
+
+  it('handles browser Buffer polyfill that throws "Unknown encoding: base64url"', async () => {
+    const originalBuffer = globalThis.Buffer;
+    const originalWindow = (globalThis as any).window;
+    try {
+      // Mock browser environment with window, btoa, and atob
+      (globalThis as any).window = {
+        location: {
+          origin: 'https://test.app',
+          pathname: '/easy-composer/',
+          hash: '',
+          search: '',
+        },
+      };
+
+      // Mock a browser Buffer polyfill that only supports standard 'base64' and throws on 'base64url'
+      const mockBuffer = {
+        from: (data: any, encoding?: string) => {
+          const real = originalBuffer.from(data, encoding as any);
+          return Object.assign(real, {
+            toString: (enc?: string) => {
+              if (enc === 'base64url') {
+                throw new TypeError('Unknown encoding: base64url');
+              }
+              return real.toString(enc as any);
+            },
+          });
+        },
+      };
+
+      // @ts-expect-error - Mocking browser polyfill
+      globalThis.Buffer = mockBuffer;
+
+      // User-edited 雨夜花 (from user screenshot)
+      const uIaHoe = PRESET_SONGS.find(p => p.id === 'u-ia-hoe') || PRESET_SONGS[0];
+      const editedSong: Song = {
+        ...uIaHoe,
+        subtitle: '周添旺 詞 / 鄧雨賢 曲 (信望愛白話字 POJ 對齊·全四段) - Edited',
+      };
+
+      const shareResult = await createShareableSongUrl(editedSong, 'https://test.app/');
+      assert.equal(shareResult.isPreset, false);
+      assert.ok(shareResult.url.includes('#song='));
+
+      const parsed = await parseSongFromUrl(shareResult.url);
+      assert.ok(parsed);
+      assert.equal(parsed.type, 'song');
+      assert.equal(parsed.song.title, uIaHoe.title);
+      assert.equal(parsed.song.subtitle, '周添旺 詞 / 鄧雨賢 曲 (信望愛白話字 POJ 對齊·全四段) - Edited');
+    } finally {
+      globalThis.Buffer = originalBuffer;
+      (globalThis as any).window = originalWindow;
+    }
+  });
 });
