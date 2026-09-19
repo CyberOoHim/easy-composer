@@ -285,4 +285,27 @@ describe('Print Score Alignment Engine across Orientations & Wrap Modes', () => 
       }
     });
   });
+
+  describe('5. Verse Numbering and Note Alignment', () => {
+    it('ensures notation line and obbligato layer reserve space for verse numbering at start of systems', async () => {
+      const fs = await import('node:fs');
+      const canvasSrc = fs.readFileSync('components/composer/RealSheetCanvas.tsx', 'utf8');
+
+      // Notation line must contain the verse numbering spacer matching the lyrics numbering
+      const hasNotationSpacer = canvasSrc.includes(
+        'isFirstInSystem && hasMultipleVerses && (\n                        <div\n                          className="flex items-center shrink-0 -ml-1 mr-1.5 select-none invisible pointer-events-none"'
+      );
+      assert.ok(hasNotationSpacer, 'Notation line must contain verse numbering spacer when isFirstInSystem && hasMultipleVerses');
+
+      // Obbligato line must also contain the verse numbering spacer
+      const hasObbligatoSpacer = canvasSrc.includes(
+        'isFirstInSystem && hasMultipleVerses && (\n                            <div\n                              className="flex items-center shrink-0 -ml-1 mr-1.5 select-none invisible pointer-events-none"'
+      );
+      assert.ok(hasObbligatoSpacer, 'Obbligato line must contain verse numbering spacer when isFirstInSystem && hasMultipleVerses');
+
+      // Spacer must match min-w-[14px] and lyric zoom to scale synchronously with verse numbering
+      assert.ok(canvasSrc.includes('zoom: \'var(--lyric-zoom, 1)\''), 'Spacer must scale with lyric zoom');
+    });
+  });
 });
+

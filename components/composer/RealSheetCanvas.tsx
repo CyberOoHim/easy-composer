@@ -3489,40 +3489,66 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         }`}>
                           <span>{engravedM.obbligatoText || 'Obbligato (Counter-Melody)'}</span>
                         </div>
-                        <div className="flex items-center justify-around w-full">
-                          {engravedM.obbligatoNotes.map((obNote, obIdx) => (
-                            <div key={`ob-${obIdx}`} className={`flex flex-col items-center justify-center text-xs sm:text-sm font-mono font-bold ${
-                              sheetTheme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'
-                            }`}>
-                              {obNote.octaveDotsAbove > 0 && (
-                                <div className="flex gap-0.5 text-[8px] leading-none">
-                                  {Array.from({ length: obNote.octaveDotsAbove }).map((_, i) => (
-                                    <span key={`ob-dot-${i}`}>•</span>
-                                  ))}
-                                </div>
-                              )}
-                              <span>{obNote.pitchDisplay}</span>
-                              {obNote.beam1.hasBeam && (
-                                <div className={`h-[1.5px] w-full mt-0.5 ${sheetTheme === 'dark' ? 'bg-zinc-300' : 'bg-zinc-700'}`} />
-                              )}
-                              {obNote.beam2.hasBeam && (
-                                <div className={`h-[1.5px] w-full mt-0.5 ${sheetTheme === 'dark' ? 'bg-zinc-300' : 'bg-zinc-700'}`} />
-                              )}
-                              {obNote.octaveDotsBelow > 0 && (
-                                <div className="flex gap-0.5 text-[8px] leading-none">
-                                  {Array.from({ length: obNote.octaveDotsBelow }).map((_, i) => (
-                                    <span key={`ob-bdot-${i}`}>•</span>
-                                  ))}
-                                </div>
-                              )}
+                        <div className="flex items-center w-full">
+                          {isFirstInSystem && hasMultipleVerses && (
+                            <div
+                              className="flex items-center shrink-0 -ml-1 mr-1.5 select-none invisible pointer-events-none"
+                              style={{ zoom: 'var(--lyric-zoom, 1)' }}
+                              aria-hidden="true"
+                            >
+                              <span className="text-[11px] font-serif font-bold min-w-[14px] text-right">
+                                1.
+                              </span>
                             </div>
-                          ))}
+                          )}
+                          <div className="flex-1 flex items-center justify-around">
+                            {engravedM.obbligatoNotes.map((obNote, obIdx) => (
+                              <div key={`ob-${obIdx}`} className={`flex flex-col items-center justify-center text-xs sm:text-sm font-mono font-bold ${
+                                sheetTheme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'
+                              }`}>
+                                {obNote.octaveDotsAbove > 0 && (
+                                  <div className="flex gap-0.5 text-[8px] leading-none">
+                                    {Array.from({ length: obNote.octaveDotsAbove }).map((_, i) => (
+                                      <span key={`ob-dot-${i}`}>•</span>
+                                    ))}
+                                  </div>
+                                )}
+                                <span>{obNote.pitchDisplay}</span>
+                                {obNote.beam1.hasBeam && (
+                                  <div className={`h-[1.5px] w-full mt-0.5 ${sheetTheme === 'dark' ? 'bg-zinc-300' : 'bg-zinc-700'}`} />
+                                )}
+                                {obNote.beam2.hasBeam && (
+                                  <div className={`h-[1.5px] w-full mt-0.5 ${sheetTheme === 'dark' ? 'bg-zinc-300' : 'bg-zinc-700'}`} />
+                                )}
+                                {obNote.octaveDotsBelow > 0 && (
+                                  <div className="flex gap-0.5 text-[8px] leading-none">
+                                    {Array.from({ length: obNote.octaveDotsBelow }).map((_, i) => (
+                                      <span key={`ob-bdot-${i}`}>•</span>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}
 
                     {/* Notation Line & Continuous Beams */}
                     <div className="relative flex items-center justify-between w-full min-h-[36px] sm:min-h-[40px] py-0">
+                      {/* Verse Numbering Spacer: Reserves matching width to align notes with lyrics and keep notes from sitting above verse numbering */}
+                      {isFirstInSystem && hasMultipleVerses && (
+                        <div
+                          className="flex items-center shrink-0 -ml-1 mr-1.5 select-none invisible pointer-events-none"
+                          style={{ zoom: 'var(--lyric-zoom, 1)' }}
+                          aria-hidden="true"
+                        >
+                          <span className="text-[11px] font-serif font-bold min-w-[14px] text-right">
+                            1.
+                          </span>
+                        </div>
+                      )}
+
                       {/* Prelude Open Parenthesis '(' */}
                       {engravedM.isPrelude && isFirstInSystem && (
                         <span className={`font-serif text-2xl font-bold mr-1 select-none ${
