@@ -3142,13 +3142,13 @@ export class AudioEngine {
         return;
       }
 
-      // Check for single measure loop or A-B loop range
+      // Check for single measure loop or A-B loop range (guarded against zero-length measures)
       if (this.currentSong) {
         if (this.options.loopRange) {
           const { startMeasure, endMeasure } = this.options.loopRange;
           const rangeStart = this.getMeasureStartTime(this.currentSong, startMeasure);
           const rangeEnd = this.getMeasureEndTime(this.currentSong, endMeasure);
-          if (currentSongTime >= rangeEnd - 0.03) {
+          if (rangeEnd > rangeStart + 0.08 && currentSongTime >= rangeEnd - 0.03) {
             this.currentLoopIteration++;
             if (this.onLoopIteration) {
               this.onLoopIteration(this.currentLoopIteration);
@@ -3160,7 +3160,7 @@ export class AudioEngine {
           const mIdx = this.options.loopMeasure;
           const mStart = this.getMeasureStartTime(this.currentSong, mIdx);
           const mEnd = this.getMeasureEndTime(this.currentSong, mIdx);
-          if (currentSongTime >= mEnd - 0.03) {
+          if (mEnd > mStart + 0.08 && currentSongTime >= mEnd - 0.03) {
             this.currentLoopIteration++;
             if (this.onLoopIteration) {
               this.onLoopIteration(this.currentLoopIteration);

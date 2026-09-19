@@ -365,6 +365,17 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
 
   const activeHoldTickerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  // Unmount cleanup: release any ongoing hold ticker and sustained audio voices
+  useEffect(() => {
+    return () => {
+      if (activeHoldTickerRef.current) {
+        clearInterval(activeHoldTickerRef.current);
+        activeHoldTickerRef.current = null;
+      }
+      audioEngine.stopAllSustainedNotes();
+    };
+  }, [audioEngine]);
+
   // Metronome audio & visual ticker
   useEffect(() => {
     if (!isMetronomeActive || activeMode !== 'transcribe') {

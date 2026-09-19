@@ -801,7 +801,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       if (hudEl) {
         const rect = hudEl.getBoundingClientRect();
         if (rect.height > 0) {
-          setHudStackHeight(Math.round(rect.height));
+          const rounded = Math.round(rect.height);
+          setHudStackHeight(prev => (Math.abs(prev - rounded) > 1 ? rounded : prev));
         }
         if (!resizeObs && typeof ResizeObserver !== 'undefined') {
           resizeObs = new ResizeObserver(() => {
