@@ -186,9 +186,6 @@ export class AudioEngine {
   > = new Map();
   private idleSuspendTimer: ReturnType<typeof setTimeout> | null = null;
   private trackingTimerId: ReturnType<typeof setTimeout> | null = null;
-  private trackingTickFn: (() => void) | null = null;
-  private tabLeaveTeardownTimer: ReturnType<typeof setTimeout> | null = null;
-  private resumePromise: Promise<boolean> | null = null;
   private schedulerTimerId: ReturnType<typeof setTimeout> | null = null;
   private pendingMelodyEvents: PendingMelodyEvent[] = [];
   private pendingBeatEvents: PendingBeatEvent[] = [];
@@ -488,11 +485,6 @@ export class AudioEngine {
     this.isBackgrounded = true;
     this.cancelAutoSuspend();
 
-    if (this.tabLeaveTeardownTimer) {
-      clearTimeout(this.tabLeaveTeardownTimer);
-      this.tabLeaveTeardownTimer = null;
-    }
-
     // Release any active sustained keyboard voices so they do not drone in the background
     this.stopAllSustainedNotes();
 
@@ -501,18 +493,6 @@ export class AudioEngine {
     // before background timer throttling clamps setTimeout to 1000ms+.
     if (this.options.backgroundPlaybackMode === 'continuous' && this.isPlaying) {
       this.scheduleLookahead();
-      // Seamlessly switch tracking loop from RAF (which browsers freeze) to timer-driven tick
-      if (this.animationFrameId !== null) {
-        cancelAnimationFrame(this.animationFrameId);
-        this.animationFrameId = null;
-      }
-      if (this.trackingTimerId !== null) {
-        clearTimeout(this.trackingTimerId);
-        this.trackingTimerId = null;
-      }
-      if (this.trackingTickFn) {
-        this.trackingTimerId = setTimeout(this.trackingTickFn, 200);
-      }
       return;
     }
 
@@ -538,6 +518,7 @@ export class AudioEngine {
       this.isPlaying = false;
       this.isPaused = true;
       this.releaseWakeLock();
+      this.stopAudioNodes();
       this.cancelTrackingLoop();
       this.clearPlaybackSchedule();
       this.scheduledTimeoutIds.forEach(id => clearTimeout(id));
@@ -565,29 +546,15 @@ export class AudioEngine {
 
       this.updateMediaSession(this.currentSong, false);
       crossTabCoordinator.releasePlaybackLease();
+    }
 
-      // Defer oscillator disconnection and audio context suspension by 30ms so the 25ms de-clicking ramp completes
-      this.tabLeaveTeardownTimer = setTimeout(() => {
-        this.tabLeaveTeardownTimer = null;
-        this.stopAudioNodes();
-        if (this.ctx && this.ctx.state === 'running') {
-          this.ctx.suspend().catch(() => {});
-        }
-      }, 30);
-    } else {
-      // Cleanly suspend context to release iPad audio hardware session when idle
-      if (this.ctx && this.ctx.state === 'running') {
-        this.ctx.suspend().catch(() => {});
-      }
+    // Cleanly suspend context to release iPad audio hardware session
+    if (this.ctx && this.ctx.state === 'running') {
+      this.ctx.suspend().catch(() => {});
     }
   };
 
   private handleReturningToTab = () => {
-    if (this.tabLeaveTeardownTimer) {
-      clearTimeout(this.tabLeaveTeardownTimer);
-      this.tabLeaveTeardownTimer = null;
-    }
-
     if (!this.isBackgrounded) {
       if (this.isPlaying) {
         this.ensureContextActive().catch(() => {});
@@ -602,26 +569,22 @@ export class AudioEngine {
       try {
         const now = this.ctx.currentTime;
         this.masterGain.gain.cancelScheduledValues(now);
-        this.masterGain.gain.setValueAtTime(1.0, now);
+        this.masterGain.gain.setValueAtTime(0.9, now);
       } catch {}
     }
 
     if (!this.ctx || this.ctx.state === 'closed') {
       this.initContext(true);
     } else {
-      this.ensureContextActive().catch(() => {});
+      const state = this.ctx.state as string;
+      if (state === 'suspended' || state === 'interrupted') {
+        this.ctx.resume().catch(() => {});
+      }
     }
 
     if (this.isPlaying && this.options.backgroundPlaybackMode === 'continuous') {
       // Continuing playback: re-sync scheduler with normal lookahead
       this.scheduleLookahead();
-      if (this.trackingTimerId !== null) {
-        clearTimeout(this.trackingTimerId);
-        this.trackingTimerId = null;
-      }
-      if (this.trackingTickFn && this.animationFrameId === null) {
-        this.animationFrameId = requestAnimationFrame(this.trackingTickFn);
-      }
       return;
     }
 
@@ -823,30 +786,16 @@ export class AudioEngine {
     if (!this.ctx) return false;
 
     const state = this.ctx.state as string;
-    if (state === 'running') return true;
-
-    if (this.resumePromise) {
-      return this.resumePromise;
-    }
-
-    this.resumePromise = (async () => {
+    if (state === 'suspended' || state === 'interrupted') {
       try {
-        if (this.ctx) {
-          const s = this.ctx.state as string;
-          if (s === 'suspended' || s === 'interrupted') {
-            await this.ctx.resume();
-          }
-        }
-        return (this.ctx?.state as string) === 'running';
+        await this.ctx.resume();
       } catch (err) {
         console.warn('[AudioEngine] ctx.resume() waiting for user interaction:', err);
         return false;
-      } finally {
-        this.resumePromise = null;
       }
-    })();
+    }
 
-    return this.resumePromise;
+    return (this.ctx.state as string) === 'running';
   }
 
   /**
@@ -1739,7 +1688,6 @@ export class AudioEngine {
   }
 
   private cancelTrackingLoop() {
-    this.trackingTickFn = null;
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;
@@ -2547,18 +2495,7 @@ export class AudioEngine {
     // Start UI tracking loop
     this.startTrackingLoop(totalMeasureDurationSec, timelineEvents);
 
-    // Audio-clock driven completion (exact timing immune to timer throttling)
-    this.scheduledCancels.push(
-      this.scheduleAudioCallback(audioStart + totalMeasureDurationSec, () => {
-        if (this.isPlaying && this.currentSong === song) {
-          this.stop();
-          this.notifyEnded();
-          if (onFinished) onFinished();
-        }
-      })
-    );
-
-    // Auto stop when measure finishes (fallback wall-clock timer)
+    // Auto stop when measure finishes
     const stopTimer = setTimeout(() => {
       if (this.isPlaying && this.currentSong === song) {
         this.stop();
@@ -2716,18 +2653,7 @@ export class AudioEngine {
     // Start UI tracking loop for real-time note highlighting
     this.startTrackingLoop(totalSystemDurationSec, timelineEvents);
 
-    // Audio-clock driven completion (exact timing immune to timer throttling)
-    this.scheduledCancels.push(
-      this.scheduleAudioCallback(audioStart + totalSystemDurationSec, () => {
-        if (this.isPlaying && this.currentSong === song) {
-          this.stop();
-          this.notifyEnded();
-          if (onFinished) onFinished();
-        }
-      })
-    );
-
-    // Auto stop when system finishes (fallback wall-clock timer)
+    // Auto stop when system finishes
     const stopTimer = setTimeout(() => {
       if (this.isPlaying && this.currentSong === song) {
         this.stop();
@@ -2869,18 +2795,7 @@ export class AudioEngine {
     // Start UI tracking loop
     this.startTrackingLoop(totalVerseDurationSec, timelineEvents);
 
-    // Audio-clock driven completion (exact timing immune to timer throttling)
-    this.scheduledCancels.push(
-      this.scheduleAudioCallback(audioStart + totalVerseDurationSec, () => {
-        if (this.isPlaying && this.currentSong === song) {
-          this.stop();
-          this.notifyEnded();
-          if (onFinished) onFinished();
-        }
-      })
-    );
-
-    // Auto stop when verse finishes (fallback wall-clock timer)
+    // Auto stop when verse finishes
     const stopTimer = setTimeout(() => {
       if (this.isPlaying && this.currentSong === song) {
         this.stop();
@@ -3141,22 +3056,6 @@ export class AudioEngine {
     });
 
     this.startTrackingLoop(totalDuration, timelineEvents);
-
-    // Hardware audio-clock completion callback for continuous background playback & throttling safety
-    this.scheduledCancels.push(
-      this.scheduleAudioCallback(this.startAudioTime + totalDuration, () => {
-        if (
-          this.isPlaying &&
-          this.currentSong === song &&
-          !this.options.loopRange &&
-          this.options.loopMeasure === null
-        ) {
-          this.stop();
-          this.notifyEnded();
-        }
-      })
-    );
-
     this.scheduleLookahead();
     this.startSchedulerLoop();
   }
@@ -3346,26 +3245,15 @@ export class AudioEngine {
         progressPercent,
       });
 
-      const isHidden = typeof document !== 'undefined' && document.hidden;
-      const nextDelayMs = isHidden ? Math.max(frameIntervalMs, 200) : frameIntervalMs;
-
       this.trackingTimerId = setTimeout(() => {
         this.trackingTimerId = null;
-        if (!this.isPlaying) return;
-        if (typeof document !== 'undefined' && document.hidden) {
-          tick();
-        } else {
+        if (this.isPlaying) {
           this.animationFrameId = requestAnimationFrame(tick);
         }
-      }, nextDelayMs);
+      }, frameIntervalMs);
     };
 
-    this.trackingTickFn = tick;
-    if (typeof document !== 'undefined' && document.hidden) {
-      this.trackingTimerId = setTimeout(tick, 0);
-    } else {
-      this.animationFrameId = requestAnimationFrame(tick);
-    }
+    this.animationFrameId = requestAnimationFrame(tick);
   }
 
   public pause() {

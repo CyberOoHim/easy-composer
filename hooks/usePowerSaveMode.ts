@@ -2,7 +2,6 @@
 
 import { useEffect, useCallback, useSyncExternalStore } from 'react';
 import { STORAGE_KEYS, ECO_MODE_EVENT } from '@/lib/storage';
-import { audioEngine } from '@/lib/audioEngine';
 
 const STORAGE_KEY = STORAGE_KEYS.POWER_SAVE_MODE;
 
@@ -64,10 +63,8 @@ export function usePowerSaveMode() {
       if (document.hidden) {
         // When iPad app is backgrounded or tab switched, ensure eco class is applied to pause CSS animations
         document.documentElement.classList.add('eco-mode');
-        audioEngine.setOptions({ ecoMode: true });
       } else if (!isEcoMode) {
         document.documentElement.classList.remove('eco-mode');
-        audioEngine.setOptions({ ecoMode: false });
       }
     };
 
