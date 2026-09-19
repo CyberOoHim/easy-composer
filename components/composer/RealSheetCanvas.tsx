@@ -40,6 +40,8 @@ import {
   calculateHorizontalPlaybackScroll,
   getVerticalSafeZone,
   USER_INTERACTION_GRACE_PERIOD_MS,
+  LINE_RETURN_SCROLL_DURATION_MS,
+  INTRA_LINE_SCROLL_DURATION_MS,
   smoothScrollWindowTo,
   smoothScrollElementTo,
   CancelableScrollAnimation,
@@ -687,8 +689,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   const prevIsPlayingRef = useRef<boolean>(false);
   const isUserInteractingRef = useRef<boolean>(false);
   const userInteractionTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lineCueTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const cancelActiveScrollAnimations = useCallback(() => {
+    if (lineCueTimerRef.current) {
+      clearTimeout(lineCueTimerRef.current);
+      lineCueTimerRef.current = null;
+    }
     if (activeVerticalAnimRef.current) {
       activeVerticalAnimRef.current.cancel();
       activeVerticalAnimRef.current = null;
@@ -1193,6 +1200,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     if (!isPlaying || !activePlaybackNoteId) return;
     if (isUserInteractingRef.current) return;
 
+    // Clear any pending anticipatory line-cue timer on note advance
+    if (lineCueTimerRef.current) {
+      clearTimeout(lineCueTimerRef.current);
+      lineCueTimerRef.current = null;
+    }
+
     try {
       const noteLoc = noteLocationMapRef.current.get(activePlaybackNoteId);
       if (noteLoc) {
@@ -1204,16 +1217,87 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           currentSystemObj.measures.length > 0 &&
           currentSystemObj.measures[currentSystemObj.measures.length - 1].measureIndex === currentPlayMIdx;
 
+        const currentMeasure = song.measures[currentPlayMIdx];
+        const isLastNoteInMeasure = currentMeasure
+          ? noteLoc.nIdx >= currentMeasure.notes.length - 1
+          : false;
+        const isSystemFinishing = isLastMeasureInSystem && isLastNoteInMeasure;
+        const nextSystemIdx = currentPlaySysIdx + 1;
+        const hasNextSystem = nextSystemIdx < systemsRef.current.length;
+
         const isNewSystem = currentPlaySysIdx !== lastScrolledSysIdxRef.current;
         const isNewLookahead = isLastMeasureInSystem && lastLookaheadSysIdxRef.current !== currentPlaySysIdx;
         const isNewMeasure = currentPlayMIdx !== lastScrolledMIdxRef.current;
 
-        // Zero-DOM fast exit for the vast majority of notes within the same measure/system
-        if (!isNewSystem && !isNewLookahead && (!isNewMeasure || sheetWrapMode !== 'no_wrap')) {
+        // Zero-DOM fast exit for notes within the same measure/system that do not approach line boundaries
+        if (!isNewSystem && !isNewLookahead && !isSystemFinishing && (!isNewMeasure || sheetWrapMode !== 'no_wrap')) {
           return;
         }
 
-        // 1. Universal Vertical Playback Auto-Scroll (no_wrap, auto_wrap, auto_fit)
+        // 1. Anticipatory Line-Cueing: when on the final note of a line/system, prepare next line in advance
+        if (isSystemFinishing && hasNextSystem) {
+          const currentNote = currentMeasure?.notes[noteLoc.nIdx];
+          const bpm = song.bpm || 120;
+          const noteDurationMs = ((currentNote?.duration || 1) * 60000) / bpm;
+
+          const executeLineCue = () => {
+            // Horizontally cue back to left (0) for next line if scrolled
+            if (canvasWrapperRef.current && canvasWrapperRef.current.scrollLeft > 8) {
+              if (activeHorizontalAnimRef.current) {
+                activeHorizontalAnimRef.current.cancel();
+              }
+              activeHorizontalAnimRef.current = smoothScrollElementTo(
+                canvasWrapperRef.current,
+                0,
+                { duration: LINE_RETURN_SCROLL_DURATION_MS }
+              );
+            }
+
+            // Vertically pre-cue upcoming system so it sits comfortably in view
+            const nextSystemEl = document.getElementById(`sheet-system-${nextSystemIdx}`);
+            if (nextSystemEl) {
+              const hudEl = document.getElementById('floating-score-hud-container');
+              const currentHudHeight = hudEl
+                ? Math.max(hudEl.getBoundingClientRect().height, 120)
+                : hudStackHeightRef.current;
+              if (!headerElRef.current || !headerElRef.current.isConnected) {
+                headerElRef.current = document.getElementById('header-bar') || document.querySelector('header');
+              }
+              const headerHeight = headerElRef.current
+                ? headerElRef.current.getBoundingClientRect().height
+                : 52;
+              const viewport = {
+                viewportHeight: window.innerHeight,
+                currentScrollY: window.scrollY || document.documentElement.scrollTop,
+                headerHeight,
+                hudHeight: currentHudHeight,
+              };
+              const nextRect = nextSystemEl.getBoundingClientRect();
+              const vResult = calculateVerticalPlaybackScroll(viewport, nextRect, null, {
+                targetNextSystem: true,
+              });
+              if (vResult.shouldScroll) {
+                if (activeVerticalAnimRef.current) {
+                  activeVerticalAnimRef.current.cancel();
+                }
+                activeVerticalAnimRef.current = smoothScrollWindowTo(
+                  vResult.targetScrollY,
+                  { duration: LINE_RETURN_SCROLL_DURATION_MS }
+                );
+              }
+            }
+          };
+
+          // If note is long (> 400ms), cue 200ms before it finishes; if fast (<= 400ms), cue immediately
+          if (noteDurationMs > 400) {
+            const delayMs = Math.max(0, noteDurationMs - 220);
+            lineCueTimerRef.current = setTimeout(executeLineCue, delayMs);
+          } else {
+            executeLineCue();
+          }
+        }
+
+        // 2. Universal Vertical Playback Auto-Scroll (no_wrap, auto_wrap, auto_fit)
         // Keeps the active system anchored in the Golden Reading Band (~28% down safe zone)
         // and anticipates upcoming lines with lookahead pre-rolling.
         if (isNewSystem || isNewLookahead) {
@@ -1258,17 +1342,27 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
               if (activeVerticalAnimRef.current) {
                 activeVerticalAnimRef.current.cancel();
               }
-              activeVerticalAnimRef.current = smoothScrollWindowTo(scrollResult.targetScrollY, { duration: 280 });
+              const duration = isNewSystem ? LINE_RETURN_SCROLL_DURATION_MS : INTRA_LINE_SCROLL_DURATION_MS;
+              activeVerticalAnimRef.current = smoothScrollWindowTo(scrollResult.targetScrollY, { duration });
             }
             lastScrolledSysIdxRef.current = currentPlaySysIdx;
           }
         }
 
-        // 2. Horizontal Measure Auto-Scroll (No Wrap mode or wide overflowing sheets)
-        // When measures extend horizontally beyond viewport width, smoothly tracks active measure at ~33% width
-        if (sheetWrapMode === 'no_wrap' && isNewMeasure && canvasWrapperRef.current) {
+        // 3. Horizontal Measure Auto-Scroll (No Wrap mode or wide overflowing sheets)
+        // Tracks active measure within the system, clamping to prevent over-scroll and snapping back on new system
+        if (sheetWrapMode === 'no_wrap' && (isNewMeasure || isNewSystem) && canvasWrapperRef.current) {
           const wrapper = canvasWrapperRef.current;
-          if (wrapper.scrollWidth > wrapper.clientWidth + 8) {
+          if (isNewSystem) {
+            // When advancing to a new system row, return wrapper scroll to 0 (start of line)
+            if (wrapper.scrollLeft > 8) {
+              if (activeHorizontalAnimRef.current) {
+                activeHorizontalAnimRef.current.cancel();
+              }
+              activeHorizontalAnimRef.current = smoothScrollElementTo(wrapper, 0, { duration: LINE_RETURN_SCROLL_DURATION_MS });
+            }
+            lastScrolledMIdxRef.current = currentPlayMIdx;
+          } else if (wrapper.scrollWidth > wrapper.clientWidth + 8) {
             const measureEl = document.getElementById(`sheet-measure-${currentPlayMIdx + 1}`);
             if (measureEl) {
               const wrapperRect = wrapper.getBoundingClientRect();
@@ -1278,16 +1372,26 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 currentScrollLeft: wrapper.scrollLeft,
                 containerLeft: wrapperRect.left,
               };
-              const hResult = calculateHorizontalPlaybackScroll(bounds, mRect);
+              const currentSystemWidth = currentSystemObj
+                ? currentSystemObj.measures.reduce((sum, m) => sum + getNaturalMeasureWidth(m), 0)
+                : undefined;
+              const hResult = calculateHorizontalPlaybackScroll(bounds, mRect, {
+                maxContentWidth: currentSystemWidth,
+                isLastMeasureInSystem,
+              });
               if (hResult.shouldScroll) {
                 if (activeHorizontalAnimRef.current) {
                   activeHorizontalAnimRef.current.cancel();
                 }
-                activeHorizontalAnimRef.current = smoothScrollElementTo(wrapper, hResult.targetScrollLeft, { duration: 280 });
+                activeHorizontalAnimRef.current = smoothScrollElementTo(
+                  wrapper,
+                  hResult.targetScrollLeft,
+                  { duration: INTRA_LINE_SCROLL_DURATION_MS }
+                );
               }
             }
+            lastScrolledMIdxRef.current = currentPlayMIdx;
           }
-          lastScrolledMIdxRef.current = currentPlayMIdx;
         }
         return;
       }

@@ -8,6 +8,8 @@ import {
   HORIZONTAL_READING_ANCHOR_RATIO,
   VERTICAL_JITTER_TOLERANCE_PX,
   HORIZONTAL_JITTER_TOLERANCE_PX,
+  LINE_RETURN_SCROLL_DURATION_MS,
+  INTRA_LINE_SCROLL_DURATION_MS,
   smoothScrollWindowTo,
   smoothScrollElementTo,
 } from '../lib/playbackScroll.ts';
@@ -223,6 +225,44 @@ describe('Playback Auto-Scroll Engine (playbackScroll)', () => {
       // Already comfortably anchored near 215
       assert.equal(result.shouldScroll, false);
     });
+
+    it('directly positions next system when targetNextSystem is specified for anticipatory line cueing', () => {
+      // Active system at top, upcoming next system is lower down at top: 600
+      const activeRect = { top: 215, bottom: 335, height: 120 };
+      const nextRect = { top: 600, bottom: 720, height: 120 };
+
+      const result = calculateVerticalPlaybackScroll(
+        defaultViewport,
+        activeRect,
+        nextRect,
+        { targetNextSystem: true }
+      );
+
+      assert.equal(result.shouldScroll, true);
+      assert.equal(result.reason, 'lookahead_next_system');
+      // Position next system at golden reading anchor (safeTop 64 + 540 * 0.28 = 215)
+      // 0 + 600 - 215 = 385
+      assert.equal(result.targetScrollY, 385);
+    });
+
+    it('ensures next system clears safeBottom even when active system is already at reading anchor', () => {
+      // Active system is already perfectly anchored at 215
+      // But next system bottom (620) overflows safeBottom (604) - 24 = 580
+      const activeRect = { top: 215, bottom: 335, height: 120 };
+      const nextRect = { top: 500, bottom: 620, height: 120 };
+
+      const result = calculateVerticalPlaybackScroll(
+        defaultViewport,
+        activeRect,
+        nextRect,
+        { isInitialOrTopSystem: false }
+      );
+
+      assert.equal(result.shouldScroll, true);
+      assert.equal(result.reason, 'lookahead_next_system');
+      // Scroll amount must at least clear safeBottom - 24: 0 + (620 - 580) = 40
+      assert.ok(result.targetScrollY >= 40);
+    });
   });
 
   describe('calculateHorizontalPlaybackScroll', () => {
@@ -275,6 +315,83 @@ describe('Playback Auto-Scroll Engine (playbackScroll)', () => {
       const result = calculateHorizontalPlaybackScroll(bounds, measureRect);
 
       assert.equal(result.shouldScroll, false);
+    });
+
+    it('does not scroll horizontally when system fits entirely within wrapper width (maxContentWidth <= wrapperWidth)', () => {
+      const bounds = {
+        wrapperWidth: 1000,
+        currentScrollLeft: 0,
+        containerLeft: 0,
+      };
+
+      // Measure 3 in a 780px wide system: fits completely within 1000px wrapper
+      const measureRect = { left: 520, right: 780, width: 260 };
+
+      const result = calculateHorizontalPlaybackScroll(bounds, measureRect, {
+        maxContentWidth: 780,
+      });
+
+      // System fits completely on screen: must NOT scroll right into empty void!
+      assert.equal(result.shouldScroll, false);
+      assert.equal(result.targetScrollLeft, 0);
+    });
+
+    it('returns targetScrollLeft = 0 immediately on explicit line return (isLineReturn: true)', () => {
+      const bounds = {
+        wrapperWidth: 1000,
+        currentScrollLeft: 450, // Was scrolled far to the right from previous long line
+        containerLeft: 0,
+      };
+
+      const measureRect = { left: 40, right: 190, width: 150 };
+
+      const result = calculateHorizontalPlaybackScroll(bounds, measureRect, {
+        isLineReturn: true,
+      });
+
+      assert.equal(result.shouldScroll, true);
+      assert.equal(result.targetScrollLeft, 0);
+    });
+
+    it('clamps horizontal scroll to prevent over-scrolling past system right edge into empty space', () => {
+      const bounds = {
+        wrapperWidth: 800,
+        currentScrollLeft: 0,
+        containerLeft: 0,
+      };
+
+      // System is 1000px wide. Measure is near the end at left: 850
+      const measureRect = { left: 850, right: 1000, width: 150 };
+
+      const result = calculateHorizontalPlaybackScroll(bounds, measureRect, {
+        maxContentWidth: 1000,
+        containerPadding: 48,
+      });
+
+      assert.equal(result.shouldScroll, true);
+      // maxAllowedScroll = 1000 - 800 + 48 = 248
+      // Without clamping, 850 - 800*0.33 = 586 (which would show 338px of empty space!)
+      // Clamped targetScrollLeft must be 248:
+      assert.equal(result.targetScrollLeft, 248);
+    });
+
+    it('clamps scroll for the last measure in system so it does not push empty space onto the screen', () => {
+      const bounds = {
+        wrapperWidth: 800,
+        currentScrollLeft: 0,
+        containerLeft: 0,
+      };
+
+      // Last measure of a system ending at 850px
+      const measureRect = { left: 600, right: 850, width: 250 };
+
+      const result = calculateHorizontalPlaybackScroll(bounds, measureRect, {
+        isLastMeasureInSystem: true,
+      });
+
+      assert.equal(result.shouldScroll, true);
+      // maxScrollForLastMeasure = 850 - 800 + 32 = 82
+      assert.equal(result.targetScrollLeft, 82);
     });
   });
 

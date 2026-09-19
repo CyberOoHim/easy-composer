@@ -10,6 +10,8 @@ export const HORIZONTAL_READING_ANCHOR_RATIO = 0.33; // Active measure sits ~33%
 export const VERTICAL_JITTER_TOLERANCE_PX = 8;
 export const HORIZONTAL_JITTER_TOLERANCE_PX = 12;
 export const USER_INTERACTION_GRACE_PERIOD_MS = 2500;
+export const LINE_RETURN_SCROLL_DURATION_MS = 120; // Fast, snappy transition for line returns and pre-cues
+export const INTRA_LINE_SCROLL_DURATION_MS = 220; // Smooth glide between measures within the same line
 
 export interface ViewportBounds {
   viewportHeight: number;
@@ -79,12 +81,30 @@ export function calculateVerticalPlaybackScroll(
     isInitialOrTopSystem?: boolean;
     readingAnchorRatio?: number;
     tolerance?: number;
+    targetNextSystem?: boolean;
   }
 ): VerticalScrollResult {
   const { safeTop, safeBottom, availableHeight } = getVerticalSafeZone(viewport);
   const anchorRatio = options?.readingAnchorRatio ?? VERTICAL_READING_ANCHOR_RATIO;
   const tolerance = options?.tolerance ?? VERTICAL_JITTER_TOLERANCE_PX;
   const isInitial = Boolean(options?.isInitialOrTopSystem);
+
+  // If explicitly targeting the next system (e.g. anticipatory line-cueing)
+  if (options?.targetNextSystem && nextSystemRect) {
+    const targetTopInViewport = safeTop + availableHeight * anchorRatio;
+    const targetScrollY = Math.max(
+      0,
+      viewport.currentScrollY + nextSystemRect.top - targetTopInViewport
+    );
+    if (Math.abs(viewport.currentScrollY - targetScrollY) > tolerance) {
+      return {
+        shouldScroll: true,
+        targetScrollY: Math.round(targetScrollY),
+        reason: 'lookahead_next_system',
+      };
+    }
+    return { shouldScroll: false, targetScrollY: viewport.currentScrollY };
+  }
 
   // 1. If we are on the initial/top systems and already comfortably in view,
   // do NOT scroll so the title, header, and paper top remain visible.
@@ -123,10 +143,20 @@ export function calculateVerticalPlaybackScroll(
 
     // Golden reading anchor position: ~28% from the top of the safe viewport
     const targetTopInViewport = safeTop + availableHeight * anchorRatio;
-    const targetScrollY = Math.max(
-      0,
-      viewport.currentScrollY + activeSystemRect.top - targetTopInViewport
-    );
+
+    let targetScrollY: number;
+    if (isCurrentOutOfSafeZone) {
+      targetScrollY = Math.max(
+        0,
+        viewport.currentScrollY + activeSystemRect.top - targetTopInViewport
+      );
+    } else {
+      // Lookahead: scroll enough so upcoming system is brought safely above safeBottom - 24,
+      // or shift current system up toward target reading anchor
+      const minScrollToClearNext = viewport.currentScrollY + (nextSystemRect!.bottom - (safeBottom - 24));
+      const targetByCurrent = viewport.currentScrollY + activeSystemRect.top - targetTopInViewport;
+      targetScrollY = Math.max(0, Math.max(minScrollToClearNext, targetByCurrent));
+    }
 
     if (Math.abs(viewport.currentScrollY - targetScrollY) > tolerance) {
       return {
@@ -145,6 +175,8 @@ export function calculateVerticalPlaybackScroll(
  *
  * Keeps active measure anchored at ~33% from the left edge of the viewport,
  * ensuring ~67% of remaining screen width gives advance visibility of upcoming measures.
+ * Clamps against system width to prevent over-scrolling into blank space, and handles
+ * line returns cleanly.
  */
 export function calculateHorizontalPlaybackScroll(
   bounds: HorizontalBounds,
@@ -152,17 +184,47 @@ export function calculateHorizontalPlaybackScroll(
   options?: {
     anchorRatio?: number;
     tolerance?: number;
+    isLineReturn?: boolean;
+    maxContentWidth?: number;
+    containerPadding?: number;
+    isLastMeasureInSystem?: boolean;
   }
 ): HorizontalScrollResult {
-  const anchorRatio = options?.anchorRatio ?? HORIZONTAL_READING_ANCHOR_RATIO;
   const tolerance = options?.tolerance ?? HORIZONTAL_JITTER_TOLERANCE_PX;
 
+  // 1. Explicit line return (returning to the start of a line/system)
+  if (options?.isLineReturn) {
+    const shouldScroll = bounds.currentScrollLeft > tolerance;
+    return { shouldScroll, targetScrollLeft: 0 };
+  }
+
+  // 2. If the entire system fits within the wrapper width, never scroll right
+  if (options?.maxContentWidth !== undefined && options.maxContentWidth <= bounds.wrapperWidth) {
+    const shouldScroll = bounds.currentScrollLeft > tolerance;
+    return { shouldScroll, targetScrollLeft: 0 };
+  }
+
+  const anchorRatio = options?.anchorRatio ?? HORIZONTAL_READING_ANCHOR_RATIO;
   const targetAnchorX = bounds.wrapperWidth * anchorRatio;
   const currentMeasureLeftInWrapper = activeMeasureRect.left - bounds.containerLeft;
 
-  // Compute how far to adjust scroll to center active measure at targetAnchorX
+  // Compute standard offset to anchor active measure at targetAnchorX (~33%)
   const offsetFromAnchor = currentMeasureLeftInWrapper - targetAnchorX;
-  const targetScrollLeft = Math.max(0, bounds.currentScrollLeft + offsetFromAnchor);
+  let targetScrollLeft = Math.max(0, bounds.currentScrollLeft + offsetFromAnchor);
+
+  // Clamp against system right edge if maxContentWidth is provided
+  if (options?.maxContentWidth !== undefined && options.maxContentWidth > bounds.wrapperWidth) {
+    const padding = options.containerPadding ?? 48;
+    const maxAllowedScroll = Math.max(0, options.maxContentWidth - bounds.wrapperWidth + padding);
+    targetScrollLeft = Math.min(targetScrollLeft, maxAllowedScroll);
+  }
+
+  // If this is the last measure in the system, clamp so its right edge does not push into empty space
+  if (options?.isLastMeasureInSystem) {
+    const measureRightInWrapper = (activeMeasureRect.right - bounds.containerLeft) + bounds.currentScrollLeft;
+    const maxScrollForLastMeasure = Math.max(0, measureRightInWrapper - bounds.wrapperWidth + 32);
+    targetScrollLeft = Math.min(targetScrollLeft, maxScrollForLastMeasure);
+  }
 
   if (Math.abs(bounds.currentScrollLeft - targetScrollLeft) > tolerance) {
     return {
