@@ -237,6 +237,7 @@ describe('Preset Modification Detection', () => {
     for (const preset of PRESET_SONGS) {
       assert.strictEqual(isSongModifiedFromPreset(preset), false, `${preset.id} factory should not be modified`);
       const sanitized = sanitizeSong(JSON.parse(JSON.stringify(preset)));
+      assert(sanitized !== null, `${preset.id} sanitized should not be null`);
       assert.strictEqual(isSongModifiedFromPreset(sanitized), false, `${preset.id} sanitized should not be modified`);
       const normalized = normalizeSongDurations(JSON.parse(JSON.stringify(preset)));
       assert.strictEqual(isSongModifiedFromPreset(normalized), false, `${preset.id} normalized should not be modified`);

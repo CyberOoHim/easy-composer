@@ -110,7 +110,8 @@ function stableJson(value: unknown): string {
  * Metadata fields that used to be ignored (notator, catalog, verses, orientation)
  * must count as modifications so those edits are persisted as overrides.
  */
-export function isSongModifiedFromPreset(song: Song): boolean {
+export function isSongModifiedFromPreset(song: Song | null | undefined): boolean {
+  if (!song) return false;
   const preset = PRESET_SONGS.find(p => p.id === song.id);
   if (!preset) return false;
 
