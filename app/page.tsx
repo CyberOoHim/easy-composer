@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { LyricDisplayMode, Song, InstrumentType } from '@/types/song';
 import { PRESET_SONGS, createFreshSong } from '@/lib/presets';
-import { audioEngine, type TabInterruptionInfo } from '@/lib/audioEngine';
+import { audioEngine } from '@/lib/audioEngine';
 import { wakeLockManager } from '@/lib/wakeLock';
 import { HeaderBar } from '@/components/HeaderBar';
 import { ComposerEditor } from '@/components/ComposerEditor';
@@ -16,7 +16,7 @@ import { useSongHistory } from '@/hooks/useSongHistory';
 import { usePowerSaveMode } from '@/hooks/usePowerSaveMode';
 import { useChordPlayback } from '@/hooks/useChordPlayback';
 import { useMetronomePlayback } from '@/hooks/useMetronomePlayback';
-import { Music, BookmarkPlus, Share2, X, AlertTriangle, Layers, Play, Pause } from 'lucide-react';
+import { Music, BookmarkPlus, Share2, X, AlertTriangle } from 'lucide-react';
 import { parseSongFromUrl } from '@/lib/songUrl';
 import {
   getStoredDisplayMode,
@@ -29,9 +29,6 @@ import {
   setStoredAutosaveInterval,
   getStoredInstrument,
   setStoredInstrument,
-  getStoredBackgroundPlaybackMode,
-  setStoredBackgroundPlaybackMode,
-  type BackgroundPlaybackMode,
   resetAllSettingsToDefault,
   STORAGE_KEYS,
 } from '@/lib/storage';
@@ -102,28 +99,13 @@ export default function Home() {
     }
   }, [song.key]);
 
-  const [backgroundPlaybackMode, setBackgroundPlaybackModeState] = useState<BackgroundPlaybackMode>(() => {
-    if (typeof window !== 'undefined') return getStoredBackgroundPlaybackMode('pause');
-    return 'pause';
-  });
-
-  const handleSetBackgroundPlaybackMode = useCallback((mode: BackgroundPlaybackMode) => {
-    setBackgroundPlaybackModeState(mode);
-    setStoredBackgroundPlaybackMode(mode);
-    audioEngine.setOptions({ backgroundPlaybackMode: mode });
-  }, []);
-
-  // Keep instrument and background playback mode synced if updated in another tab
+  // Keep instrument synced if updated in another component
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEYS.INSTRUMENT && e.newValue) {
         const newInst = e.newValue as InstrumentType;
         setInstrumentState(newInst);
         audioEngine.setOptions({ instrument: newInst });
-      } else if (e.key === STORAGE_KEYS.BACKGROUND_PLAYBACK_MODE && e.newValue) {
-        const newMode = e.newValue as BackgroundPlaybackMode;
-        setBackgroundPlaybackModeState(newMode);
-        audioEngine.setOptions({ backgroundPlaybackMode: newMode });
       }
     };
 
@@ -141,9 +123,8 @@ export default function Home() {
       metronomeEnabled,
       metronomeVolume,
       instrument,
-      backgroundPlaybackMode,
     });
-  }, [isEcoMode, chordEnabled, metronomeEnabled, metronomeVolume, instrument, backgroundPlaybackMode]);
+  }, [isEcoMode, chordEnabled, metronomeEnabled, metronomeVolume, instrument]);
 
   const [displayMode, setDisplayModeState] = useState<LyricDisplayMode>(() => {
     if (typeof window !== 'undefined') return getStoredDisplayMode();
@@ -585,11 +566,8 @@ export default function Home() {
     };
   }, [song.id, loadNewSong]);
 
-  const [tabInterruptionNotice, setTabInterruptionNotice] = useState<TabInterruptionInfo | null>(null);
-
   const handleTogglePlay = useCallback(() => {
     if (!audioEngine) return;
-    setTabInterruptionNotice(null);
     if (isPlaying) {
       audioEngine.pause();
       void wakeLockManager.release();
@@ -664,21 +642,14 @@ export default function Home() {
     [song.id, handleSelectSong]
   );
 
-  // Subscribe to audio engine playback state and cross-tab/app interruptions
+  // Subscribe to audio engine playback state
   useEffect(() => {
     if (!audioEngine) return;
-    const unsubState = audioEngine.subscribeState(state => {
+    const unsub = audioEngine.subscribeState(state => {
       setIsPlaying(state.isPlaying);
-      if (state.isPlaying) {
-        setTabInterruptionNotice(null);
-      }
-    });
-    const unsubInterruption = audioEngine.subscribeTabInterruption(info => {
-      setTabInterruptionNotice(info);
     });
     return () => {
-      unsubState();
-      unsubInterruption();
+      unsub();
     };
   }, []);
 
@@ -770,8 +741,6 @@ export default function Home() {
         futureCount={futureCount}
         isEcoMode={isEcoMode}
         onToggleEcoMode={toggleEcoMode}
-        backgroundPlaybackMode={backgroundPlaybackMode}
-        onChangeBackgroundPlaybackMode={handleSetBackgroundPlaybackMode}
         batteryLevel={batteryLevel}
         isCharging={isCharging}
         onSave={handleSaveSong}
@@ -874,81 +843,6 @@ export default function Home() {
             </button>
           </div>
         </div>
-      )}
-
-      {tabInterruptionNotice && (
-        <aside
-          id="tab-interruption-notice-banner"
-          role="status"
-          aria-live="polite"
-          className="print:hidden mx-2 sm:mx-auto sm:max-w-[1600px] sm:w-full sm:px-3 lg:px-4 mt-2 animate-in fade-in slide-in-from-top-2 duration-200"
-        >
-          <div className="p-2.5 sm:p-3 rounded-2xl bg-amber-500/15 border border-amber-500/40 text-amber-950 dark:text-amber-100 text-xs flex flex-wrap items-center justify-between gap-2 shadow-xs backdrop-blur-xs">
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="p-1.5 rounded-lg bg-amber-500 text-zinc-950 flex items-center justify-center font-bold shrink-0 shadow-2xs">
-                {tabInterruptionNotice.reason === 'remote_tab_preempt' ? (
-                  <Layers className="w-4 h-4" />
-                ) : (
-                  <Pause className="w-4 h-4" />
-                )}
-              </div>
-              <div className="flex flex-col min-w-0">
-                <span className="font-bold truncate">
-                  {tabInterruptionNotice.reason === 'remote_tab_preempt'
-                    ? `Playback moved to another tab${tabInterruptionNotice.songTitle ? ` ("${tabInterruptionNotice.songTitle}")` : ''}`
-                    : `Playback paused when switching tabs / apps`}
-                </span>
-                <span className="text-[11px] text-amber-800/80 dark:text-amber-300/80">
-                  {tabInterruptionNotice.reason === 'remote_tab_preempt'
-                    ? 'Cross-tab audio coordination paused this tab so multiple tabs do not play audio simultaneously.'
-                    : `Paused at ${Math.floor(tabInterruptionNotice.pausedAtTime)}s${typeof tabInterruptionNotice.measureIndex === 'number' ? ` (Measure ${tabInterruptionNotice.measureIndex + 1})` : ''}. Click Resume or enable Continuous Background Play.`}
-                </span>
-              </div>
-            </div>
-            <div className="flex items-center gap-1.5 ml-auto">
-              <button
-                id="tab-interruption-resume-btn"
-                type="button"
-                onClick={() => {
-                  setTabInterruptionNotice(null);
-                  audioEngine.unlockOnUserGesture();
-                  void wakeLockManager.requestForPlayback(isEcoMode);
-                  audioEngine.resume();
-                }}
-                className="px-3 py-1 bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold rounded-lg text-xs shadow-2xs transition-all active:scale-95 cursor-pointer flex items-center gap-1 min-h-[32px]"
-              >
-                <Play className="w-3.5 h-3.5 fill-current" />
-                <span>Resume</span>
-              </button>
-              {tabInterruptionNotice.reason === 'tab_switch' && backgroundPlaybackMode !== 'continuous' && (
-                <button
-                  id="tab-interruption-enable-continuous-btn"
-                  type="button"
-                  onClick={() => {
-                    handleSetBackgroundPlaybackMode('continuous');
-                    setTabInterruptionNotice(null);
-                    audioEngine.unlockOnUserGesture();
-                    void wakeLockManager.requestForPlayback(isEcoMode);
-                    audioEngine.resume();
-                  }}
-                  className="px-2.5 py-1 bg-zinc-200/80 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-750 text-zinc-800 dark:text-zinc-200 font-bold rounded-lg text-xs transition-all active:scale-95 cursor-pointer hidden sm:inline-flex min-h-[32px] items-center"
-                  title="Enable Continuous Background Play and resume playback"
-                >
-                  Enable Background Play
-                </button>
-              )}
-              <button
-                id="tab-interruption-dismiss-btn"
-                type="button"
-                onClick={() => setTabInterruptionNotice(null)}
-                className="p-1 rounded-lg text-amber-800/70 hover:text-amber-950 dark:text-amber-300/80 dark:hover:text-amber-100 hover:bg-amber-500/20 transition-colors cursor-pointer min-h-[32px] min-w-[32px] flex items-center justify-center"
-                title="Dismiss"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        </aside>
       )}
 
       {saveError && (

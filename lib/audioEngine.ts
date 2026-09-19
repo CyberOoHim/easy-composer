@@ -10,16 +10,10 @@ import {
   isSlurActive,
   isTieActive,
 } from './taigiUtils.ts';
-import {
-  getStoredAccompanimentStyle,
-  getStoredBackgroundPlaybackMode,
-  type AccompanimentStyle,
-  type BackgroundPlaybackMode,
-} from './storage.ts';
+import { getStoredAccompanimentStyle, type AccompanimentStyle } from './storage.ts';
 import { wakeLockManager } from './wakeLock.ts';
-import { crossTabCoordinator } from './crossTabPlayback.ts';
 
-export type { AccompanimentStyle, BackgroundPlaybackMode };
+export type { AccompanimentStyle };
 
 export interface PlaybackState {
   isPlaying: boolean;
@@ -30,15 +24,6 @@ export interface PlaybackState {
   currentTime: number;
   totalDuration: number;
   progressPercent: number;
-}
-
-export interface TabInterruptionInfo {
-  pausedAtTime: number;
-  measureIndex?: number;
-  noteIndex?: number;
-  noteId?: string | null;
-  songTitle?: string;
-  reason?: 'tab_switch' | 'remote_tab_preempt';
 }
 
 export interface LoopRange {
@@ -60,7 +45,6 @@ export interface AudioEngineOptions {
   loopRange?: LoopRange | null; // A-B loop range, or null
   targetFps?: number;       // Target frame rate for UI updates (e.g. 30 normal, 20 eco)
   ecoMode?: boolean;        // 1-osc melody, downbeat-only metronome, thinned chords, lookahead scheduler
-  backgroundPlaybackMode?: BackgroundPlaybackMode; // 'pause' on tab switch or 'continuous' background playback
 }
 
 export type PlaybackEndedReason = 'song' | 'preview';
@@ -164,7 +148,6 @@ export class AudioEngine {
     loopRange: null,
     targetFps: 30,
     ecoMode: false,
-    backgroundPlaybackMode: 'pause',
   };
 
   private isPlaying = false;
@@ -194,13 +177,12 @@ export class AudioEngine {
   private playbackEndedReason: PlaybackEndedReason = 'song';
 
   private static readonly AUDIO_LOOKAHEAD_SEC = 0.32;
-  private static readonly BACKGROUND_LOOKAHEAD_SEC = 3.5;
   private static readonly SCHEDULER_INTERVAL_MS = 50;
 
   // Listeners
   private stateListeners: ((state: PlaybackState) => void)[] = [];
   private endedListeners: ((info: { reason: PlaybackEndedReason }) => void)[] = [];
-  private tabInterruptionListeners: ((info: TabInterruptionInfo) => void)[] = [];
+  private tabInterruptionListeners: ((info: { pausedAtTime: number }) => void)[] = [];
   public onNoteStart?: (measureIndex: number, noteIndex: number, note: NumberedNotationNote, durationSec: number) => void;
   public onMeasureStart?: (measureIndex: number) => void;
   public onLoopIteration?: (iterationCount: number) => void;
@@ -255,7 +237,7 @@ export class AudioEngine {
     };
   }
 
-  public subscribeTabInterruption(listener: (info: TabInterruptionInfo) => void): () => void {
+  public subscribeTabInterruption(listener: (info: { pausedAtTime: number }) => void): () => void {
     this.tabInterruptionListeners.push(listener);
     return () => {
       this.tabInterruptionListeners = this.tabInterruptionListeners.filter(l => l !== listener);
@@ -393,46 +375,12 @@ export class AudioEngine {
         if (savedStyle) {
           this.options.accompanimentStyle = savedStyle;
         }
-        const savedBgMode = getStoredBackgroundPlaybackMode();
-        if (savedBgMode) {
-          this.options.backgroundPlaybackMode = savedBgMode;
-        }
       } catch {}
     }
 
     if (initialOptions) {
       this.options = { ...this.options, ...initialOptions };
     }
-
-    // Cross-tab coordination: when another tab claims playback, pause this tab cleanly
-    crossTabCoordinator.subscribe(msg => {
-      if (msg.type === 'CLAIM_PLAYBACK') {
-        if (this.isPlaying) {
-          const currentPos = this.getCurrentPlaybackTime();
-          const loc = this.currentSong
-            ? this.getPlaybackLocationAtTime(this.currentSong, currentPos)
-            : {
-                measureIndex: this.currentState.currentMeasureIndex,
-                noteIndex: this.currentState.currentNoteIndex,
-                noteId: this.currentState.currentNoteId,
-              };
-
-          this.pause();
-          this.tabInterruptionListeners.forEach(listener => {
-            try {
-              listener({
-                pausedAtTime: currentPos,
-                measureIndex: loc.measureIndex,
-                noteIndex: loc.noteIndex,
-                noteId: loc.noteId,
-                songTitle: msg.songTitle || '',
-                reason: 'remote_tab_preempt',
-              });
-            } catch {}
-          });
-        }
-      }
-    });
   }
 
   private handleVisibilityChange = () => {
@@ -466,10 +414,6 @@ export class AudioEngine {
   };
 
   private handleWindowBlur = () => {
-    // Release any active sustained keyboard voices immediately when user Alt+Tabs or switches windows,
-    // preventing stuck drone notes caused by missed keyup events.
-    this.stopAllSustainedNotes();
-
     // If the document is still visible (e.g. native select dropdown or modal open),
     // do NOT aggressively suspend audio! Keep audio responsive.
     if (typeof document !== 'undefined' && !document.hidden) {
@@ -488,25 +432,7 @@ export class AudioEngine {
     // Release any active sustained keyboard voices so they do not drone in the background
     this.stopAllSustainedNotes();
 
-    // If user configured continuous background playback, do NOT pause playback!
-    // Instead, immediately expand lookahead to 3.5s and schedule upcoming notes onto Web Audio clock
-    // before background timer throttling clamps setTimeout to 1000ms+.
-    if (this.options.backgroundPlaybackMode === 'continuous' && this.isPlaying) {
-      this.scheduleLookahead();
-      return;
-    }
-
     if (this.isPlaying) {
-      // Smoothly fade master volume over 25ms to eliminate digital audio clicks before stopping
-      if (this.ctx && this.masterGain) {
-        try {
-          const now = this.ctx.currentTime;
-          this.masterGain.gain.cancelScheduledValues(now);
-          this.masterGain.gain.setValueAtTime(this.masterGain.gain.value, now);
-          this.masterGain.gain.linearRampToValueAtTime(0.0001, now + 0.025);
-        } catch {}
-      }
-
       // Accurately capture current playback timestamp before iOS freezes timers
       const currentPos = this.getCurrentPlaybackTime();
       this.interruptedSongTime = currentPos;
@@ -517,7 +443,6 @@ export class AudioEngine {
       // Cleanly stop scheduled audio oscillators and animation frame
       this.isPlaying = false;
       this.isPaused = true;
-      this.releaseWakeLock();
       this.stopAudioNodes();
       this.cancelTrackingLoop();
       this.clearPlaybackSchedule();
@@ -543,9 +468,6 @@ export class AudioEngine {
         totalDuration: duration,
         progressPercent: duration > 0 ? (currentPos / duration) * 100 : 0,
       });
-
-      this.updateMediaSession(this.currentSong, false);
-      crossTabCoordinator.releasePlaybackLease();
     }
 
     // Cleanly suspend context to release iPad audio hardware session
@@ -564,15 +486,6 @@ export class AudioEngine {
     this.isBackgrounded = false;
     this.cancelAutoSuspend();
 
-    // Restore master gain volume in case it was ramped down
-    if (this.ctx && this.masterGain) {
-      try {
-        const now = this.ctx.currentTime;
-        this.masterGain.gain.cancelScheduledValues(now);
-        this.masterGain.gain.setValueAtTime(0.9, now);
-      } catch {}
-    }
-
     if (!this.ctx || this.ctx.state === 'closed') {
       this.initContext(true);
     } else {
@@ -582,33 +495,12 @@ export class AudioEngine {
       }
     }
 
-    if (this.isPlaying && this.options.backgroundPlaybackMode === 'continuous') {
-      // Continuing playback: re-sync scheduler with normal lookahead
-      this.scheduleLookahead();
-      return;
-    }
-
     if (this.interruptionDispatchPending) {
       this.interruptionDispatchPending = false;
       const pausedAt = this.interruptedSongTime;
-      const loc = this.currentSong
-        ? this.getPlaybackLocationAtTime(this.currentSong, pausedAt)
-        : {
-            measureIndex: this.currentState.currentMeasureIndex,
-            noteIndex: this.currentState.currentNoteIndex,
-            noteId: this.currentState.currentNoteId,
-          };
-
       this.tabInterruptionListeners.forEach(listener => {
         try {
-          listener({
-            pausedAtTime: pausedAt,
-            measureIndex: loc.measureIndex,
-            noteIndex: loc.noteIndex,
-            noteId: loc.noteId,
-            songTitle: this.currentSong?.title || '',
-            reason: 'tab_switch',
-          });
+          listener({ pausedAtTime: pausedAt });
         } catch {}
       });
     }
@@ -617,63 +509,6 @@ export class AudioEngine {
       this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
     }
   };
-
-  /**
-   * Synchronize active playback state and media controls with native OS Media Session API
-   * (supporting lock screen, AirPods/Bluetooth controls, control center, and media keys).
-   */
-  private updateMediaSession(song: Song | null, isPlaying: boolean) {
-    if (typeof navigator === 'undefined' || !('mediaSession' in navigator)) return;
-    try {
-      if (isPlaying && song) {
-        navigator.mediaSession.metadata = new MediaMetadata({
-          title: song.title || 'Untitled Song',
-          artist: song.composer ? `${song.composer} · Taigi DAW` : 'Taigi Sheet Music DAW',
-          album: `1=${song.key} · ${song.timeSignature} · ${song.bpm} BPM`,
-          artwork: [
-            { src: '/icons/icon-192x192.png', sizes: '192x192', type: 'image/png' },
-            { src: '/icons/icon-512x512.png', sizes: '512x512', type: 'image/png' },
-          ],
-        });
-        navigator.mediaSession.playbackState = 'playing';
-
-        navigator.mediaSession.setActionHandler('play', () => {
-          this.resume();
-        });
-        navigator.mediaSession.setActionHandler('pause', () => {
-          this.pause();
-        });
-        navigator.mediaSession.setActionHandler('stop', () => {
-          this.stop();
-        });
-        navigator.mediaSession.setActionHandler('previoustrack', () => {
-          if (this.currentSong) {
-            const currentPos = this.getCurrentPlaybackTime();
-            const loc = this.getPlaybackLocationAtTime(this.currentSong, currentPos);
-            const targetMIdx = Math.max(0, loc.measureIndex - 1);
-            this.seekToMeasure(this.currentSong, targetMIdx);
-          }
-        });
-        navigator.mediaSession.setActionHandler('nexttrack', () => {
-          if (this.currentSong) {
-            const currentPos = this.getCurrentPlaybackTime();
-            const loc = this.getPlaybackLocationAtTime(this.currentSong, currentPos);
-            const targetMIdx = Math.min(this.currentSong.measures.length - 1, loc.measureIndex + 1);
-            this.seekToMeasure(this.currentSong, targetMIdx);
-          }
-        });
-        navigator.mediaSession.setActionHandler('seekto', (details) => {
-          if (this.currentSong && typeof details.seekTime === 'number') {
-            this.seek(this.currentSong, details.seekTime);
-          }
-        });
-      } else {
-        navigator.mediaSession.playbackState = this.isPaused ? 'paused' : 'none';
-      }
-    } catch {
-      // mediaSession actions may fail in restricted/headless contexts
-    }
-  }
 
   /**
    * Schedule automatic AudioContext suspension after prolonged inactivity (e.g. 30000ms).
@@ -822,11 +657,6 @@ export class AudioEngine {
     if (opts.instrument) {
       try {
         localStorage.setItem('taigi_composer_instrument', opts.instrument);
-      } catch {}
-    }
-    if (opts.backgroundPlaybackMode) {
-      try {
-        localStorage.setItem('taigi_background_playback_mode', opts.backgroundPlaybackMode);
       } catch {}
     }
     if (this.ctx) {
@@ -2403,8 +2233,6 @@ export class AudioEngine {
     this.pausedSongTime = 0;
     this.playbackEndedReason = 'preview';
     this.holdWakeLock();
-    crossTabCoordinator.claimPlaybackLease(song.title);
-    this.updateMediaSession(song, true);
 
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
@@ -2527,8 +2355,6 @@ export class AudioEngine {
     this.pausedSongTime = 0;
     this.playbackEndedReason = 'preview';
     this.holdWakeLock();
-    crossTabCoordinator.claimPlaybackLease(song.title);
-    this.updateMediaSession(song, true);
 
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
@@ -2689,8 +2515,6 @@ export class AudioEngine {
     this.pausedSongTime = 0;
     this.playbackEndedReason = 'preview';
     this.holdWakeLock();
-    crossTabCoordinator.claimPlaybackLease(song.title);
-    this.updateMediaSession(song, true);
 
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
     const secPerBeat = 60 / effectiveBpm;
@@ -2917,8 +2741,6 @@ export class AudioEngine {
     this.pausedSongTime = startFromSec;
     this.playbackEndedReason = 'song';
     this.holdWakeLock();
-    crossTabCoordinator.claimPlaybackLease(song.title);
-    this.updateMediaSession(song, true);
 
     const totalDuration = this.calculateSongDuration(song);
     const effectiveBpm = song.bpm * this.options.tempoMultiplier;
@@ -3064,10 +2886,7 @@ export class AudioEngine {
     if (!this.isPlaying || !this.ctx || !this.currentSong || !this.melodyGain) return;
 
     const audioNow = this.ctx.currentTime;
-    const lookaheadSec = this.isBackgrounded && this.options.backgroundPlaybackMode === 'continuous'
-      ? AudioEngine.BACKGROUND_LOOKAHEAD_SEC
-      : AudioEngine.AUDIO_LOOKAHEAD_SEC;
-    const horizon = audioNow - this.startAudioTime + lookaheadSec;
+    const horizon = audioNow - this.startAudioTime + AudioEngine.AUDIO_LOOKAHEAD_SEC;
     const isEco = Boolean(this.options.ecoMode);
     const song = this.currentSong;
 
@@ -3264,8 +3083,6 @@ export class AudioEngine {
     this.isPlaying = false;
     this.wasInterruptedByTabSwitch = false;
     this.releaseWakeLock();
-    crossTabCoordinator.releasePlaybackLease();
-    this.updateMediaSession(this.currentSong, false);
     this.stopAudioNodes();
     this.cancelTrackingLoop();
     this.clearPlaybackSchedule();
@@ -3309,8 +3126,6 @@ export class AudioEngine {
     this.wasInterruptedByTabSwitch = false;
     if (notify) {
       this.releaseWakeLock();
-      crossTabCoordinator.releasePlaybackLease();
-      this.updateMediaSession(this.currentSong, false);
     }
     this.stopAllSustainedNotes();
     this.stopAudioNodes();

@@ -70,8 +70,6 @@ export const STORAGE_KEYS = {
   ACCOMPANIMENT_STYLE: 'taigi_composer_accompaniment_style',
   SHOW_TACTILE_QUICK_PAD: 'taigi_composer_show_tactile_quick_pad',
   PENTATONIC_MODE: 'taigi_composer_pentatonic_mode',
-  // Cross-Tab and Background Playback
-  BACKGROUND_PLAYBACK_MODE: 'taigi_composer_background_playback_mode',
 } as const;
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -91,8 +89,6 @@ export type SearchScope = 'all' | 'current';
 export type SearchMatchFilter = 'all' | 'measure' | 'verse';
 export type InSongFilter = 'all' | 'measure' | 'verse';
 export type QuickAlignTarget = 'roman' | 'hanlo' | 'dual';
-export type BackgroundPlaybackMode = 'pause' | 'continuous';
-export const BACKGROUND_PLAYBACK_MODE_EVENT = 'taigi:background_playback_mode_changed';
 export type { NoteInputMode, SheetWrapMode, SheetOrientation };
 
 /**
@@ -988,24 +984,6 @@ export function setStoredPwaDismissed(dismissed: boolean): void {
 }
 
 // ============================================================================
-// 19B. BACKGROUND PLAYBACK MODE ('pause' | 'continuous')
-// ============================================================================
-export function getStoredBackgroundPlaybackMode(fallback: BackgroundPlaybackMode = 'pause'): BackgroundPlaybackMode {
-  const val = safeGetItem(STORAGE_KEYS.BACKGROUND_PLAYBACK_MODE);
-  if (val === 'continuous' || val === 'pause') {
-    return val;
-  }
-  return fallback;
-}
-
-export function setStoredBackgroundPlaybackMode(mode: BackgroundPlaybackMode): void {
-  safeSetItem(STORAGE_KEYS.BACKGROUND_PLAYBACK_MODE, mode);
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent(BACKGROUND_PLAYBACK_MODE_EVENT, { detail: { mode } }));
-  }
-}
-
-// ============================================================================
 // 20. RESTORE TO DEFAULT (Reset All User Settings to Factory Defaults)
 // ============================================================================
 export const SETTINGS_RESET_EVENT = 'taigi_composer_settings_reset';
@@ -1061,7 +1039,6 @@ export function resetAllSettingsToDefault(): void {
   setStoredSearchScope('all');
   setStoredSearchMatchFilter('all');
   setStoredInSongFilter('all');
-  setStoredBackgroundPlaybackMode('pause');
 
   // Reset Eco Mode
   safeSetItem(STORAGE_KEYS.POWER_SAVE_MODE, 'false');
