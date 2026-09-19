@@ -15,7 +15,12 @@ class WakeLockManager {
   }
 
   constructor() {
-    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    if (
+      typeof window !== 'undefined' &&
+      typeof document !== 'undefined' &&
+      typeof document.addEventListener === 'function' &&
+      typeof window.addEventListener === 'function'
+    ) {
       document.addEventListener('visibilitychange', this.handleVisibilityChange);
       window.addEventListener('pageshow', this.handlePageShow);
       window.addEventListener('focus', this.handleFocus);

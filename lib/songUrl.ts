@@ -106,22 +106,44 @@ function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Prom
   });
 }
 
-async function tryCompress(uncompressedBytes: Uint8Array, format: 'deflate-raw' | 'gzip'): Promise<Uint8Array> {
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(uncompressedBytes);
-      controller.close();
-    },
-  }).pipeThrough(new CompressionStream(format));
+async function tryCompressWithStream(
+  uncompressedBytes: Uint8Array,
+  format: 'deflate-raw' | 'gzip' | 'deflate'
+): Promise<Uint8Array> {
+  const cs = new CompressionStream(format);
+  const writer = cs.writable.getWriter();
+  const writePromise = writer
+    .write(uncompressedBytes as unknown as BufferSource)
+    .then(() => writer.close())
+    .catch(() => {});
 
-  const bufPromise = new Response(stream).arrayBuffer();
-  const buf = await withTimeout(bufPromise, 2500, `CompressionStream (${format}) timed out`);
-  return new Uint8Array(buf);
+  const reader = cs.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalLength = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value);
+      totalLength += value.byteLength;
+    }
+  }
+  await writePromise;
+
+  const result = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    result.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return result;
 }
 
 /**
  * Compresses an arbitrary string using native CompressionStream('deflate-raw')
- * with graceful fallback to uncompressed UTF-8 bytes if CompressionStream is unavailable.
+ * with graceful fallback to 'gzip', 'deflate', or uncompressed UTF-8 bytes.
+ * Uses direct Web Streams reader/writer to avoid WebKit Response(stream).arrayBuffer() stalling.
  */
 export async function compressString(text: string): Promise<{ bytes: Uint8Array; compressed: boolean }> {
   const uncompressedBytes = new TextEncoder().encode(text);
@@ -129,53 +151,111 @@ export async function compressString(text: string): Promise<{ bytes: Uint8Array;
     return { bytes: uncompressedBytes, compressed: false };
   }
 
+  // 1. Primary: deflate-raw (most compact for base64url payloads)
   try {
-    const bytes = await tryCompress(uncompressedBytes, 'deflate-raw');
+    const bytes = await withTimeout(
+      tryCompressWithStream(uncompressedBytes, 'deflate-raw'),
+      800,
+      'CompressionStream (deflate-raw) timed out'
+    );
     return { bytes, compressed: true };
   } catch {
+    // 2. Secondary fallback: gzip
     try {
-      const bytes = await tryCompress(uncompressedBytes, 'gzip');
+      const bytes = await withTimeout(
+        tryCompressWithStream(uncompressedBytes, 'gzip'),
+        800,
+        'CompressionStream (gzip) timed out'
+      );
       return { bytes, compressed: true };
-    } catch (err) {
-      console.warn('[compressString] compression failed, falling back to raw bytes:', err);
-      return { bytes: uncompressedBytes, compressed: false };
+    } catch {
+      // 3. Tertiary fallback: standard deflate (zlib format)
+      try {
+        const bytes = await withTimeout(
+          tryCompressWithStream(uncompressedBytes, 'deflate'),
+          800,
+          'CompressionStream (deflate) timed out'
+        );
+        return { bytes, compressed: true };
+      } catch (err) {
+        console.warn('[compressString] All compression formats failed, falling back to raw bytes:', err);
+        return { bytes: uncompressedBytes, compressed: false };
+      }
     }
   }
 }
 
-async function tryDecompress(bytes: Uint8Array, format: 'deflate-raw' | 'gzip'): Promise<string> {
-  const stream = new ReadableStream<Uint8Array>({
-    start(controller) {
-      controller.enqueue(bytes);
-      controller.close();
-    },
-  }).pipeThrough(new DecompressionStream(format));
+async function tryDecompressWithStream(
+  bytes: Uint8Array,
+  format: 'deflate-raw' | 'gzip' | 'deflate'
+): Promise<string> {
+  const ds = new DecompressionStream(format);
+  const writer = ds.writable.getWriter();
+  const writePromise = writer
+    .write(bytes as unknown as BufferSource)
+    .then(() => writer.close())
+    .catch(() => {});
 
-  const bufPromise = new Response(stream).arrayBuffer();
-  const buf = await withTimeout(bufPromise, 2500, `DecompressionStream (${format}) timed out`);
-  return new TextDecoder().decode(buf);
+  const reader = ds.readable.getReader();
+  const chunks: Uint8Array[] = [];
+  let totalLength = 0;
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    if (value) {
+      chunks.push(value);
+      totalLength += value.byteLength;
+    }
+  }
+  await writePromise;
+
+  const combined = new Uint8Array(totalLength);
+  let offset = 0;
+  for (const chunk of chunks) {
+    combined.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return new TextDecoder().decode(combined);
 }
 
 /**
  * Decompresses Uint8Array bytes using DecompressionStream('deflate-raw'),
- * with fallbacks to 'gzip' and raw UTF-8 text decoding.
+ * with fallbacks to 'gzip', 'deflate', and raw UTF-8 text decoding.
  */
 export async function decompressBytes(bytes: Uint8Array): Promise<string> {
   if (typeof DecompressionStream !== 'undefined') {
     // 1. Try deflate-raw
     try {
-      return await tryDecompress(bytes, 'deflate-raw');
+      return await withTimeout(
+        tryDecompressWithStream(bytes, 'deflate-raw'),
+        800,
+        'DecompressionStream (deflate-raw) timed out'
+      );
     } catch {
       // 2. Try gzip
       try {
-        return await tryDecompress(bytes, 'gzip');
+        return await withTimeout(
+          tryDecompressWithStream(bytes, 'gzip'),
+          800,
+          'DecompressionStream (gzip) timed out'
+        );
       } catch {
-        // Fall through to plain text
+        // 3. Try standard deflate
+        try {
+          return await withTimeout(
+            tryDecompressWithStream(bytes, 'deflate'),
+            800,
+            'DecompressionStream (deflate) timed out'
+          );
+        } catch {
+          // Fall through to plain text
+        }
       }
     }
   }
 
-  // 3. Fallback: treat as raw UTF-8 string
+  // 4. Fallback: treat as raw UTF-8 string
   return new TextDecoder().decode(bytes);
 }
 

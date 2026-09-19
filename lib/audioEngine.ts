@@ -328,7 +328,12 @@ export class AudioEngine {
 
   constructor(initialOptions?: Partial<AudioEngineOptions>) {
     // AudioContext and lifecycle management
-    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+    if (
+      typeof window !== 'undefined' &&
+      typeof document !== 'undefined' &&
+      typeof document.addEventListener === 'function' &&
+      typeof window.addEventListener === 'function'
+    ) {
       // Modern WebKit Audio Session API (Safari 16.4+ on iPadOS/iOS)
       try {
         if ('audioSession' in navigator && (navigator as any).audioSession) {

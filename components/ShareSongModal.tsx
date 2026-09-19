@@ -27,39 +27,47 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
   onClose,
   song,
 }) => {
-  const [shareResult, setShareResult] = useState<ShareUrlResult | null>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [shareData, setShareData] = useState<{ song: Song; result: ShareUrlResult } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retryTrigger, setRetryTrigger] = useState(0);
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const generateUrl = useCallback((targetSong: Song) => {
-    setIsGenerating(true);
+  const shareResult = shareData && shareData.song === song ? shareData.result : null;
+  const isGenerating = !shareResult && !error;
+
+  const handleRetry = useCallback(() => {
     setError(null);
-    createShareableSongUrl(targetSong)
-      .then(result => {
-        setShareResult(result);
-        setIsGenerating(false);
-      })
-      .catch(err => {
-        console.error('[ShareSongModal] Failed to generate share URL:', err);
-        setError('Failed to generate share link. Please try again.');
-        setIsGenerating(false);
-      });
+    setShareData(null);
+    setRetryTrigger(c => c + 1);
   }, []);
 
   useEffect(() => {
     if (!isOpen) return;
-    setShareResult(null);
-    generateUrl(song);
+    let isCancelled = false;
+
+    createShareableSongUrl(song)
+      .then(result => {
+        if (!isCancelled) {
+          setShareData({ song, result });
+          setError(null);
+        }
+      })
+      .catch(err => {
+        if (!isCancelled) {
+          console.error('[ShareSongModal] Failed to generate share URL:', err);
+          setError('Failed to generate share link. Please try again.');
+        }
+      });
 
     return () => {
+      isCancelled = true;
       if (copyTimerRef.current) {
         clearTimeout(copyTimerRef.current);
       }
     };
-  }, [isOpen, song, generateUrl]);
+  }, [isOpen, song, retryTrigger]);
 
   const handleClose = useCallback(() => {
     setCopied(false);
@@ -255,7 +263,7 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
                 </div>
                 <button
                   type="button"
-                  onClick={() => generateUrl(song)}
+                  onClick={handleRetry}
                   className="px-2.5 py-1 rounded-lg bg-red-500 text-white font-bold text-[11px] hover:bg-red-600 transition-colors cursor-pointer shrink-0"
                 >
                   Retry

@@ -105,30 +105,41 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     setStoredExportFormat(fmt);
   };
 
-  const [shareResult, setShareResult] = useState<ShareUrlResult | null>(null);
-  const [isGeneratingUrl, setIsGeneratingUrl] = useState(false);
+  const [shareData, setShareData] = useState<{ song: Song; result: ShareUrlResult } | null>(null);
   const [urlGenerationError, setUrlGenerationError] = useState<string | null>(null);
+  const [urlRetryCount, setUrlRetryCount] = useState(0);
 
-  const generateShareUrl = React.useCallback((songToShare: Song) => {
-    setIsGeneratingUrl(true);
+  const shareResult = shareData && shareData.song === currentSong ? shareData.result : null;
+  const isGeneratingUrl = activeTab === 'export' && exportFormat === 'url' && !shareResult && !urlGenerationError;
+
+  const handleRetryShareUrl = React.useCallback(() => {
     setUrlGenerationError(null);
-    createShareableSongUrl(songToShare)
-      .then(res => {
-        setShareResult(res);
-        setIsGeneratingUrl(false);
-      })
-      .catch(err => {
-        console.error('[ImportExportModal] Failed to generate share URL:', err);
-        setUrlGenerationError('Failed to generate share link. Please try again.');
-        setIsGeneratingUrl(false);
-      });
+    setShareData(null);
+    setUrlRetryCount(c => c + 1);
   }, []);
 
   React.useEffect(() => {
     if (!isOpen || activeTab !== 'export' || exportFormat !== 'url') return;
-    setShareResult(null);
-    generateShareUrl(currentSong);
-  }, [isOpen, activeTab, exportFormat, currentSong, generateShareUrl]);
+    let isCancelled = false;
+
+    createShareableSongUrl(currentSong)
+      .then(res => {
+        if (!isCancelled) {
+          setShareData({ song: currentSong, result: res });
+          setUrlGenerationError(null);
+        }
+      })
+      .catch(err => {
+        if (!isCancelled) {
+          console.error('[ImportExportModal] Failed to generate share URL:', err);
+          setUrlGenerationError('Failed to generate share link. Please try again.');
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [isOpen, activeTab, exportFormat, currentSong, urlRetryCount]);
 
   const [midiAccompaniment, setMidiAccompanimentState] = useState(() => {
     if (typeof window !== 'undefined') return getStoredMidiAccompaniment(true);
@@ -1191,7 +1202,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                       <span>{urlGenerationError}</span>
                       <button
                         type="button"
-                        onClick={() => generateShareUrl(currentSong)}
+                        onClick={handleRetryShareUrl}
                         className="px-2 py-0.5 rounded bg-red-500 text-white font-bold text-[10px] hover:bg-red-600 transition-colors cursor-pointer shrink-0"
                       >
                         Retry

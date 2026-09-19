@@ -1426,6 +1426,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     isPlaying,
     activePlaybackNoteId,
     sheetWrapMode,
+    getNaturalMeasureWidth,
+    song.bpm,
+    song.measures,
   ]);
 
   // Step to Next Note
