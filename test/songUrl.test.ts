@@ -411,8 +411,8 @@ describe('Song URL Compression & Sharing Engine (songUrl)', () => {
           id: 'm1',
           measureNumber: 1,
           notes: [
-            { id: 'n1', pitch: 1, octave: 0, duration: 2 },
-            { id: 'n2', pitch: 2, octave: 0, duration: 2 },
+            { id: 'n1', pitch: 1, octave: 0, duration: 2, lyric: { poj: '', hanlo: '' } },
+            { id: 'n2', pitch: 2, octave: 0, duration: 2, lyric: { poj: '', hanlo: '' } },
           ],
         },
       ],
