@@ -132,7 +132,7 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
       .catch(err => {
         if (!isCancelled) {
           console.error('[ImportExportModal] Failed to generate share URL:', err);
-          setUrlGenerationError('Failed to generate share link. Please try again.');
+          setUrlGenerationError(err instanceof Error ? err.message : 'Failed to generate share link. Please try again.');
         }
       });
 

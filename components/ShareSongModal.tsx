@@ -57,7 +57,7 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
       .catch(err => {
         if (!isCancelled) {
           console.error('[ShareSongModal] Failed to generate share URL:', err);
-          setError('Failed to generate share link. Please try again.');
+          setError(err instanceof Error ? err.message : 'Failed to generate share link. Please try again.');
         }
       });
 

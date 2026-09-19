@@ -303,4 +303,130 @@ describe('Song URL Compression & Sharing Engine (songUrl)', () => {
     const restored = await decompressBytes(bytes);
     assert.equal(restored, largeText);
   });
+
+  it('correctly encodes and decodes in browser-like environment without Buffer', async () => {
+    const originalBuffer = globalThis.Buffer;
+    try {
+      // @ts-expect-error - Simulating browser environment where Buffer is undefined
+      delete globalThis.Buffer;
+
+      const bytes = new Uint8Array([10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 255, 0, 128]);
+      const b64 = uint8ArrayToBase64Url(bytes);
+      assert.ok(typeof b64 === 'string');
+      assert.match(b64, /^[A-Za-z0-9_-]+$/);
+
+      const restored = base64UrlToUint8Array(b64);
+      assert.deepEqual(restored, bytes);
+
+      // Verify newly created song in browser environment
+      const brandNewSong: Song = {
+        id: 'new-song-no-buffer',
+        title: 'New Melody Created by User',
+        subtitle: 'Fresh composition',
+        composer: 'User Composer',
+        lyricist: 'Local Poet',
+        key: 'D',
+        timeSignature: '3/4',
+        bpm: 108,
+        measures: [
+          {
+            id: 'm-1',
+            measureNumber: 1,
+            chord: 'D',
+            notes: [
+              { id: 'n-1', pitch: 1, octave: 0, duration: 1, lyric: { poj: 'Lí', hanlo: '你' } },
+              { id: 'n-2', pitch: 3, octave: 0, duration: 1, lyric: { poj: 'hó', hanlo: '好' } },
+              { id: 'n-3', pitch: 5, octave: 0, duration: 1, lyric: { poj: 'bô', hanlo: '無' } },
+            ],
+          },
+          {
+            id: 'm-2',
+            measureNumber: 2,
+            chord: 'A7',
+            barlineType: 'end',
+            notes: [
+              { id: 'n-4', pitch: 5, octave: 0, duration: 3, isDotted: true, lyric: { poj: 'ah', hanlo: '啊' } },
+            ],
+          },
+        ],
+      };
+
+      const shareResult = await createShareableSongUrl(brandNewSong, 'https://test.app/');
+      assert.equal(shareResult.isPreset, false);
+      assert.ok(shareResult.url.startsWith('https://test.app/#song='));
+
+      const parsed = await parseSongFromUrl(shareResult.url);
+      assert.ok(parsed);
+      assert.equal(parsed.type, 'song');
+      assert.equal(parsed.song.title, 'New Melody Created by User');
+      assert.equal(parsed.song.bpm, 108);
+      assert.equal(parsed.song.measures.length, 2);
+      assert.equal(parsed.song.measures[0].notes[0].lyric.hanlo, '你');
+    } finally {
+      globalThis.Buffer = originalBuffer;
+    }
+  });
+
+  it('shares user-edited preset songs and user newly-created songs reliably', async () => {
+    // 1. User edited preset song (望春風 edited with extra measure and altered lyrics)
+    const basePreset = PRESET_SONGS[0];
+    const editedPreset: Song = {
+      ...basePreset,
+      title: `${basePreset.title} (User Edited Edition)`,
+      bpm: 76,
+      measures: [
+        ...basePreset.measures,
+        {
+          id: 'user-added-m',
+          measureNumber: basePreset.measures.length + 1,
+          chord: 'F',
+          barlineType: 'end',
+          notes: [
+            { id: 'user-n1', pitch: 1, octave: 1, duration: 4, lyric: { poj: 'Soah', hanlo: '煞' } },
+          ],
+        },
+      ],
+    };
+
+    const editedUrlResult = await createShareableSongUrl(editedPreset, 'https://example.com/easy-composer/');
+    assert.equal(editedUrlResult.isPreset, false);
+    assert.ok(editedUrlResult.url.includes('#song='));
+
+    const parsedEdited = await parseSongFromUrl(editedUrlResult.url);
+    assert.ok(parsedEdited);
+    assert.equal(parsedEdited.type, 'song');
+    assert.equal(parsedEdited.song.title, `${basePreset.title} (User Edited Edition)`);
+    assert.equal(parsedEdited.song.measures.length, basePreset.measures.length + 1);
+    assert.equal(parsedEdited.song.measures[parsedEdited.song.measures.length - 1].notes[0].lyric.hanlo, '煞');
+
+    // 2. Newly created blank/custom song
+    const newlyCreatedSong: Song = {
+      id: `new-${Date.now()}`,
+      title: 'Untilted Masterpiece',
+      key: 'C',
+      timeSignature: '4/4',
+      bpm: 90,
+      measures: [
+        {
+          id: 'm1',
+          measureNumber: 1,
+          notes: [
+            { id: 'n1', pitch: 1, octave: 0, duration: 2 },
+            { id: 'n2', pitch: 2, octave: 0, duration: 2 },
+          ],
+        },
+      ],
+    };
+
+    const newSongUrlResult = await createShareableSongUrl(newlyCreatedSong, 'https://example.com/easy-composer/');
+    assert.equal(newSongUrlResult.isPreset, false);
+    assert.ok(newSongUrlResult.url.includes('#song='));
+
+    const parsedNew = await parseSongFromUrl(newSongUrlResult.url);
+    assert.ok(parsedNew);
+    assert.equal(parsedNew.type, 'song');
+    assert.equal(parsedNew.song.title, 'Untilted Masterpiece');
+    assert.equal(parsedNew.song.measures.length, 1);
+    assert.equal(parsedNew.song.measures[0].notes.length, 2);
+  });
 });

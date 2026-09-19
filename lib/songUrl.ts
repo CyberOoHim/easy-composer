@@ -37,8 +37,8 @@ export function cleanSongForUrl(song: Song): Record<string, unknown> {
         }
         if (typeof v === 'object') {
           const cleanedChild = cleanVal(v);
-          if (k !== 'measures' && Array.isArray(cleanedChild) && cleanedChild.length === 0) continue;
-          if (cleanedChild && typeof cleanedChild === 'object' && Object.keys(cleanedChild).length === 0) continue;
+          if (k !== 'measures' && k !== 'notes' && Array.isArray(cleanedChild) && cleanedChild.length === 0) continue;
+          if (!Array.isArray(cleanedChild) && cleanedChild && typeof cleanedChild === 'object' && Object.keys(cleanedChild).length === 0) continue;
           out[k] = cleanedChild;
         } else {
           out[k] = v;
@@ -55,17 +55,17 @@ export function cleanSongForUrl(song: Song): Record<string, unknown> {
 /**
  * Universal binary Uint8Array to URL-safe Base64URL string (RFC 4648 §5).
  * Safe for URL hash fragments without requiring percent-encoding.
+ * Compatible with all browsers including iOS/iPadOS Safari WebKit.
  */
 export function uint8ArrayToBase64Url(bytes: Uint8Array): string {
   if (typeof Buffer !== 'undefined') {
     return Buffer.from(bytes).toString('base64url');
   }
   let binary = '';
-  const len = bytes.byteLength;
-  const CHUNK_SIZE = 8192;
-  for (let i = 0; i < len; i += CHUNK_SIZE) {
-    const chunk = bytes.subarray(i, i + CHUNK_SIZE);
-    binary += String.fromCharCode.apply(null, chunk as unknown as number[]);
+  const len = bytes.length;
+  // Direct character code iteration avoids Function.prototype.apply TypeError on TypedArrays in Safari WebKit
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
   }
   const base64 = btoa(binary);
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -83,8 +83,9 @@ export function base64UrlToUint8Array(base64url: string): Uint8Array {
     return new Uint8Array(Buffer.from(base64, 'base64'));
   }
   const binary = atob(base64);
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i++) {
+  const len = binary.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
     bytes[i] = binary.charCodeAt(i);
   }
   return bytes;
@@ -110,6 +111,26 @@ async function tryCompressWithStream(
   uncompressedBytes: Uint8Array,
   format: 'deflate-raw' | 'gzip' | 'deflate'
 ): Promise<Uint8Array> {
+  // Method 1: Modern Blob stream pipeThrough (standard in Safari 16.4+, Chrome, Firefox, Node 18+)
+  if (typeof Blob !== 'undefined' && typeof Response !== 'undefined') {
+    try {
+      const blob = new Blob([uncompressedBytes as unknown as BlobPart]);
+      if (typeof blob.stream === 'function') {
+        const cs = new CompressionStream(format);
+        const stream = blob.stream().pipeThrough(cs);
+        const buffer = await new Response(stream).arrayBuffer();
+        return new Uint8Array(buffer);
+      }
+    } catch (pipeErr) {
+      // If format is unsupported (e.g. 'deflate-raw' in Safari), rethrow so fallback format is tried
+      if (pipeErr instanceof TypeError && format === 'deflate-raw') {
+        throw pipeErr;
+      }
+      // Otherwise fall through to manual writer/reader
+    }
+  }
+
+  // Method 2: Manual stream writer/reader fallback
   const cs = new CompressionStream(format);
   const writer = cs.writable.getWriter();
   const writePromise = writer
@@ -143,7 +164,6 @@ async function tryCompressWithStream(
 /**
  * Compresses an arbitrary string using native CompressionStream('deflate-raw')
  * with graceful fallback to 'gzip', 'deflate', or uncompressed UTF-8 bytes.
- * Uses direct Web Streams reader/writer to avoid WebKit Response(stream).arrayBuffer() stalling.
  */
 export async function compressString(text: string): Promise<{ bytes: Uint8Array; compressed: boolean }> {
   const uncompressedBytes = new TextEncoder().encode(text);
@@ -155,16 +175,16 @@ export async function compressString(text: string): Promise<{ bytes: Uint8Array;
   try {
     const bytes = await withTimeout(
       tryCompressWithStream(uncompressedBytes, 'deflate-raw'),
-      800,
+      500,
       'CompressionStream (deflate-raw) timed out'
     );
     return { bytes, compressed: true };
   } catch {
-    // 2. Secondary fallback: gzip
+    // 2. Secondary fallback: gzip (universal in Safari 16.4+, Chrome, Firefox)
     try {
       const bytes = await withTimeout(
         tryCompressWithStream(uncompressedBytes, 'gzip'),
-        800,
+        500,
         'CompressionStream (gzip) timed out'
       );
       return { bytes, compressed: true };
@@ -173,7 +193,7 @@ export async function compressString(text: string): Promise<{ bytes: Uint8Array;
       try {
         const bytes = await withTimeout(
           tryCompressWithStream(uncompressedBytes, 'deflate'),
-          800,
+          500,
           'CompressionStream (deflate) timed out'
         );
         return { bytes, compressed: true };
@@ -189,6 +209,23 @@ async function tryDecompressWithStream(
   bytes: Uint8Array,
   format: 'deflate-raw' | 'gzip' | 'deflate'
 ): Promise<string> {
+  // Method 1: Modern Blob stream pipeThrough
+  if (typeof Blob !== 'undefined' && typeof Response !== 'undefined') {
+    try {
+      const blob = new Blob([bytes as unknown as BlobPart]);
+      if (typeof blob.stream === 'function') {
+        const ds = new DecompressionStream(format);
+        const stream = blob.stream().pipeThrough(ds);
+        return await new Response(stream).text();
+      }
+    } catch (pipeErr) {
+      if (pipeErr instanceof TypeError && format === 'deflate-raw') {
+        throw pipeErr;
+      }
+    }
+  }
+
+  // Method 2: Manual stream writer/reader fallback
   const ds = new DecompressionStream(format);
   const writer = ds.writable.getWriter();
   const writePromise = writer
@@ -229,7 +266,7 @@ export async function decompressBytes(bytes: Uint8Array): Promise<string> {
     try {
       return await withTimeout(
         tryDecompressWithStream(bytes, 'deflate-raw'),
-        800,
+        500,
         'DecompressionStream (deflate-raw) timed out'
       );
     } catch {
@@ -237,7 +274,7 @@ export async function decompressBytes(bytes: Uint8Array): Promise<string> {
       try {
         return await withTimeout(
           tryDecompressWithStream(bytes, 'gzip'),
-          800,
+          500,
           'DecompressionStream (gzip) timed out'
         );
       } catch {
@@ -245,7 +282,7 @@ export async function decompressBytes(bytes: Uint8Array): Promise<string> {
         try {
           return await withTimeout(
             tryDecompressWithStream(bytes, 'deflate'),
-            800,
+            500,
             'DecompressionStream (deflate) timed out'
           );
         } catch {
@@ -261,21 +298,36 @@ export async function decompressBytes(bytes: Uint8Array): Promise<string> {
 
 /**
  * Encode a song into either a preset ID reference or a compressed base64url payload.
+ * Fully guarded against unexpected failures with multi-tier fallbacks.
  */
 export async function encodeSongToUrlPayload(
   song: Song
 ): Promise<{ type: 'preset'; id: string } | { type: 'song'; payload: string }> {
-  const isFactoryPreset = PRESET_SONGS.some(p => p.id === song.id);
-  if (isFactoryPreset && !isSongModifiedFromPreset(song)) {
-    return { type: 'preset', id: song.id };
+  try {
+    const isFactoryPreset = PRESET_SONGS.some(p => p.id === song.id);
+    if (isFactoryPreset && !isSongModifiedFromPreset(song)) {
+      return { type: 'preset', id: song.id };
+    }
+
+    let cleaned: Record<string, unknown>;
+    try {
+      cleaned = cleanSongForUrl(song);
+    } catch (cleanErr) {
+      console.warn('[encodeSongToUrlPayload] cleanSongForUrl failed, using normalized song:', cleanErr);
+      cleaned = normalizeSongDurations(song) as unknown as Record<string, unknown>;
+    }
+
+    const jsonStr = JSON.stringify(cleaned);
+    const { bytes } = await compressString(jsonStr);
+    const base64url = uint8ArrayToBase64Url(bytes);
+
+    return { type: 'song', payload: base64url };
+  } catch (err) {
+    console.error('[encodeSongToUrlPayload] Unexpected error encoding song to URL, falling back to raw JSON:', err);
+    const rawBytes = new TextEncoder().encode(JSON.stringify(normalizeSongDurations(song)));
+    const fallbackBase64 = uint8ArrayToBase64Url(rawBytes);
+    return { type: 'song', payload: fallbackBase64 };
   }
-
-  const cleaned = cleanSongForUrl(song);
-  const jsonStr = JSON.stringify(cleaned);
-  const { bytes } = await compressString(jsonStr);
-  const base64url = uint8ArrayToBase64Url(bytes);
-
-  return { type: 'song', payload: base64url };
 }
 
 /**
