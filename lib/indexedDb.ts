@@ -3,6 +3,7 @@
 import type { Song } from '../types/song.ts';
 import { PRESET_SONGS } from './presets.ts';
 import { sanitizeSong } from './songParser.ts';
+import { normalizeSongDurations } from './taigiUtils.ts';
 
 export const DB_NAME = 'taigi_composer_db';
 export const DB_VERSION = 1;
@@ -135,7 +136,9 @@ export function isSongModifiedFromPreset(song: Song): boolean {
       return true;
     }
 
-    return JSON.stringify(song.measures) !== JSON.stringify(preset.measures);
+    const songMeasures = normalizeSongDurations(song).measures;
+    const presetMeasures = normalizeSongDurations(preset).measures;
+    return JSON.stringify(songMeasures) !== JSON.stringify(presetMeasures);
   } catch {
     return true;
   }

@@ -25,6 +25,8 @@ import {
   getStoredAutosaveInterval,
   setStoredAutosaveInterval,
 } from '../lib/storage.ts';
+import { sanitizeSong } from '../lib/songParser.ts';
+import { normalizeSongDurations } from '../lib/taigiUtils.ts';
 
 // Minimal in-memory mock for IndexedDB
 class MockIDBRequest {
@@ -229,6 +231,16 @@ describe('Preset Modification Detection', () => {
     assert.strictEqual(isStoredPresetOverride(stale), false);
     const realOverride = { ...PRESET_SONGS[0], title: 'User edit', isPresetModified: true };
     assert.strictEqual(isStoredPresetOverride(realOverride), true);
+  });
+
+  it('keeps all factory presets as unmodified even after sanitizeSong and normalizeSongDurations', () => {
+    for (const preset of PRESET_SONGS) {
+      assert.strictEqual(isSongModifiedFromPreset(preset), false, `${preset.id} factory should not be modified`);
+      const sanitized = sanitizeSong(JSON.parse(JSON.stringify(preset)));
+      assert.strictEqual(isSongModifiedFromPreset(sanitized), false, `${preset.id} sanitized should not be modified`);
+      const normalized = normalizeSongDurations(JSON.parse(JSON.stringify(preset)));
+      assert.strictEqual(isSongModifiedFromPreset(normalized), false, `${preset.id} normalized should not be modified`);
+    }
   });
 });
 

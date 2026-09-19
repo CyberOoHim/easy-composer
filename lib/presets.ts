@@ -1159,56 +1159,56 @@ export const PRESET_SONGS: Song[] = [
             "octave": 0,
             "duration": 0.75,
             "isDotted": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n1_2",
             "pitch": 6,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n1_3",
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n1_4",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n1_5",
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n1_6",
             "pitch": 1,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n1_7",
             "pitch": 6,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n1_8",
             "pitch": 1,
             "octave": 1,
             "duration": 1,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -1224,35 +1224,35 @@ export const PRESET_SONGS: Song[] = [
             "octave": 0,
             "duration": 0.75,
             "isDotted": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n2_2",
             "pitch": 6,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n2_3",
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n2_4",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n2_5",
             "pitch": 5,
             "octave": 0,
             "duration": 2,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -1269,56 +1269,56 @@ export const PRESET_SONGS: Song[] = [
             "octave": 0,
             "duration": 0.75,
             "isDotted": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n3_2",
             "pitch": 6,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n3_3",
             "pitch": 5,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n3_4",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n3_5",
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n3_6",
             "pitch": 1,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n3_7",
             "pitch": 6,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n3_8",
             "pitch": 1,
             "octave": 1,
             "duration": 1,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -1333,14 +1333,14 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 5,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n4_2",
             "pitch": 5,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n4_3",
@@ -1348,7 +1348,7 @@ export const PRESET_SONGS: Song[] = [
             "octave": 1,
             "duration": 0.5,
             "slurToNext": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n4_4",
@@ -1356,21 +1356,21 @@ export const PRESET_SONGS: Song[] = [
             "octave": 1,
             "duration": 0.25,
             "slurToNext": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n4_5",
             "pitch": 3,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n4_6",
             "pitch": 1,
             "octave": 1,
             "duration": 2,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -1385,70 +1385,70 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n5_2",
             "pitch": 1,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n5_3",
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n5_4",
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n5_5",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n5_6",
             "pitch": 5,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n5_7",
             "pitch": 5,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n5_8",
             "pitch": 3,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n5_9",
             "pitch": 5,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n5_10",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -1464,42 +1464,42 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n6_2",
             "pitch": 1,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n6_3",
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n6_4",
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n6_5",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n6_6",
             "pitch": 5,
             "octave": 0,
             "duration": 2,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -1514,84 +1514,84 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_2",
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_3",
             "pitch": 3,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_4",
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_5",
             "pitch": 2,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_6",
             "pitch": 5,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_7",
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_8",
             "pitch": 3,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_9",
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_10",
             "pitch": 6,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_11",
             "pitch": 5,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n7_12",
             "pitch": 3,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -1607,84 +1607,84 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_2",
             "pitch": 6,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_3",
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_4",
             "pitch": 3,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_5",
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_6",
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_7",
             "pitch": 3,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_8",
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_9",
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_10",
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_11",
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n8_12",
             "pitch": 0,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -1785,7 +1785,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 2,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -1831,14 +1831,14 @@ export const PRESET_SONGS: Song[] = [
             "octave": 0,
             "duration": 0.125,
             "slurToNext": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n10_3",
             "pitch": 1,
             "octave": 0,
             "duration": 0.125,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n10_4",
@@ -1994,7 +1994,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 4,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -2040,7 +2040,7 @@ export const PRESET_SONGS: Song[] = [
             "duration": 0.333,
             "isTriplet": true,
             "slurToNext": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n12_3",
@@ -2048,7 +2048,7 @@ export const PRESET_SONGS: Song[] = [
             "octave": 0,
             "duration": 0.334,
             "isTriplet": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n12_4",
@@ -2084,7 +2084,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n12_6",
@@ -2183,7 +2183,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 3,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n13_4",
@@ -2284,14 +2284,14 @@ export const PRESET_SONGS: Song[] = [
             "octave": 0,
             "duration": 0.25,
             "slurToNext": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n14_3",
             "pitch": 7,
             "octave": -1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n14_4",
@@ -2601,7 +2601,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 3,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n17_4",
@@ -2636,7 +2636,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 0,
             "octave": 0,
             "duration": 1,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -2792,7 +2792,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 0,
             "octave": 0,
             "duration": 1,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -2864,7 +2864,7 @@ export const PRESET_SONGS: Song[] = [
             "octave": 0,
             "duration": 0.5,
             "slurToNext": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n19_4",
@@ -2900,7 +2900,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 6,
             "octave": -1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -2971,7 +2971,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 3,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n20_4",
@@ -3163,7 +3163,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n22_3",
@@ -3199,7 +3199,7 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 3,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n22_5",
@@ -3207,14 +3207,14 @@ export const PRESET_SONGS: Song[] = [
             "octave": 0,
             "duration": 0.5,
             "slurToNext": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n22_6",
             "pitch": 3,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -3269,35 +3269,35 @@ export const PRESET_SONGS: Song[] = [
             "octave": 0,
             "duration": 0.75,
             "isDotted": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n24_2",
             "pitch": 6,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n24_3",
             "pitch": 5,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n24_4",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n24_5",
             "pitch": 5,
             "octave": 0,
             "duration": 2,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -3316,35 +3316,35 @@ export const PRESET_SONGS: Song[] = [
             "octave": 0,
             "duration": 0.75,
             "isDotted": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n25_2",
             "pitch": 6,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n25_3",
             "pitch": 5,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n25_4",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n25_5",
             "pitch": 5,
             "octave": 0,
             "duration": 2,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -3365,35 +3365,35 @@ export const PRESET_SONGS: Song[] = [
             "duration": 0.75,
             "isDotted": true,
             "slurToNext": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n26_2",
             "pitch": 3,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n26_3",
             "pitch": 2,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n26_4",
             "pitch": 3,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n26_5",
             "pitch": 2,
             "octave": 0,
             "duration": 2,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -3413,35 +3413,35 @@ export const PRESET_SONGS: Song[] = [
             "duration": 0.75,
             "isDotted": true,
             "slurToNext": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n27_2",
             "pitch": 3,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n27_3",
             "pitch": 2,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n27_4",
             "pitch": 3,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n27_5",
             "pitch": 2,
             "octave": 0,
             "duration": 2,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -3461,56 +3461,56 @@ export const PRESET_SONGS: Song[] = [
             "duration": 0.75,
             "isDotted": true,
             "slurToNext": true,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n28_2",
             "pitch": 5,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n28_3",
             "pitch": 5,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n28_4",
             "pitch": 3,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n28_5",
             "pitch": 2,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n28_6",
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n28_7",
             "pitch": 6,
             "octave": -1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n28_8",
             "pitch": 5,
             "octave": -1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -3529,49 +3529,49 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n29_2",
             "pitch": 0,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n29_3",
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n29_4",
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n29_5",
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n29_6",
             "pitch": 0,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n29_7",
             "pitch": 0,
             "octave": 0,
             "duration": 1,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -3612,70 +3612,70 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n31_2",
             "pitch": 1,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n31_3",
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n31_4",
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n31_5",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n31_6",
             "pitch": 5,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n31_7",
             "pitch": 5,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n31_8",
             "pitch": 3,
             "octave": 0,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n31_9",
             "pitch": 5,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n31_10",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -3692,42 +3692,42 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n32_2",
             "pitch": 1,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n32_3",
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n32_4",
             "pitch": 1,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n32_5",
             "pitch": 6,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n32_6",
             "pitch": 5,
             "octave": 0,
             "duration": 2,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -3745,84 +3745,84 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_2",
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_3",
             "pitch": 3,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_4",
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_5",
             "pitch": 2,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_6",
             "pitch": 5,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_7",
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_8",
             "pitch": 3,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_9",
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_10",
             "pitch": 6,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_11",
             "pitch": 5,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n33_12",
             "pitch": 3,
             "octave": 1,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       },
@@ -3841,84 +3841,84 @@ export const PRESET_SONGS: Song[] = [
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_2",
             "pitch": 6,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_3",
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_4",
             "pitch": 3,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_5",
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_6",
             "pitch": 5,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_7",
             "pitch": 3,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_8",
             "pitch": 2,
             "octave": 1,
             "duration": 0.25,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_9",
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_10",
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_11",
             "pitch": 1,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           },
           {
             "id": "skh_n34_12",
             "pitch": 0,
             "octave": 0,
             "duration": 0.5,
-            "lyric": {}
+            "lyric": { "hanlo": "", "poj": "" }
           }
         ]
       }

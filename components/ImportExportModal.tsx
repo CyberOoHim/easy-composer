@@ -106,24 +106,29 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   };
 
   const [shareResult, setShareResult] = useState<ShareUrlResult | null>(null);
+  const [isGeneratingUrl, setIsGeneratingUrl] = useState(false);
+  const [urlGenerationError, setUrlGenerationError] = useState<string | null>(null);
 
-  React.useEffect(() => {
-    if (!isOpen || activeTab !== 'export' || exportFormat !== 'url') return;
-    let isMounted = true;
-    void createShareableSongUrl(currentSong)
+  const generateShareUrl = React.useCallback((songToShare: Song) => {
+    setIsGeneratingUrl(true);
+    setUrlGenerationError(null);
+    createShareableSongUrl(songToShare)
       .then(res => {
-        if (isMounted) setShareResult(res);
+        setShareResult(res);
+        setIsGeneratingUrl(false);
       })
       .catch(err => {
         console.error('[ImportExportModal] Failed to generate share URL:', err);
+        setUrlGenerationError('Failed to generate share link. Please try again.');
+        setIsGeneratingUrl(false);
       });
+  }, []);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [isOpen, activeTab, exportFormat, currentSong]);
-
-  const isGeneratingUrl = exportFormat === 'url' && !shareResult;
+  React.useEffect(() => {
+    if (!isOpen || activeTab !== 'export' || exportFormat !== 'url') return;
+    setShareResult(null);
+    generateShareUrl(currentSong);
+  }, [isOpen, activeTab, exportFormat, currentSong, generateShareUrl]);
 
   const [midiAccompaniment, setMidiAccompanimentState] = useState(() => {
     if (typeof window !== 'undefined') return getStoredMidiAccompaniment(true);
@@ -1148,25 +1153,51 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     <span className="text-xs font-bold text-zinc-800 dark:text-zinc-200">
                       Direct Score URL
                     </span>
-                    {shareResult?.isPreset ? (
+                    {isGeneratingUrl ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 animate-pulse">
+                        Generating...
+                      </span>
+                    ) : shareResult?.isPreset ? (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30">
                         Preset Shortcut Link
                       </span>
-                    ) : (
+                    ) : shareResult ? (
                       <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30">
-                        Compressed ({(shareResult ? shareResult.url.length / 1024 : 0).toFixed(1)} KB)
+                        Compressed ({(shareResult.url.length / 1024).toFixed(1)} KB)
                       </span>
-                    )}
+                    ) : null}
                   </div>
 
                   <input
                     id="export-url-input"
                     type="text"
                     readOnly
-                    value={isGeneratingUrl ? 'Generating share link...' : shareResult?.url || ''}
+                    value={
+                      isGeneratingUrl
+                        ? 'Generating share link...'
+                        : urlGenerationError
+                        ? 'Failed to generate share link'
+                        : shareResult?.url || ''
+                    }
                     onClick={e => (e.target as HTMLInputElement).select()}
                     className="w-full px-3 py-2 text-xs font-mono bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden"
                   />
+
+                  {urlGenerationError && (
+                    <div
+                      id="export-url-error-message"
+                      className="p-2.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-900 dark:text-red-200 text-xs flex items-center justify-between gap-2"
+                    >
+                      <span>{urlGenerationError}</span>
+                      <button
+                        type="button"
+                        onClick={() => generateShareUrl(currentSong)}
+                        className="px-2 py-0.5 rounded bg-red-500 text-white font-bold text-[10px] hover:bg-red-600 transition-colors cursor-pointer shrink-0"
+                      >
+                        Retry
+                      </button>
+                    </div>
+                  )}
 
                   <div className="flex flex-wrap gap-2 pt-1">
                     <button

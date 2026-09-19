@@ -90,32 +90,33 @@ export function base64UrlToUint8Array(base64url: string): Uint8Array {
   return bytes;
 }
 
+function withTimeout<T>(promise: Promise<T>, ms: number, errorMsg: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(errorMsg)), ms);
+    promise.then(
+      res => {
+        clearTimeout(timer);
+        resolve(res);
+      },
+      err => {
+        clearTimeout(timer);
+        reject(err);
+      }
+    );
+  });
+}
+
 async function tryCompress(uncompressedBytes: Uint8Array, format: 'deflate-raw' | 'gzip'): Promise<Uint8Array> {
-  const cs = new CompressionStream(format);
-  const writer = cs.writable.getWriter();
-  const reader = cs.readable.getReader();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(uncompressedBytes);
+      controller.close();
+    },
+  }).pipeThrough(new CompressionStream(format));
 
-  const pWrite = writer.write(uncompressedBytes as unknown as BufferSource).then(() => writer.close());
-
-  const pRead = (async () => {
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) chunks.push(value);
-    }
-    const totalLen = chunks.reduce((acc, c) => acc + c.byteLength, 0);
-    const combined = new Uint8Array(totalLen);
-    let offset = 0;
-    for (const chunk of chunks) {
-      combined.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return combined;
-  })();
-
-  const [, bytes] = await Promise.all([pWrite, pRead]);
-  return bytes;
+  const bufPromise = new Response(stream).arrayBuffer();
+  const buf = await withTimeout(bufPromise, 2500, `CompressionStream (${format}) timed out`);
+  return new Uint8Array(buf);
 }
 
 /**
@@ -143,31 +144,16 @@ export async function compressString(text: string): Promise<{ bytes: Uint8Array;
 }
 
 async function tryDecompress(bytes: Uint8Array, format: 'deflate-raw' | 'gzip'): Promise<string> {
-  const ds = new DecompressionStream(format);
-  const writer = ds.writable.getWriter();
-  const reader = ds.readable.getReader();
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(bytes);
+      controller.close();
+    },
+  }).pipeThrough(new DecompressionStream(format));
 
-  const pWrite = writer.write(bytes as unknown as BufferSource).then(() => writer.close());
-
-  const pRead = (async () => {
-    const chunks: Uint8Array[] = [];
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) chunks.push(value);
-    }
-    const totalLen = chunks.reduce((acc, c) => acc + c.byteLength, 0);
-    const combined = new Uint8Array(totalLen);
-    let offset = 0;
-    for (const chunk of chunks) {
-      combined.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return new TextDecoder().decode(combined);
-  })();
-
-  const [, text] = await Promise.all([pWrite, pRead]);
-  return text;
+  const bufPromise = new Response(stream).arrayBuffer();
+  const buf = await withTimeout(bufPromise, 2500, `DecompressionStream (${format}) timed out`);
+  return new TextDecoder().decode(buf);
 }
 
 /**

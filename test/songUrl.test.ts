@@ -266,4 +266,41 @@ describe('Song URL Compression & Sharing Engine (songUrl)', () => {
       assert.equal(decoded.measures[31].notes[3].octave, 1);
     }
   });
+
+  it('generates preset URL for su-ki-hong (四季紅) and compresses when modified without hanging', async () => {
+    const suKiHong = PRESET_SONGS.find(p => p.id === 'su-ki-hong');
+    assert.ok(suKiHong, 'su-ki-hong preset must exist');
+
+    // 1. Factory preset should generate #preset=su-ki-hong
+    const presetRes = await createShareableSongUrl(suKiHong, 'https://composer.app/');
+    assert.equal(presetRes.isPreset, true);
+    assert.equal(presetRes.url, 'https://composer.app/#preset=su-ki-hong');
+
+    // 2. Modified su-ki-hong should generate #song= URL without hanging
+    const modifiedSuKiHong: Song = {
+      ...suKiHong,
+      subtitle: 'Sù-kì-hông (Arranged for Choir)',
+    };
+    const modifiedRes = await createShareableSongUrl(modifiedSuKiHong, 'https://composer.app/');
+    assert.equal(modifiedRes.isPreset, false);
+    assert.ok(modifiedRes.url.startsWith('https://composer.app/#song='));
+    assert.ok(modifiedRes.payloadSize > 1000);
+
+    const decoded = await parseSongFromUrl(modifiedRes.url);
+    assert.ok(decoded);
+    assert.equal(decoded.type, 'song');
+    assert.equal(decoded.song.title, '四季紅');
+    assert.equal(decoded.song.subtitle, 'Sù-kì-hông (Arranged for Choir)');
+    assert.equal(decoded.song.measures.length, 34);
+  });
+
+  it('compresses and decompresses very large payloads (50KB+) within timeout threshold', async () => {
+    const largeText = 'EasyComposerMusicalScoreData_'.repeat(2000); // ~58KB
+    const { bytes, compressed } = await compressString(largeText);
+    assert.equal(compressed, true);
+    assert.ok(bytes.length < largeText.length);
+
+    const restored = await decompressBytes(bytes);
+    assert.equal(restored, largeText);
+  });
 });

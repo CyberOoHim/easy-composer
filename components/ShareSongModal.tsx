@@ -27,37 +27,39 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
   onClose,
   song,
 }) => {
-  const [shareResultData, setShareResultData] = useState<{ song: Song; result: ShareUrlResult } | null>(null);
+  const [shareResult, setShareResult] = useState<ShareUrlResult | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const shareResult = (shareResultData && shareResultData.song === song) ? shareResultData.result : null;
-
-  // Generate share URL whenever modal opens or song changes
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let isMounted = true;
-    void createShareableSongUrl(song)
+  const generateUrl = useCallback((targetSong: Song) => {
+    setIsGenerating(true);
+    setError(null);
+    createShareableSongUrl(targetSong)
       .then(result => {
-        if (isMounted) {
-          setShareResultData({ song, result });
-        }
+        setShareResult(result);
+        setIsGenerating(false);
       })
       .catch(err => {
         console.error('[ShareSongModal] Failed to generate share URL:', err);
+        setError('Failed to generate share link. Please try again.');
+        setIsGenerating(false);
       });
+  }, []);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setShareResult(null);
+    generateUrl(song);
 
     return () => {
-      isMounted = false;
       if (copyTimerRef.current) {
         clearTimeout(copyTimerRef.current);
       }
     };
-  }, [isOpen, song]);
-
-  const isGenerating = !shareResult;
+  }, [isOpen, song, generateUrl]);
 
   const handleClose = useCallback(() => {
     setCopied(false);
@@ -161,16 +163,21 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
                 )}
               </div>
 
-              {shareResult?.isPreset ? (
+              {isGenerating ? (
+                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-bold shrink-0 animate-pulse">
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-ping" />
+                  <span>Generating...</span>
+                </span>
+              ) : shareResult?.isPreset ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/30 text-[10px] font-bold shrink-0">
                   <Sparkles className="w-3 h-3" />
                   <span>Preset Link</span>
                 </span>
-              ) : (
+              ) : shareResult ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold shrink-0">
                   <span>Compressed ({urlLengthKb} KB)</span>
                 </span>
-              )}
+              ) : null}
             </div>
 
             {/* Song Spec Badges */}
@@ -211,7 +218,13 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
                 id="share-url-input"
                 type="text"
                 readOnly
-                value={isGenerating ? 'Generating share link...' : shareResult?.url || ''}
+                value={
+                  isGenerating
+                    ? 'Generating share link...'
+                    : error
+                    ? 'Failed to generate share link'
+                    : shareResult?.url || ''
+                }
                 onClick={handleSelectAll}
                 className="w-full px-3 py-2 pr-12 text-xs font-mono bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer h-11 transition-colors"
                 placeholder="https://..."
@@ -230,6 +243,25 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
                 )}
               </button>
             </div>
+
+            {error && (
+              <div
+                id="share-modal-error-message"
+                className="p-3 rounded-xl bg-red-500/10 border border-red-500/30 text-red-900 dark:text-red-200 text-xs flex items-center justify-between gap-2.5 animate-in fade-in"
+              >
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-red-500 shrink-0" />
+                  <span>{error}</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => generateUrl(song)}
+                  className="px-2.5 py-1 rounded-lg bg-red-500 text-white font-bold text-[11px] hover:bg-red-600 transition-colors cursor-pointer shrink-0"
+                >
+                  Retry
+                </button>
+              </div>
+            )}
 
             {isUrlLong && (
               <div
