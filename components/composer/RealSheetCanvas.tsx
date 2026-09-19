@@ -209,7 +209,7 @@ export interface RealSheetCanvasProps {
   onCopyAb?: () => void;
   hasClipboardMeasures?: boolean;
   clipboardCount?: number;
-  onPasteAb?: (mode: 'insert_after' | 'replace') => void;
+  onPasteAb?: (mode: 'insert_after' | 'insert_before' | 'replace') => void;
   onDeleteAb?: () => void;
   onDuplicateAb?: () => void;
   onTransposeAb?: (stepDelta: number) => void;

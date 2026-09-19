@@ -74,7 +74,7 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
       for (let m = startMeasureIndex; m <= endMeasureIndex; m++) {
         const curM = song.measures[m];
         if (curM) {
-          noteCount += curM.notes.length || 0;
+          noteCount += curM.notes?.length || 0;
           const report = getMeasureRhythmReport(curM, song.timeSignature || '4/4');
           if (!report.isFull) {
             hasIncompleteMeasures = true;
@@ -103,14 +103,14 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
   return (
     <div
       id="composer-section-rail"
-      className="flex items-center gap-1 px-2 py-0.5 sm:py-1 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md rounded-lg sm:rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 shadow-2xs overflow-x-auto select-none no-scrollbar touch-pan-x min-h-[26px] print:hidden"
+      className="flex items-center gap-1.5 px-2 py-1 bg-white/95 dark:bg-[#141720]/95 rounded-lg sm:rounded-xl border border-zinc-200/90 dark:border-zinc-800/80 shadow-2xs overflow-x-auto select-none no-scrollbar touch-pan-x min-h-[36px] print:hidden"
     >
       <div className="flex items-center gap-1 text-[11px] font-bold text-zinc-500 dark:text-zinc-400 shrink-0">
-        <Bookmark className="w-3 h-3 text-amber-500" />
+        <Bookmark className="w-3.5 h-3.5 text-amber-500" />
         <span className="hidden sm:inline">Sections:</span>
       </div>
 
-      <div className="flex items-center gap-1 flex-nowrap shrink-0">
+      <div className="flex items-center gap-1.5 flex-nowrap shrink-0">
         {sections.map((sec) => {
           const isSelected =
             selectedMeasureIndex !== null &&
@@ -124,50 +124,59 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
             playingMeasureIdx <= sec.endMeasureIndex;
 
           return (
-            <button
+            <div
               key={sec.id}
-              type="button"
-              onClick={() => onSelectMeasure(sec.startMeasureIndex)}
-              className={`flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-bold transition-all shrink-0 active:scale-95 cursor-pointer touch-manipulation h-6 sm:h-6.5 ${
+              className={`inline-flex items-stretch rounded-lg text-xs font-bold transition-all shrink-0 border shadow-2xs overflow-hidden h-8 sm:h-8.5 ${
                 isPlaying
-                  ? 'bg-amber-500 text-zinc-950 ring-1.5 ring-amber-400 font-black animate-pulse shadow-xs'
+                  ? 'bg-amber-500 text-zinc-950 border-amber-400 ring-2 ring-amber-400 animate-pulse'
                   : isSelected
-                  ? 'bg-amber-500/20 text-amber-900 dark:text-amber-200 border border-amber-400/70 shadow-xs'
-                  : 'bg-zinc-100 dark:bg-[#0a0c10] hover:bg-zinc-200 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border border-zinc-200/90 dark:border-zinc-800'
+                  ? 'bg-amber-500/15 text-amber-950 dark:text-amber-100 border-amber-400/70'
+                  : 'bg-zinc-100 dark:bg-[#0a0c10] text-zinc-700 dark:text-zinc-300 border-zinc-200/90 dark:border-zinc-800'
               }`}
-              title={`Jump to ${sec.name} (Measures #${sec.startMeasureNumber}-#${sec.endMeasureNumber} · ${sec.noteCount} notes)`}
             >
-              <span>{sec.name}</span>
-              <span
-                onClick={(e) => {
-                  if (onSelectSectionAbRange) {
-                    e.stopPropagation();
+              {/* Jump to section button */}
+              <button
+                type="button"
+                onClick={() => onSelectMeasure(sec.startMeasureIndex)}
+                className="flex items-center gap-1 px-2.5 h-full hover:bg-black/5 dark:hover:bg-white/5 active:scale-98 cursor-pointer touch-manipulation min-h-[32px]"
+                title={`Jump to ${sec.name} (Measures #${sec.startMeasureNumber}-#${sec.endMeasureNumber} · ${sec.noteCount} notes)`}
+                aria-label={`Jump to ${sec.name}`}
+              >
+                <span>{sec.name}</span>
+                {sec.chord && (
+                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold hidden md:inline">
+                    [{sec.chord}]
+                  </span>
+                )}
+                {sec.hasIncompleteMeasures && (
+                  <span className="shrink-0 flex items-center" title="Section contains incomplete measure(s)">
+                    <AlertCircle className="w-3 h-3 text-amber-500" />
+                  </span>
+                )}
+              </button>
+
+              {/* Set A-B range button */}
+              {onSelectSectionAbRange && (
+                <button
+                  type="button"
+                  onClick={() =>
                     onSelectSectionAbRange({
                       startMeasureIndex: sec.startMeasureIndex,
                       endMeasureIndex: sec.endMeasureIndex,
-                    });
+                    })
                   }
-                }}
-                className={`text-[9px] font-mono px-1 py-0.2 rounded hover:ring-1 hover:ring-amber-400 cursor-pointer ${
-                  isSelected
-                    ? 'bg-amber-500/30 text-amber-950 dark:text-amber-100 font-bold'
-                    : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
-                }`}
-                title={`Click to set A-B selection to ${sec.name} (#${sec.startMeasureNumber}-#${sec.endMeasureNumber})`}
-              >
-                #{sec.startMeasureNumber}-{sec.endMeasureNumber}
-              </span>
-              {sec.chord && (
-                <span className="text-[9px] text-amber-600 dark:text-amber-400 font-bold hidden md:inline">
-                  [{sec.chord}]
-                </span>
+                  className={`h-full px-2 text-[10px] font-mono flex items-center justify-center border-l border-black/10 dark:border-white/10 hover:bg-amber-500 hover:text-zinc-950 transition-colors cursor-pointer touch-manipulation min-w-[36px] min-h-[32px] ${
+                    isSelected
+                      ? 'bg-amber-500/30 text-amber-950 dark:text-amber-100 font-black'
+                      : 'text-zinc-500 dark:text-zinc-400'
+                  }`}
+                  title={`Set A-B selection to ${sec.name} (#${sec.startMeasureNumber}-#${sec.endMeasureNumber})`}
+                  aria-label={`Set A-B selection to ${sec.name}`}
+                >
+                  #{sec.startMeasureNumber}-{sec.endMeasureNumber}
+                </button>
               )}
-              {sec.hasIncompleteMeasures && (
-                <span className="shrink-0 flex items-center" title="Section contains incomplete measure(s)">
-                  <AlertCircle className="w-3 h-3 text-amber-500" />
-                </span>
-              )}
-            </button>
+            </div>
           );
         })}
       </div>

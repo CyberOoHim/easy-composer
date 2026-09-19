@@ -88,6 +88,26 @@ describe('A-B Operations Suite (abOperations)', () => {
       assert.notEqual(copied[0].notes[0].pitch, song.measures[1].notes[0].pitch);
     });
 
+    it('deep clones measures with obbligato and grace notes', () => {
+      const song = createMockSong(2);
+      song.measures[0].notes[0].preGraceNotes = [{ pitch: 5, octave: 0 }];
+      song.measures[0].obbligato = [
+        {
+          id: 'ob-1',
+          pitch: 3,
+          octave: 1,
+          duration: 2,
+          lyric: { hanlo: '伴', poj: 'phōan' },
+        },
+      ];
+
+      const cloned = cloneMeasuresWithFreshIds(song.measures);
+      assert.notEqual(cloned[0].id, song.measures[0].id);
+      assert.notEqual(cloned[0].notes[0].preGraceNotes?.[0].id, song.measures[0].notes[0].preGraceNotes?.[0].id);
+      assert.notEqual(cloned[0].obbligato?.[0].id, song.measures[0].obbligato?.[0].id);
+      assert.equal(cloned[0].obbligato?.[0].lyric.hanlo, '伴');
+    });
+
     it('creates ScoreClipboard payload', () => {
       const song = createMockSong(4);
       const clip = createScoreClipboard(song, { startMeasureIndex: 0, endMeasureIndex: 1 });
@@ -98,7 +118,7 @@ describe('A-B Operations Suite (abOperations)', () => {
     });
   });
 
-  describe('Paste Measures (Insert & Replace)', () => {
+  describe('Paste Measures (Insert After, Insert Before & Replace)', () => {
     it('pastes measures after target measure with fresh IDs and renumbers', () => {
       const song = createMockSong(4);
       const copied = copyMeasures(song, { startMeasureIndex: 0, endMeasureIndex: 1 }); // 2 bars
@@ -112,6 +132,24 @@ describe('A-B Operations Suite (abOperations)', () => {
       );
       assert.deepEqual(result.newCursor, [2, 0]);
       assert.deepEqual(result.newAbRange, { startMeasureIndex: 2, endMeasureIndex: 3 });
+    });
+
+    it('pastes measures before target measure', () => {
+      const song = createMockSong(4);
+      const copied = copyMeasures(song, { startMeasureIndex: 0, endMeasureIndex: 0 }); // 1 bar
+
+      const result = pasteMeasures(song, 2, copied, 'insert_before');
+      assert.equal(result.pastedCount, 1);
+      assert.equal(result.song.measures.length, 5);
+      assert.deepEqual(result.newCursor, [2, 0]);
+      assert.deepEqual(result.newAbRange, { startMeasureIndex: 2, endMeasureIndex: 2 });
+    });
+
+    it('returns original song if measuresToPaste is empty', () => {
+      const song = createMockSong(4);
+      const result = pasteMeasures(song, 2, []);
+      assert.equal(result.pastedCount, 0);
+      assert.equal(result.song, song);
     });
 
     it('pastes measures replacing a selected range', () => {
@@ -142,12 +180,22 @@ describe('A-B Operations Suite (abOperations)', () => {
       assert.deepEqual(result.newCursor, [1, 0]);
     });
 
-    it('leaves at least 1 rest measure if entire song is deleted', () => {
+    it('leaves at least 1 rest measure if entire song is deleted (matching 4/4 meter)', () => {
       const song = createMockSong(4);
       const result = deleteMeasures(song, { startMeasureIndex: 0, endMeasureIndex: 3 });
       assert.equal(result.song.measures.length, 1);
       assert.equal(result.song.measures[0].measureNumber, 1);
       assert.equal(result.song.measures[0].notes[0].pitch, 0); // Rest
+      assert.equal(result.song.measures[0].notes[0].duration, 4); // 4 beats for 4/4
+    });
+
+    it('leaves at least 1 rest measure matching 3/4 meter on total delete', () => {
+      const song = createMockSong(4);
+      song.timeSignature = '3/4';
+      const result = deleteMeasures(song, { startMeasureIndex: 0, endMeasureIndex: 3 });
+      assert.equal(result.song.measures.length, 1);
+      assert.equal(result.song.measures[0].notes[0].pitch, 0);
+      assert.equal(result.song.measures[0].notes[0].duration, 3); // 3 beats for 3/4
     });
   });
 
@@ -178,6 +226,15 @@ describe('A-B Operations Suite (abOperations)', () => {
       const expectedShifted = ((((Number(initialPitch1) - 1 + 1) % 7) + 7) % 7) + 1;
       assert.equal(transposed.measures[1].notes[0].pitch, expectedShifted);
     });
+
+    it('transposes obbligato notes when present in range', () => {
+      const song = createMockSong(2);
+      song.measures[0].obbligato = [
+        { id: 'ob-1', pitch: 3, octave: 0, duration: 2, lyric: {} },
+      ];
+      const transposed = transposeMeasures(song, { startMeasureIndex: 0, endMeasureIndex: 0 }, 2);
+      assert.equal(transposed.measures[0].obbligato?.[0].pitch, 5);
+    });
   });
 
   describe('Clear Lyrics in Measures', () => {
@@ -194,6 +251,15 @@ describe('A-B Operations Suite (abOperations)', () => {
       // Other measures still have lyrics
       assert.ok(cleared.measures[0].notes[0].lyric.hanlo);
     });
+
+    it('clears obbligato lyrics within range', () => {
+      const song = createMockSong(2);
+      song.measures[0].obbligato = [
+        { id: 'ob-1', pitch: 3, octave: 0, duration: 2, lyric: { hanlo: '伴', poj: 'phōan' } },
+      ];
+      const cleared = clearMeasuresLyrics(song, { startMeasureIndex: 0, endMeasureIndex: 0 });
+      assert.deepEqual(cleared.measures[0].obbligato?.[0].lyric, {});
+    });
   });
 
   describe('Smart Range Detection', () => {
@@ -204,6 +270,22 @@ describe('A-B Operations Suite (abOperations)', () => {
 
       const chorusRange = smartFindSectionRange(song, 5);
       assert.deepEqual(chorusRange, { startMeasureIndex: 4, endMeasureIndex: 7 });
+    });
+
+    it('groups consecutive measures sharing the same section label', () => {
+      const song = createMockSong(6);
+      song.measures[0].section = 'Verse';
+      song.measures[1].section = 'Verse';
+      song.measures[2].section = 'Chorus';
+      song.measures[3].section = 'Chorus';
+      song.measures[4].section = 'Chorus';
+      song.measures[5].section = 'Chorus';
+
+      const verseRange = smartFindSectionRange(song, 1);
+      assert.deepEqual(verseRange, { startMeasureIndex: 0, endMeasureIndex: 1 });
+
+      const chorusRange = smartFindSectionRange(song, 3);
+      assert.deepEqual(chorusRange, { startMeasureIndex: 2, endMeasureIndex: 5 });
     });
 
     it('smartFindSystemRange detects staff line boundaries', () => {
@@ -222,6 +304,30 @@ describe('A-B Operations Suite (abOperations)', () => {
       assert.ok(repeatRange);
       assert.equal(repeatRange.startMeasureIndex, 2);
       assert.equal(repeatRange.endMeasureIndex, 5);
+    });
+
+    it('returns null when cursor is outside/between repeat brackets', () => {
+      const song = createMockSong(8);
+      // Repeat block 1: measures 0..2
+      song.measures[0].barlineType = 'repeat_start';
+      song.measures[2].barlineType = 'repeat_end';
+      // Non-repeat: measures 3..4
+      song.measures[3].barlineType = 'single';
+      song.measures[4].barlineType = 'single';
+      // Repeat block 2: measures 5..7
+      song.measures[5].barlineType = 'repeat_start';
+      song.measures[7].barlineType = 'repeat_end';
+
+      // Measure 3 and 4 are between disjoint repeat blocks
+      const repeatRange = smartFindRepeatRange(song, 3);
+      assert.equal(repeatRange, null);
+    });
+
+    it('returns null when song has no repeat barlines', () => {
+      const song = createMockSong(4);
+      song.measures.forEach(m => { m.barlineType = 'single'; });
+      const repeatRange = smartFindRepeatRange(song, 1);
+      assert.equal(repeatRange, null);
     });
   });
 });

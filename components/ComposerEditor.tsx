@@ -368,13 +368,13 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   }, [abRange, song]);
 
   const handlePasteAb = useCallback(
-    (mode: 'insert_after' | 'replace') => {
+    (mode: 'insert_after' | 'insert_before' | 'replace') => {
       if (!clipboard || clipboard.measures.length === 0) {
         setNotification('Clipboard is empty. Copy an A-B section first.');
         return;
       }
       const targetM = abRange
-        ? mode === 'replace'
+        ? mode === 'replace' || mode === 'insert_before'
           ? abRange.startMeasureIndex
           : abRange.endMeasureIndex
         : selectedMeasureIndex ?? 0;
@@ -393,7 +393,11 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       }
       setNotification(
         `Pasted ${result.pastedCount} measure(s) ${
-          mode === 'replace' ? 'over A-B selection' : `after Bar #${targetM + 1}`
+          mode === 'replace'
+            ? 'over A-B selection'
+            : mode === 'insert_before'
+            ? `before Bar #${targetM + 1}`
+            : `after Bar #${targetM + 1}`
         }`
       );
     },

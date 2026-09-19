@@ -1,11 +1,13 @@
-import type { Song, Measure, NumberedNotationNote, AbRange, ScoreClipboard, TimeSignature, PitchNumber } from '../types/song.ts';
+import type { Song, Measure, NumberedNotationNote, AbRange, ScoreClipboard } from '../types/song.ts';
 import { groupMeasuresIntoSystems } from './numberedNotationEngraver.ts';
 import { sequenceShiftMotif } from './creativityEngine.ts';
+import { getExpectedMeasureBeats } from './taigiUtils.ts';
 
-let idCounter = 0;
 export function generateAbId(prefix: string): string {
-  idCounter += 1;
-  return `${prefix}-ab-${Date.now()}-${idCounter}-${Math.random().toString(36).substring(2, 7)}`;
+  const randomPart = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID().slice(0, 8)
+    : Math.random().toString(36).substring(2, 10);
+  return `${prefix}-ab-${Date.now()}-${randomPart}`;
 }
 
 /**
@@ -52,6 +54,13 @@ export function cloneMeasuresWithFreshIds(measures: Measure[]): Measure[] {
           ...o,
           id: generateAbId('obbligato'),
           lyric: o.lyric ? { ...o.lyric } : {},
+          lyricsByVerse: o.lyricsByVerse
+            ? Object.fromEntries(
+                Object.entries(o.lyricsByVerse).map(([k, v]) => [k, { ...v }])
+              )
+            : undefined,
+          preGraceNotes: o.preGraceNotes ? o.preGraceNotes.map(g => ({ ...g, id: generateAbId('grace') })) : undefined,
+          postGraceNotes: o.postGraceNotes ? o.postGraceNotes.map(g => ({ ...g, id: generateAbId('grace') })) : undefined,
         }))
       : undefined;
 
@@ -184,7 +193,8 @@ export function deleteMeasures(
   ];
 
   if (nextMeasures.length === 0) {
-    // Guard: always leave at least 1 measure
+    // Guard: always leave at least 1 measure matching the song time signature
+    const defaultBeats = getExpectedMeasureBeats(song.timeSignature || '4/4');
     nextMeasures = [
       {
         id: generateAbId('measure'),
@@ -195,7 +205,7 @@ export function deleteMeasures(
             id: generateAbId('note'),
             pitch: 0,
             octave: 0,
-            duration: 4,
+            duration: defaultBeats,
             lyric: {},
           },
         ],
@@ -254,9 +264,11 @@ export function transposeMeasures(song: Song, range: AbRange, stepDelta: number)
       return m;
     }
     const shiftedNotes = sequenceShiftMotif(m.notes, stepDelta);
+    const shiftedObbligato = m.obbligato ? sequenceShiftMotif(m.obbligato, stepDelta) : undefined;
     return {
       ...m,
       notes: shiftedNotes,
+      obbligato: shiftedObbligato,
     };
   });
 
@@ -282,9 +294,15 @@ export function clearMeasuresLyrics(song: Song, range: AbRange): Song {
       lyric: {},
       lyricsByVerse: undefined,
     }));
+    const clearedObbligato = m.obbligato?.map(o => ({
+      ...o,
+      lyric: {},
+      lyricsByVerse: undefined,
+    }));
     return {
       ...m,
       notes: clearedNotes,
+      obbligato: clearedObbligato,
     };
   });
 
@@ -304,20 +322,28 @@ export function smartFindSectionRange(song: Song, measureIndex: number): AbRange
   if (total === 0) return { startMeasureIndex: 0, endMeasureIndex: 0 };
   const target = Math.max(0, Math.min(total - 1, measureIndex));
 
-  // Find all section boundaries
-  const sectionStarts: number[] = [0];
+  // Find all section boundaries, grouping consecutive measures that share the same section name
+  const sectionStarts: { index: number; name?: string }[] = [
+    { index: 0, name: song.measures[0]?.section?.trim() }
+  ];
   song.measures.forEach((m, idx) => {
     if (idx > 0 && m.section && m.section.trim()) {
-      sectionStarts.push(idx);
+      const trimmed = m.section.trim();
+      const last = sectionStarts[sectionStarts.length - 1];
+      if (!last || last.name !== trimmed) {
+        sectionStarts.push({ index: idx, name: trimmed });
+      }
     }
   });
 
+  const startIndices = sectionStarts.map(s => s.index);
+
   // If no explicit sections and more than 4 measures, chunk every notesPerLine or 4
-  if (sectionStarts.length === 1 && !song.measures[0]?.section && total > 4) {
+  if (startIndices.length === 1 && !song.measures[0]?.section?.trim() && total > 4) {
     const chunkSize = song.notesPerLine || 4;
-    sectionStarts.length = 0;
+    startIndices.length = 0;
     for (let i = 0; i < total; i += chunkSize) {
-      sectionStarts.push(i);
+      startIndices.push(i);
     }
   }
 
@@ -325,9 +351,9 @@ export function smartFindSectionRange(song: Song, measureIndex: number): AbRange
   let start = 0;
   let end = total - 1;
 
-  for (let i = 0; i < sectionStarts.length; i++) {
-    const curStart = sectionStarts[i];
-    const nextStart = sectionStarts[i + 1] !== undefined ? sectionStarts[i + 1] : total;
+  for (let i = 0; i < startIndices.length; i++) {
+    const curStart = startIndices[i];
+    const nextStart = startIndices[i + 1] !== undefined ? startIndices[i + 1] : total;
     if (target >= curStart && target < nextStart) {
       start = curStart;
       end = nextStart - 1;
@@ -388,29 +414,61 @@ export function smartFindRepeatRange(song: Song, measureIndex: number): AbRange 
   const target = Math.max(0, Math.min(total - 1, measureIndex));
 
   // Scan backward for repeat_start
-  let startIdx = 0;
+  let startIdx = -1;
   for (let i = target; i >= 0; i--) {
     if (song.measures[i]?.barlineType === 'repeat_start') {
       startIdx = i;
       break;
     }
-  }
-
-  // Scan forward for repeat_end
-  let endIdx = total - 1;
-  let foundEnd = false;
-  for (let i = target; i < total; i++) {
-    if (song.measures[i]?.barlineType === 'repeat_end') {
-      endIdx = i;
-      foundEnd = true;
+    // If we hit an intervening repeat_end before reaching repeat_start, target is outside that repeat
+    if (i < target && song.measures[i]?.barlineType === 'repeat_end') {
       break;
     }
   }
 
-  if (foundEnd || song.measures[startIdx]?.barlineType === 'repeat_start') {
+  // Scan forward for repeat_end
+  let endIdx = -1;
+  for (let i = target; i < total; i++) {
+    if (song.measures[i]?.barlineType === 'repeat_end') {
+      endIdx = i;
+      break;
+    }
+    // If we hit an intervening repeat_start moving forward, target is outside that repeat
+    if (i > target && song.measures[i]?.barlineType === 'repeat_start') {
+      break;
+    }
+  }
+
+  // Both repeat_start and repeat_end found enclosing target
+  if (startIdx !== -1 && endIdx !== -1) {
     return {
       startMeasureIndex: startIdx,
       endMeasureIndex: endIdx,
+    };
+  }
+
+  // Standard notation: repeat_end with no preceding repeat_start implies repeat from measure 0
+  if (startIdx === -1 && endIdx !== -1) {
+    let hasInterveningEnd = false;
+    for (let i = 0; i < target; i++) {
+      if (song.measures[i]?.barlineType === 'repeat_end') {
+        hasInterveningEnd = true;
+        break;
+      }
+    }
+    if (!hasInterveningEnd) {
+      return {
+        startMeasureIndex: 0,
+        endMeasureIndex: endIdx,
+      };
+    }
+  }
+
+  // repeat_start with no subsequent repeat_end repeats through end of song
+  if (startIdx !== -1 && endIdx === -1) {
+    return {
+      startMeasureIndex: startIdx,
+      endMeasureIndex: total - 1,
     };
   }
 
