@@ -149,3 +149,16 @@ export interface VerseItem {
     tl?: string;
   };
 }
+
+export interface AbRange {
+  startMeasureIndex: number; // 0-based
+  endMeasureIndex: number;   // 0-based, >= startMeasureIndex
+}
+
+export interface ScoreClipboard {
+  type: 'measures';
+  measures: Measure[];
+  sourceTimeSignature: TimeSignature;
+  copiedAt: number;
+}
+

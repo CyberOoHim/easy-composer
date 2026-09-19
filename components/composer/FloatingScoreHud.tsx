@@ -4,6 +4,7 @@ import React from 'react';
 import {
   Play,
   Square,
+  Repeat,
   Plus,
   CornerDownLeft,
   Wand2,
@@ -193,6 +194,10 @@ export interface FloatingScoreHudProps {
   onRemoveVerse?: (verseRow: number) => void;
   onStepNextNote?: () => void;
   onStepPrevNote?: () => void;
+  // A-B Section Suite Slot & Mode
+  abRibbonSlot?: React.ReactNode;
+  isAbActive?: boolean;
+  onToggleAbMode?: () => void;
 
   // Undo / Redo
   onUndo?: () => boolean;
@@ -304,6 +309,9 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   onRemoveVerse,
   onStepNextNote,
   onStepPrevNote,
+  abRibbonSlot,
+  isAbActive = false,
+  onToggleAbMode,
   onUndo,
   onRedo,
   canUndo,
@@ -1582,6 +1590,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             </div>
           </div>
         )}
+
+        {/* A-B Section Suite Ribbon Slot */}
+        {abRibbonSlot}
+
         {/* Main Ribbon Buttons */}
         <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap justify-center">
           {/* Play/Stop Sheet Button */}
@@ -2069,6 +2081,24 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               <LayoutGrid className={`w-4 h-4 ${showTactileQuickPad ? 'text-white' : 'text-indigo-500'}`} />
               <span className="hidden sm:inline">Quick-Pad</span>
             </button>
+
+            {/* A-B Section Mode Toggle */}
+            {onToggleAbMode && (
+              <button
+                id="floating-hud-ab-mode-btn"
+                type="button"
+                onClick={onToggleAbMode}
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  isAbActive
+                    ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+                title="Toggle A-B Section Suite (Loop Play, Copy, Paste, Delete, Duplicate)"
+              >
+                <Repeat className={`w-4 h-4 ${isAbActive ? 'text-zinc-950' : 'text-amber-500'}`} />
+                <span className="hidden sm:inline">A-B</span>
+              </button>
+            )}
           </div>
 
           <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block mx-0.5" />

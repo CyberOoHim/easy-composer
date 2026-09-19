@@ -60,6 +60,18 @@ const SHORTCUT_GROUPS: { title: string; items: ShortcutItem[] }[] = [
     ],
   },
   {
+    title: 'A-B Section Suite',
+    items: [
+      { keyDesc: '[', action: 'Set Point A at current measure', badge: 'Point A' },
+      { keyDesc: ']', action: 'Set Point B at current measure', badge: 'Point B' },
+      { keyDesc: 'Shift + Space', action: 'Play / Stop A-B section' },
+      { keyDesc: 'Ctrl + C / ⌘C', action: 'Copy measures in A-B range' },
+      { keyDesc: 'Ctrl + V / ⌘V', action: 'Paste copied measures' },
+      { keyDesc: 'Shift + Backspace', action: 'Delete A-B section' },
+      { keyDesc: 'Escape', action: 'Clear A-B range selection' },
+    ],
+  },
+  {
     title: 'Navigation & History',
     items: [
       { keyDesc: '← / →', action: 'Move selection caret across notes' },

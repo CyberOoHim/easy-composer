@@ -13,7 +13,18 @@ import {
   InstrumentType,
   SheetWrapMode,
   SheetOrientation,
+  AbRange,
+  ScoreClipboard,
 } from '@/types/song';
+import {
+  copyMeasures,
+  createScoreClipboard,
+  pasteMeasures,
+  deleteMeasures,
+  duplicateMeasures,
+  transposeMeasures,
+  clearMeasuresLyrics,
+} from '@/lib/abOperations';
 import { AudioEngine } from '@/lib/audioEngine';
 import { wakeLockManager } from '@/lib/wakeLock';
 import {
@@ -340,6 +351,124 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     currentMeasure && selectedNoteIndex !== null && currentMeasure.notes[selectedNoteIndex]
       ? currentMeasure.notes[selectedNoteIndex]
       : null;
+
+  // A-B Section Suite states
+  const [abRange, setAbRange] = useState<AbRange | null>(null);
+  const [clipboard, setClipboard] = useState<ScoreClipboard | null>(null);
+  const [isPlayingAb, setIsPlayingAb] = useState<boolean>(false);
+  const [isLoopingAb, setIsLoopingAb] = useState<boolean>(false);
+
+  const handleCopyAb = useCallback(() => {
+    if (!abRange) return;
+    const clip = createScoreClipboard(song, abRange);
+    setClipboard(clip);
+    setNotification(
+      `Copied ${clip.measures.length} measure(s) (#${abRange.startMeasureIndex + 1}–#${abRange.endMeasureIndex + 1}) to clipboard`
+    );
+  }, [abRange, song]);
+
+  const handlePasteAb = useCallback(
+    (mode: 'insert_after' | 'replace') => {
+      if (!clipboard || clipboard.measures.length === 0) {
+        setNotification('Clipboard is empty. Copy an A-B section first.');
+        return;
+      }
+      const targetM = abRange
+        ? mode === 'replace'
+          ? abRange.startMeasureIndex
+          : abRange.endMeasureIndex
+        : selectedMeasureIndex ?? 0;
+
+      const result = pasteMeasures(
+        song,
+        targetM,
+        clipboard.measures,
+        mode,
+        mode === 'replace' && abRange ? abRange : undefined
+      );
+      handleUpdateSong(result.song);
+      setSelectedCoord(result.newCursor);
+      if (result.newAbRange) {
+        setAbRange(result.newAbRange);
+      }
+      setNotification(
+        `Pasted ${result.pastedCount} measure(s) ${
+          mode === 'replace' ? 'over A-B selection' : `after Bar #${targetM + 1}`
+        }`
+      );
+    },
+    [clipboard, abRange, selectedMeasureIndex, song, handleUpdateSong, setSelectedCoord]
+  );
+
+  const handleDeleteAb = useCallback(() => {
+    if (!abRange) return;
+    const result = deleteMeasures(song, abRange);
+    handleUpdateSong(result.song);
+    setSelectedCoord(result.newCursor);
+    setAbRange(null);
+    setNotification(`Deleted ${result.deletedCount} measure(s)`);
+  }, [abRange, song, handleUpdateSong, setSelectedCoord]);
+
+  const handleDuplicateAb = useCallback(() => {
+    if (!abRange) return;
+    const result = duplicateMeasures(song, abRange);
+    handleUpdateSong(result.song);
+    setSelectedCoord(result.newCursor);
+    setAbRange(result.newAbRange);
+    setNotification(`Duplicated ${result.duplicatedCount} measure(s)`);
+  }, [abRange, song, handleUpdateSong, setSelectedCoord]);
+
+  const handleTransposeAb = useCallback(
+    (stepDelta: number) => {
+      if (!abRange) return;
+      const updated = transposeMeasures(song, abRange, stepDelta);
+      handleUpdateSong(updated);
+      setNotification(`Transposed A-B section (${stepDelta > 0 ? `+${stepDelta}` : stepDelta})`);
+    },
+    [abRange, song, handleUpdateSong]
+  );
+
+  const handleClearLyricsAb = useCallback(() => {
+    if (!abRange) return;
+    const updated = clearMeasuresLyrics(song, abRange);
+    handleUpdateSong(updated);
+    setNotification('Cleared lyrics in A-B section');
+  }, [abRange, song, handleUpdateSong]);
+
+  const handleTogglePlayAb = useCallback(() => {
+    if (isPlayingAb) {
+      audioEngine.stop();
+      setIsPlayingAb(false);
+      setPlayingMeasureIdx(null);
+    } else {
+      if (!abRange) return;
+      setIsPlayingAb(true);
+      audioEngine.playMeasureRange(song, abRange.startMeasureIndex, abRange.endMeasureIndex, {
+        loop: isLoopingAb,
+        onFinished: () => {
+          setIsPlayingAb(false);
+          setPlayingMeasureIdx(null);
+        },
+      });
+    }
+  }, [isPlayingAb, abRange, song, audioEngine, isLoopingAb]);
+
+  const handleToggleLoopAb = useCallback(() => {
+    setIsLoopingAb(prev => {
+      const next = !prev;
+      if (isPlayingAb && abRange) {
+        audioEngine.playMeasureRange(song, abRange.startMeasureIndex, abRange.endMeasureIndex, {
+          loop: next,
+          onFinished: () => {
+            setIsPlayingAb(false);
+            setPlayingMeasureIdx(null);
+          },
+        });
+      }
+      return next;
+    });
+  }, [isPlayingAb, abRange, song, audioEngine]);
+
 
   // Sound note on select
   const handleSelectNote = useCallback(
@@ -2179,6 +2308,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         selectedMeasureIndex={selectedMeasureIndex}
         onSelectMeasure={handleJumpToMeasure}
         playingMeasureIdx={playingMeasureIdx}
+        onSelectSectionAbRange={setAbRange}
       />
 
       {/* In-Song Measure & Verse Search Bar */}
@@ -2357,6 +2487,20 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
           canRedo={canRedo}
           pastCount={pastCount}
           futureCount={futureCount}
+          abRange={abRange}
+          onSelectAbRange={setAbRange}
+          isPlayingAb={isPlayingAb}
+          isLoopingAb={isLoopingAb}
+          onTogglePlayAb={handleTogglePlayAb}
+          onToggleLoopAb={handleToggleLoopAb}
+          onCopyAb={handleCopyAb}
+          hasClipboardMeasures={Boolean(clipboard && clipboard.measures.length > 0)}
+          clipboardCount={clipboard?.measures.length || 0}
+          onPasteAb={handlePasteAb}
+          onDeleteAb={handleDeleteAb}
+          onDuplicateAb={handleDuplicateAb}
+          onTransposeAb={handleTransposeAb}
+          onClearLyricsAb={handleClearLyricsAb}
         />
       </div>
     </div>

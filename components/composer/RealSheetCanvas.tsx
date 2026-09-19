@@ -17,6 +17,7 @@ import {
   VerseDisplayOption,
   SheetWrapMode,
   SheetOrientation,
+  AbRange,
 } from '@/types/song';
 import {
   engraveMeasure,
@@ -25,6 +26,12 @@ import {
   EngravedNote,
 } from '@/lib/numberedNotationEngraver';
 import { FloatingScoreHud } from './FloatingScoreHud';
+import { AbTouchRibbon } from './AbTouchRibbon';
+import {
+  smartFindSectionRange,
+  smartFindSystemRange,
+  smartFindRepeatRange,
+} from '@/lib/abOperations';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
 import { AudioEngine, audioEngine as defaultAudioEngine } from '@/lib/audioEngine';
 import { autoArrangeSongChords, getDiatonicCandidateChords } from '@/lib/chordArranger';
@@ -192,6 +199,22 @@ export interface RealSheetCanvasProps {
   sheetTheme?: RealSheetTheme;
   onToggleSheetTheme?: () => void;
 
+  // A-B Section Suite Props
+  abRange?: AbRange | null;
+  onSelectAbRange?: (range: AbRange | null) => void;
+  isPlayingAb?: boolean;
+  isLoopingAb?: boolean;
+  onTogglePlayAb?: () => void;
+  onToggleLoopAb?: () => void;
+  onCopyAb?: () => void;
+  hasClipboardMeasures?: boolean;
+  clipboardCount?: number;
+  onPasteAb?: (mode: 'insert_after' | 'replace') => void;
+  onDeleteAb?: () => void;
+  onDuplicateAb?: () => void;
+  onTransposeAb?: (stepDelta: number) => void;
+  onClearLyricsAb?: () => void;
+
   // Undo / Redo
   onUndo?: () => boolean;
   onRedo?: () => boolean;
@@ -337,6 +360,21 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   displayMode = 'hanlo_major_roman',
   sheetTheme: propSheetTheme,
   onToggleSheetTheme: propOnToggleSheetTheme,
+  // A-B Section Suite Props
+  abRange: propAbRange,
+  onSelectAbRange: propOnSelectAbRange,
+  isPlayingAb = false,
+  isLoopingAb = false,
+  onTogglePlayAb,
+  onToggleLoopAb,
+  onCopyAb,
+  hasClipboardMeasures = false,
+  clipboardCount = 0,
+  onPasteAb,
+  onDeleteAb,
+  onDuplicateAb,
+  onTransposeAb,
+  onClearLyricsAb,
   onUndo,
   onRedo,
   canUndo,
@@ -669,6 +707,49 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     Math.min((currentMeasure?.notes.length ?? 1) - 1, selectedNoteIndex ?? 0)
   );
   const currentNote = currentMeasure?.notes[currentNIdx];
+
+  // A-B Section Suite state and smart snapping
+  const [internalAbRange, setInternalAbRange] = useState<AbRange | null>(null);
+  const abRange = propAbRange !== undefined ? propAbRange : internalAbRange;
+  const setAbRange = useCallback(
+    (rangeOrUpdater: AbRange | null | ((prev: AbRange | null) => AbRange | null)) => {
+      const next = typeof rangeOrUpdater === 'function' ? rangeOrUpdater(abRange) : rangeOrUpdater;
+      if (propOnSelectAbRange) {
+        propOnSelectAbRange(next);
+      } else {
+        setInternalAbRange(next);
+      }
+    },
+    [propOnSelectAbRange, abRange]
+  );
+
+  const handleToggleAbMode = useCallback(() => {
+    if (abRange) {
+      setAbRange(null);
+    } else {
+      setAbRange({
+        startMeasureIndex: currentMIdx,
+        endMeasureIndex: currentMIdx,
+      });
+    }
+  }, [abRange, currentMIdx, setAbRange]);
+
+  const handleSnapBar = useCallback(() => {
+    setAbRange({
+      startMeasureIndex: currentMIdx,
+      endMeasureIndex: currentMIdx,
+    });
+  }, [currentMIdx, setAbRange]);
+
+  const handleSnapLine = useCallback(() => {
+    const r = smartFindSystemRange(song, currentMIdx);
+    setAbRange(r);
+  }, [currentMIdx, song, setAbRange]);
+
+  const handleSnapSection = useCallback(() => {
+    const r = smartFindSectionRange(song, currentMIdx);
+    setAbRange(r);
+  }, [currentMIdx, song, setAbRange]);
 
   // Inline Lyric Spreader Popover State (MOD-5 / MOD-3)
   const [isLyricSpreaderOpen, setIsLyricSpreaderOpen] = useState(false);
@@ -2122,8 +2203,65 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         return;
       }
 
+      // '[': Set Point A to current measure
+      if (e.key === '[') {
+        e.preventDefault();
+        setAbRange(prev => ({
+          startMeasureIndex: currentMIdx,
+          endMeasureIndex: prev ? Math.max(currentMIdx, prev.endMeasureIndex) : currentMIdx,
+        }));
+        return;
+      }
+
+      // ']': Set Point B to current measure
+      if (e.key === ']') {
+        e.preventDefault();
+        setAbRange(prev => ({
+          startMeasureIndex: prev ? Math.min(currentMIdx, prev.startMeasureIndex) : currentMIdx,
+          endMeasureIndex: currentMIdx,
+        }));
+        return;
+      }
+
+      // Shift+Space: Toggle play A-B
+      if (e.code === 'Space' && e.shiftKey) {
+        e.preventDefault();
+        if (onTogglePlayAb) {
+          onTogglePlayAb();
+        } else {
+          onTogglePlay?.();
+        }
+        return;
+      }
+
+      // Shift+Backspace: Delete A-B range
+      if (e.key === 'Backspace' && e.shiftKey && abRange && onDeleteAb) {
+        e.preventDefault();
+        onDeleteAb();
+        return;
+      }
+
+      // Escape: Clear A-B selection
+      if (e.key === 'Escape' && abRange) {
+        e.preventDefault();
+        setAbRange(null);
+        return;
+      }
+
       // Leave Ctrl/Cmd chords (Find, save, etc.) and Alt+Arrow measure ops to the page/editor.
-      if (e.ctrlKey || e.metaKey) return;
+      if (e.ctrlKey || e.metaKey) {
+        if ((e.key === 'c' || e.key === 'C') && abRange && onCopyAb) {
+          e.preventDefault();
+          onCopyAb();
+          return;
+        }
+        if ((e.key === 'v' || e.key === 'V') && hasClipboardMeasures && onPasteAb) {
+          e.preventDefault();
+          onPasteAb('insert_after');
+          return;
+        }
+        return;
+      }
       if (e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return;
 
       // Space: Toggle play score
@@ -2356,6 +2494,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     updateCurrentNote,
     onUndo,
     onRedo,
+    abRange,
+    currentMIdx,
+    hasClipboardMeasures,
+    onCopyAb,
+    onDeleteAb,
+    onPasteAb,
+    onTogglePlayAb,
+    setAbRange,
   ]);
 
   // Lyric direct input change handler
@@ -3134,12 +3280,27 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 const rhythmReport = getMeasureRhythmReport(engravedM.measure, song.timeSignature || '4/4');
                 const beatBudget = getMeasureBeatBudget(engravedM.measure, song.timeSignature || '4/4');
 
+                const isMeasureInAb = Boolean(
+                  abRange &&
+                  engravedM.measureIndex >= abRange.startMeasureIndex &&
+                  engravedM.measureIndex <= abRange.endMeasureIndex
+                );
+                const isAbStart = Boolean(abRange && abRange.startMeasureIndex === engravedM.measureIndex);
+                const isAbEnd = Boolean(abRange && abRange.endMeasureIndex === engravedM.measureIndex);
+
                 return (
                   <div
                     key={`measure-${engravedM.measure.id}`}
                     id={`sheet-measure-${engravedM.measureNumber}`}
                     onClick={() => {
                       onSelectMeasure?.(engravedM.measureIndex);
+                    }}
+                    onDoubleClick={(e) => {
+                      e.stopPropagation();
+                      setAbRange({
+                        startMeasureIndex: engravedM.measureIndex,
+                        endMeasureIndex: engravedM.measureIndex,
+                      });
                     }}
                     style={{
                       flex: sheetWrapMode === 'no_wrap'
@@ -3157,17 +3318,47 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     className={`relative ${
                       sheetWrapMode === 'no_wrap' ? 'flex-none' : 'flex-1 min-w-0'
                     } flex flex-col justify-between px-1 sm:px-1.5 pt-1 pb-0.5 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
-                      isSelectedMeasure
+                      isMeasureInAb
+                        ? sheetTheme === 'dark'
+                          ? 'bg-amber-500/15 ring-2 ring-amber-400/80 rounded-md'
+                          : 'bg-amber-500/10 ring-2 ring-amber-500/90 rounded-md'
+                        : isSelectedMeasure
                         ? sheetTheme === 'dark' ? 'bg-amber-950/30' : 'bg-amber-50/40'
                         : sheetTheme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50/80'
                     }`}
                   >
                     {/* Top Annotation Layer: Measure Number, Volta Brackets, Chords, Section & Rhythm Alert */}
                     <div className="relative flex items-center justify-between w-full min-h-[18px] mb-0.5 gap-1">
-                      {/* Left: Measure Number */}
-                      <span className="text-[10px] font-mono text-zinc-400 select-none shrink-0">
-                        {engravedM.measureNumber}
-                      </span>
+                      {/* Left: Measure Number & Point A/B Badges */}
+                      <div className="flex items-center gap-1 select-none shrink-0">
+                        <span className="text-[10px] font-mono text-zinc-400">
+                          {engravedM.measureNumber}
+                        </span>
+
+                        {isAbStart && (
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                            className="px-1.5 py-0.2 rounded bg-amber-500 text-zinc-950 font-black text-[9px] flex items-center gap-0.5 shadow-2xs cursor-pointer"
+                            title="Point A (Start of A-B section)"
+                          >
+                            🅰 A
+                          </span>
+                        )}
+
+                        {isAbEnd && (
+                          <span
+                            onClick={(e) => {
+                              e.stopPropagation();
+                            }}
+                            className="px-1.5 py-0.2 rounded bg-amber-500 text-zinc-950 font-black text-[9px] flex items-center gap-0.5 shadow-2xs cursor-pointer"
+                            title="Point B (End of A-B section)"
+                          >
+                            🅱 B
+                          </span>
+                        )}
+                      </div>
 
                       {/* Center: Volta Bracket if applicable e.g. ┌ 1. 2. ─────┐ */}
                       {engravedM.voltaEnding && engravedM.voltaEnding.length > 0 && (
@@ -4025,6 +4216,35 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
       {/* Floating HUD / Score Ribbon with Docked Piano Bed Slot */}
       <FloatingScoreHud
+        abRibbonSlot={
+          abRange ? (
+            <AbTouchRibbon
+              song={song}
+              abRange={abRange}
+              onChangeAbRange={setAbRange}
+              isPlayingAb={isPlayingAb}
+              isLoopingAb={isLoopingAb}
+              onTogglePlayAb={onTogglePlayAb || (() => {})}
+              onToggleLoopAb={onToggleLoopAb || (() => {})}
+              onCopyAb={onCopyAb || (() => {})}
+              hasClipboardMeasures={hasClipboardMeasures}
+              clipboardCount={clipboardCount}
+              onPasteAb={onPasteAb || (() => {})}
+              onDeleteAb={onDeleteAb || (() => {})}
+              onDuplicateAb={onDuplicateAb || (() => {})}
+              onTransposeAb={onTransposeAb || (() => {})}
+              onClearLyricsAb={onClearLyricsAb || (() => {})}
+              onAutoHarmonizeAb={onAutoHarmonize}
+              onSnapBar={handleSnapBar}
+              onSnapLine={handleSnapLine}
+              onSnapSection={handleSnapSection}
+              onClose={() => setAbRange(null)}
+              sheetTheme={sheetTheme}
+            />
+          ) : null
+        }
+        isAbActive={Boolean(abRange)}
+        onToggleAbMode={handleToggleAbMode}
         isPlaying={isPlaying}
         onTogglePlay={onTogglePlay || (() => {})}
         selectedMeasureNumber={currentMeasure?.measureNumber || currentMIdx + 1}

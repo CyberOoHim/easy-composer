@@ -152,6 +152,7 @@ export class AudioEngine {
 
   private isPlaying = false;
   private isPaused = false;
+  private isAbLoopActive = false;
   private startAudioTime = 0;
   private pausedSongTime = 0;
   private animationFrameId: number | null = null;
@@ -2492,6 +2493,44 @@ export class AudioEngine {
   }
 
   /**
+   * Play an A-B section of measures (startMeasure to endMeasure inclusive)
+   * with note-level timeline highlighting, chord accompaniment, and optional seamless looping.
+   */
+  public async playMeasureRange(
+    song: Song,
+    startMeasure: number,
+    endMeasure: number,
+    options?: { loop?: boolean; onFinished?: () => void }
+  ) {
+    const minM = Math.max(0, Math.min(startMeasure, endMeasure));
+    const maxM = Math.min(song.measures.length - 1, Math.max(startMeasure, endMeasure));
+    const measureIndices: number[] = [];
+    for (let m = minM; m <= maxM; m++) {
+      measureIndices.push(m);
+    }
+    if (measureIndices.length === 0) return;
+
+    if (options?.loop) {
+      this.isAbLoopActive = true;
+      const playIteration = async () => {
+        if (!this.isAbLoopActive) return;
+        await this.playSystem(song, measureIndices, () => {
+          if (this.isAbLoopActive && this.currentSong === song) {
+            playIteration();
+          } else {
+            this.isAbLoopActive = false;
+            options.onFinished?.();
+          }
+        });
+      };
+      await playIteration();
+    } else {
+      this.isAbLoopActive = false;
+      await this.playSystem(song, measureIndices, options?.onFinished);
+    }
+  }
+
+  /**
    * Play only a specific verse (sequence of notes across measures)
    */
   public async playVerse(
@@ -3122,6 +3161,7 @@ export class AudioEngine {
     this.playSessionId++;
     this.isPlaying = false;
     this.isPaused = false;
+    this.isAbLoopActive = false;
     this.pausedSongTime = 0;
     this.wasInterruptedByTabSwitch = false;
     if (notify) {

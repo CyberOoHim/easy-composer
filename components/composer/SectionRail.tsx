@@ -10,6 +10,7 @@ interface SectionRailProps {
   selectedMeasureIndex: number | null;
   onSelectMeasure: (measureIndex: number) => void;
   playingMeasureIdx?: number | null;
+  onSelectSectionAbRange?: (range: { startMeasureIndex: number; endMeasureIndex: number }) => void;
 }
 
 interface SectionItem {
@@ -29,6 +30,7 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
   selectedMeasureIndex,
   onSelectMeasure,
   playingMeasureIdx,
+  onSelectSectionAbRange,
 }) => {
   const sections = useMemo<SectionItem[]>(() => {
     if (!song.measures || song.measures.length === 0) return [];
@@ -137,11 +139,21 @@ export const SectionRail: React.FC<SectionRailProps> = React.memo(({
             >
               <span>{sec.name}</span>
               <span
-                className={`text-[9px] font-mono px-1 py-0.2 rounded ${
+                onClick={(e) => {
+                  if (onSelectSectionAbRange) {
+                    e.stopPropagation();
+                    onSelectSectionAbRange({
+                      startMeasureIndex: sec.startMeasureIndex,
+                      endMeasureIndex: sec.endMeasureIndex,
+                    });
+                  }
+                }}
+                className={`text-[9px] font-mono px-1 py-0.2 rounded hover:ring-1 hover:ring-amber-400 cursor-pointer ${
                   isSelected
                     ? 'bg-amber-500/30 text-amber-950 dark:text-amber-100 font-bold'
                     : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
                 }`}
+                title={`Click to set A-B selection to ${sec.name} (#${sec.startMeasureNumber}-#${sec.endMeasureNumber})`}
               >
                 #{sec.startMeasureNumber}-{sec.endMeasureNumber}
               </span>
