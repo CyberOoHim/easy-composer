@@ -574,7 +574,7 @@ export default function Home() {
     } else if (audioEngine.getIsPaused()) {
       audioEngine.unlockOnUserGesture();
       void wakeLockManager.requestForPlayback(isEcoMode);
-      audioEngine.resume();
+      audioEngine.resume(song);
     } else {
       audioEngine.unlockOnUserGesture();
       void wakeLockManager.requestForPlayback(isEcoMode);

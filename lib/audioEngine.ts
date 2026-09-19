@@ -193,6 +193,7 @@ export class AudioEngine {
   private interruptedSongTime = 0;
   private isBackgrounded = false;
   private interruptionDispatchPending = false;
+  private needsRecoveryCheck = false;
 
   private currentState: PlaybackState = {
     isPlaying: false,
@@ -292,7 +293,7 @@ export class AudioEngine {
     if (!this.ctx) return;
 
     const state = this.ctx.state as string;
-    if (state !== 'suspended' && state !== 'interrupted') {
+    if (state === 'running' && !this.needsRecoveryCheck) {
       this.cancelAutoSuspend();
       if (!this.isPlaying && this.activeSustainedVoices.size === 0) {
         this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
@@ -300,14 +301,21 @@ export class AudioEngine {
       return;
     }
 
-    this.ctx.resume().catch(() => {});
+    // Attempt to resume or recreate context if not running or returning from external app
+    if (state !== 'suspended' || this.needsRecoveryCheck) {
+      this.ensureContextActive().catch(() => {});
+    } else {
+      this.ctx.resume().catch(() => {});
+    }
 
     try {
-      const buffer = this.ctx.createBuffer(1, 1, 22050);
-      const source = this.ctx.createBufferSource();
-      source.buffer = buffer;
-      source.connect(this.ctx.destination);
-      source.start(0);
+      if (this.ctx) {
+        const buffer = this.ctx.createBuffer(1, 1, 22050);
+        const source = this.ctx.createBufferSource();
+        source.buffer = buffer;
+        source.connect(this.ctx.destination);
+        source.start(0);
+      }
     } catch {
       // ignore
     }
@@ -321,6 +329,13 @@ export class AudioEngine {
   constructor(initialOptions?: Partial<AudioEngineOptions>) {
     // AudioContext and lifecycle management
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+      // Modern WebKit Audio Session API (Safari 16.4+ on iPadOS/iOS)
+      try {
+        if ('audioSession' in navigator && (navigator as any).audioSession) {
+          (navigator as any).audioSession.type = 'playback';
+        }
+      } catch {}
+
       // Document visibility change (switching tabs, minimizing browser, screen lock)
       document.addEventListener('visibilitychange', this.handleVisibilityChange);
 
@@ -333,6 +348,8 @@ export class AudioEngine {
       // Global iOS Safari audio unlock on user gesture (passive, capture)
       window.addEventListener('pointerdown', this.unlockOnUserGesture, { capture: true, passive: true });
       window.addEventListener('touchstart', this.unlockOnUserGesture, { capture: true, passive: true });
+      window.addEventListener('touchend', this.unlockOnUserGesture, { capture: true, passive: true });
+      window.addEventListener('click', this.unlockOnUserGesture, { capture: true, passive: true });
       window.addEventListener('keydown', this.unlockOnUserGesture, { capture: true, passive: true });
 
       // Initialize persistent volume & chord settings if available
@@ -428,6 +445,7 @@ export class AudioEngine {
   private handleLeavingTab = () => {
     if (this.isBackgrounded) return;
     this.isBackgrounded = true;
+    this.needsRecoveryCheck = true;
     this.cancelAutoSuspend();
 
     // Release any active sustained keyboard voices so they do not drone in the background
@@ -485,15 +503,11 @@ export class AudioEngine {
       return;
     }
     this.isBackgrounded = false;
+    this.needsRecoveryCheck = true;
     this.cancelAutoSuspend();
 
     if (!this.ctx || this.ctx.state === 'closed') {
       this.initContext(true);
-    } else {
-      const state = this.ctx.state as string;
-      if (state === 'suspended' || state === 'interrupted') {
-        this.ctx.resume().catch(() => {});
-      }
     }
 
     if (this.interruptionDispatchPending) {
@@ -610,28 +624,66 @@ export class AudioEngine {
 
   /**
    * Ensures AudioContext is active and ready to produce sound.
-   * Handles iOS / iPadOS WebKit 'interrupted' state and closed state recovery.
+   * Handles iOS / iPadOS WebKit 'interrupted' state, zombie frozen clock, and closed state recovery.
+   * If the context is stuck or fails to resume (e.g. after switching to an external iPad app),
+   * it cleanly tears down the dead context and spawns a fresh AudioContext instance within the user gesture.
    */
-  public async ensureContextActive(): Promise<boolean> {
+  public async ensureContextActive(allowRecreate = true): Promise<boolean> {
     if (typeof window === 'undefined') return false;
     this.cancelAutoSuspend();
 
+    // 1. Initialize context if not instantiated or closed
     if (!this.ctx || this.ctx.state === 'closed') {
       this.initContext(true);
     }
     if (!this.ctx) return false;
 
-    const state = this.ctx.state as string;
-    if (state === 'suspended' || state === 'interrupted') {
+    let state = this.ctx.state as string;
+
+    // 2. Attempt resume if suspended, interrupted, or returning from external app
+    if (state === 'suspended' || state === 'interrupted' || this.needsRecoveryCheck) {
       try {
         await this.ctx.resume();
+        state = this.ctx.state as string;
       } catch (err) {
-        console.warn('[AudioEngine] ctx.resume() waiting for user interaction:', err);
-        return false;
+        console.warn('[AudioEngine] ctx.resume() waiting for user interaction or failed:', err);
       }
     }
 
-    return (this.ctx.state as string) === 'running';
+    // 3. If still interrupted or not running on iOS WebKit, recreate the context!
+    // In WebKit Mobile Safari, an AudioContext whose hardware output session was terminated
+    // by iPadOS during an external app switch CANNOT be revived by resume(); only a fresh
+    // AudioContext created within the user gesture callstack can establish a working audio graph.
+    if (state !== 'running' && allowRecreate) {
+      console.log(`[AudioEngine] Context stuck in '${state}', recreating fresh AudioContext...`);
+      this.initContext(true);
+      if (!this.ctx) return false;
+      try {
+        await this.ctx.resume();
+        state = this.ctx.state as string;
+      } catch (err) {
+        console.warn('[AudioEngine] Recreated ctx.resume() waiting for user interaction:', err);
+      }
+    }
+
+    // 4. Zombie clock check (WebKit bug where state claims 'running' but currentTime is frozen)
+    if (state === 'running' && this.needsRecoveryCheck && allowRecreate && this.ctx) {
+      const t0 = this.ctx.currentTime;
+      await new Promise(resolve => setTimeout(resolve, 15));
+      if (this.ctx && this.ctx.currentTime <= t0) {
+        console.warn('[AudioEngine] Audio clock frozen at', t0, '- recreating zombie context...');
+        this.initContext(true);
+        if (this.ctx) {
+          try {
+            await this.ctx.resume();
+            state = this.ctx.state as string;
+          } catch {}
+        }
+      }
+    }
+
+    this.needsRecoveryCheck = false;
+    return (this.ctx?.state as string) === 'running';
   }
 
   /**
@@ -712,8 +764,6 @@ export class AudioEngine {
    */
   public previewChord(chordName: string, durationSec = 1.0): void {
     if (typeof window === 'undefined') return;
-    this.initContext();
-    if (!this.ctx) return;
     this.cancelAutoSuspend();
 
     const doPlay = () => {
@@ -723,11 +773,10 @@ export class AudioEngine {
       this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
     };
 
-    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
-      this.ctx.resume().then(doPlay).catch(doPlay);
-    } else {
+    this.ensureContextActive().then(active => {
+      if (!active || !this.ctx) return;
       doPlay();
-    }
+    }).catch(() => {});
   }
 
   /**
@@ -751,17 +800,10 @@ export class AudioEngine {
    */
   public async previewNote(key: KeySignature, note: NumberedNotationNote) {
     if (isNonNotationItem(note)) return; // Punctuation, annotations, and whitespace produce no sound
-    this.initContext();
-    if (!this.ctx || !this.melodyGain) return;
     this.cancelAutoSuspend();
 
-    const state = this.ctx.state as string;
-    if (state === 'suspended' || state === 'interrupted') {
-      try {
-        await this.ctx.resume();
-      } catch {}
-    }
-    if (!this.ctx || !this.melodyGain) return;
+    const isActive = await this.ensureContextActive();
+    if (!isActive || !this.ctx || !this.melodyGain) return;
 
     const freq = getPitchFrequency(key, note.pitch, note.octave, note.accidental, this.options.transpose);
     if (freq <= 0) return;
@@ -888,11 +930,15 @@ export class AudioEngine {
     instrument?: InstrumentType
   ): void {
     if (isNonNotationItem(note)) return;
-    this.initContext();
-    if (!this.ctx || !this.melodyGain) return;
     this.cancelAutoSuspend();
 
-    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
+    if (!this.ctx || this.ctx.state === 'closed' || (this.ctx.state as string) === 'interrupted' || this.needsRecoveryCheck) {
+      this.initContext(true);
+      this.needsRecoveryCheck = false;
+    }
+    if (!this.ctx || !this.melodyGain) return;
+
+    if (this.ctx.state === 'suspended') {
       this.ctx.resume().catch(() => {});
     }
 
@@ -1294,8 +1340,6 @@ export class AudioEngine {
    * Play a metronome click instantly (for recording tempo grid)
    */
   public playMetronomeTick(isDownbeat = false) {
-    this.initContext();
-    if (!this.ctx) return;
     this.cancelAutoSuspend();
 
     const doPlay = () => {
@@ -1304,11 +1348,10 @@ export class AudioEngine {
       this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
     };
 
-    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
-      this.ctx.resume().then(doPlay).catch(doPlay);
-    } else {
+    this.ensureContextActive().then(active => {
+      if (!active || !this.ctx) return;
       doPlay();
-    }
+    }).catch(() => {});
   }
 
   /**
@@ -1316,8 +1359,6 @@ export class AudioEngine {
    * isFinalBeat indicates the last countdown beat before recording starts (higher pitch alert).
    */
   public playCountdownTick(isFinalBeat = false) {
-    this.initContext();
-    if (!this.ctx) return;
     this.cancelAutoSuspend();
 
     const doPlay = () => {
@@ -1326,11 +1367,10 @@ export class AudioEngine {
       this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
     };
 
-    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
-      this.ctx.resume().then(doPlay).catch(doPlay);
-    } else {
+    this.ensureContextActive().then(active => {
+      if (!active || !this.ctx) return;
       doPlay();
-    }
+    }).catch(() => {});
   }
 
   public getAudioContextState(): AudioContextState | 'none' {
@@ -2226,7 +2266,23 @@ export class AudioEngine {
 
     const sessionId = ++this.playSessionId;
     const isActive = await this.ensureContextActive();
-    if (!isActive || sessionId !== this.playSessionId || !this.ctx) return;
+    if (!isActive || sessionId !== this.playSessionId || !this.ctx) {
+      if (sessionId === this.playSessionId) {
+        this.isPlaying = false;
+        this.isPaused = false;
+        this.notifyState({
+          isPlaying: false,
+          isPaused: false,
+          currentMeasureIndex: measureIndex,
+          currentNoteIndex: 0,
+          currentNoteId: null,
+          currentTime: 0,
+          totalDuration: 0,
+          progressPercent: 0,
+        });
+      }
+      return;
+    }
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -2348,7 +2404,23 @@ export class AudioEngine {
 
     const sessionId = ++this.playSessionId;
     const isActive = await this.ensureContextActive();
-    if (!isActive || sessionId !== this.playSessionId || !this.ctx) return;
+    if (!isActive || sessionId !== this.playSessionId || !this.ctx) {
+      if (sessionId === this.playSessionId) {
+        this.isPlaying = false;
+        this.isPaused = false;
+        this.notifyState({
+          isPlaying: false,
+          isPaused: false,
+          currentMeasureIndex: measureIndices[0] ?? 0,
+          currentNoteIndex: 0,
+          currentNoteId: null,
+          currentTime: 0,
+          totalDuration: 0,
+          progressPercent: 0,
+        });
+      }
+      return;
+    }
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -2546,7 +2618,23 @@ export class AudioEngine {
 
     const sessionId = ++this.playSessionId;
     const isActive = await this.ensureContextActive();
-    if (!isActive || sessionId !== this.playSessionId || !this.ctx) return;
+    if (!isActive || sessionId !== this.playSessionId || !this.ctx) {
+      if (sessionId === this.playSessionId) {
+        this.isPlaying = false;
+        this.isPaused = false;
+        this.notifyState({
+          isPlaying: false,
+          isPaused: false,
+          currentMeasureIndex: verseNotes[0]?.measureIdx ?? 0,
+          currentNoteIndex: verseNotes[0]?.noteIdx ?? 0,
+          currentNoteId: verseNotes[0]?.note.id ?? null,
+          currentTime: 0,
+          totalDuration: 0,
+          progressPercent: 0,
+        });
+      }
+      return;
+    }
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -2675,8 +2763,6 @@ export class AudioEngine {
    */
   public previewMetronome(isDownbeat = true): void {
     if (typeof window === 'undefined') return;
-    this.initContext();
-    if (!this.ctx) return;
     this.cancelAutoSuspend();
 
     const doPlay = () => {
@@ -2685,11 +2771,10 @@ export class AudioEngine {
       this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
     };
 
-    if (this.ctx.state === 'suspended' || (this.ctx.state as string) === 'interrupted') {
-      this.ctx.resume().then(doPlay).catch(doPlay);
-    } else {
+    this.ensureContextActive().then(active => {
+      if (!active || !this.ctx) return;
       doPlay();
-    }
+    }).catch(() => {});
   }
 
   /**
@@ -2772,7 +2857,24 @@ export class AudioEngine {
 
     const sessionId = ++this.playSessionId;
     const isActive = await this.ensureContextActive();
-    if (!isActive || sessionId !== this.playSessionId || !this.ctx) return;
+    if (!isActive || sessionId !== this.playSessionId || !this.ctx) {
+      if (sessionId === this.playSessionId) {
+        this.isPlaying = false;
+        this.isPaused = false;
+        const totalDuration = this.calculateSongDuration(song);
+        this.notifyState({
+          isPlaying: false,
+          isPaused: false,
+          currentMeasureIndex: 0,
+          currentNoteIndex: 0,
+          currentNoteId: null,
+          currentTime: startFromSec,
+          totalDuration,
+          progressPercent: totalDuration > 0 ? (startFromSec / totalDuration) * 100 : 0,
+        });
+      }
+      return;
+    }
 
     this.currentSong = song;
     this.isPlaying = true;
@@ -3150,10 +3252,11 @@ export class AudioEngine {
     this.scheduleAutoSuspend(AudioEngine.IDLE_SUSPEND_DELAY_MS);
   }
 
-  public resume() {
+  public resume(fallbackSong?: Song) {
     this.wasInterruptedByTabSwitch = false;
-    if (this.currentSong && (this.isPaused || !this.isPlaying)) {
-      this.play(this.currentSong, this.pausedSongTime);
+    const targetSong = this.currentSong || fallbackSong;
+    if (targetSong && (this.isPaused || !this.isPlaying)) {
+      this.play(targetSong, this.pausedSongTime);
     }
   }
 

@@ -38,6 +38,8 @@ describe('AudioEngine Health, Integrity & Mute Prevention', () => {
       removeEventListener: () => {},
     };
     (globalThis as any).localStorage = mockLocalStorage;
+    (globalThis as any).requestAnimationFrame = (cb: any) => setTimeout(cb, 16);
+    (globalThis as any).cancelAnimationFrame = (id: any) => clearTimeout(id);
     (globalThis as any).CustomEvent = class CustomEvent extends Event {
       detail: any;
       constructor(type: string, params?: { detail?: any }) {
@@ -120,6 +122,177 @@ describe('AudioEngine Health, Integrity & Mute Prevention', () => {
     // playMetronomeTick should not throw
     assert.doesNotThrow(() => {
       engine.playMetronomeTick(true);
+    });
+  });
+
+  describe('Cross-App Interruption & AudioContext Resurrection', () => {
+    let instances: any[] = [];
+
+    class MockAudioContext {
+      state: string = 'running';
+      currentTime: number = 0.05;
+      destination = {};
+      closeCalled = false;
+      cannotResume = false;
+      constructor() {
+        instances.push(this);
+      }
+      createGain() {
+        return {
+          gain: {
+            setValueAtTime: () => {},
+            linearRampToValueAtTime: () => {},
+            exponentialRampToValueAtTime: () => {},
+          },
+          connect: () => {},
+          disconnect: () => {},
+        };
+      }
+      createBiquadFilter() {
+        return {
+          frequency: { setValueAtTime: () => {}, exponentialRampToValueAtTime: () => {} },
+          Q: { setValueAtTime: () => {} },
+          gain: { setValueAtTime: () => {} },
+          type: 'lowpass',
+          connect: () => {},
+          disconnect: () => {},
+        };
+      }
+      createBuffer() {
+        return {};
+      }
+      createBufferSource() {
+        return {
+          buffer: null,
+          connect: () => {},
+          start: () => {},
+          stop: () => {},
+        };
+      }
+      createOscillator() {
+        return {
+          frequency: {
+            setValueAtTime: () => {},
+            exponentialRampToValueAtTime: () => {},
+            linearRampToValueAtTime: () => {},
+          },
+          connect: () => {},
+          disconnect: () => {},
+          start: () => {},
+          stop: () => {},
+        };
+      }
+      async resume() {
+        if (!this.cannotResume) {
+          this.state = 'running';
+        }
+      }
+      async suspend() {
+        this.state = 'suspended';
+      }
+      async close() {
+        this.state = 'closed';
+        this.closeCalled = true;
+      }
+    }
+
+    beforeEach(() => {
+      instances = [];
+      (globalThis as any).window.AudioContext = MockAudioContext;
+    });
+
+    it('recovers and recreates AudioContext when interrupted by external app switch and resume cannot transition', async () => {
+      const engine = new AudioEngine();
+      engine.initContext();
+
+      assert.strictEqual(instances.length, 1);
+      const firstCtx = instances[0];
+      assert.strictEqual(firstCtx.state, 'running');
+
+      // Simulate iPadOS background app interruption where resume() fails to clear interrupted state
+      firstCtx.state = 'interrupted';
+      firstCtx.cannotResume = true;
+
+      // Calling ensureContextActive should detect that firstCtx cannot be resumed to 'running',
+      // force-recreate a fresh AudioContext, and succeed
+      const active = await engine.ensureContextActive();
+
+      assert.strictEqual(active, true, 'AudioEngine must recover to active running state');
+      assert.strictEqual(instances.length, 2, 'A fresh AudioContext instance should have been instantiated');
+      assert.strictEqual(firstCtx.closeCalled, true, 'The dead zombie context should be closed');
+      assert.strictEqual(instances[1].state, 'running', 'New context must be running');
+      assert.strictEqual(engine.getAudioContextState(), 'running');
+    });
+
+    it('detects frozen zombie clock after cross-app backgrounding and resurrects context', async () => {
+      const engine = new AudioEngine();
+      engine.initContext();
+
+      const firstCtx = instances[0];
+      firstCtx.state = 'running';
+      firstCtx.currentTime = 1.234; // Frozen clock (does not advance)
+
+      // Trigger app leaving/returning
+      (globalThis as any).document.hidden = true;
+      (engine as any).handleLeavingTab();
+      (globalThis as any).document.hidden = false;
+      (engine as any).handleReturningToTab();
+
+      // ensureContextActive should detect that currentTime is stuck at 1.234 and resurrect
+      const active = await engine.ensureContextActive();
+
+      assert.strictEqual(active, true);
+      assert.strictEqual(instances.length, 2, 'Must recreate fresh context to replace zombie clock');
+      assert.strictEqual(firstCtx.closeCalled, true);
+    });
+
+    it('proactively unlocks and heals interrupted context on user gesture', async () => {
+      const engine = new AudioEngine();
+      engine.initContext();
+
+      const firstCtx = instances[0];
+      firstCtx.state = 'interrupted';
+      firstCtx.cannotResume = true;
+
+      // Trigger user gesture
+      engine.unlockOnUserGesture();
+
+      // Wait a microtick for async ensureContextActive inside unlockOnUserGesture
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      assert.strictEqual(instances.length, 2, 'User gesture should heal the context');
+      assert.strictEqual(instances[1].state, 'running');
+    });
+
+    it('resumes playback seamlessly with fallbackSong support', async () => {
+      const engine = new AudioEngine();
+      const mockSong: any = {
+        id: 'test-song-resume',
+        title: 'Test Song',
+        key: 'C',
+        bpm: 120,
+        timeSignature: '4/4',
+        measures: [
+          {
+            notes: [
+              { id: 'n1', pitch: 1, octave: 0, duration: 1, lyric: {} }
+            ]
+          }
+        ]
+      };
+
+      let stateObserved: any = null;
+      engine.subscribeState(s => {
+        stateObserved = s;
+      });
+
+      // Directly resume with fallbackSong
+      engine.resume(mockSong);
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      assert.ok(engine.getIsPlaying(), 'Playback should start from fallbackSong');
+      engine.stop();
+      assert.strictEqual(engine.getIsPlaying(), false);
     });
   });
 });

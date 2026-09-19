@@ -502,6 +502,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       requestPlaybackWakeLock();
       audioEngine.playMeasure(song, mIdx, () => {
         setPlayingMeasureIdx(null);
+      }).catch(() => {
+        setPlayingMeasureIdx(null);
+        void wakeLockManager.release();
       });
     }
   };
@@ -518,6 +521,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       requestPlaybackWakeLock();
       audioEngine.playSystem(song, measureIndices, () => {
         setPlayingSystemIdx(null);
+      }).catch(() => {
+        setPlayingSystemIdx(null);
+        void wakeLockManager.release();
       });
     }
   };
@@ -550,7 +556,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       setIsPlayingSheet(true);
 
       requestPlaybackWakeLock();
-      audioEngine.play(song, startSec);
+      audioEngine.play(song, startSec).catch(() => {
+        setIsPlayingSheet(false);
+        void wakeLockManager.release();
+      });
     },
     [audioEngine, selectedMeasureIndex, selectedNoteIndex, song, handleSelectNote, requestPlaybackWakeLock]
   );
