@@ -48,35 +48,55 @@ describe('New Instruments Integration (Flute, Kalimba, Music Box)', () => {
     assert.ok(folkGroup?.options.some(opt => opt.value === 'kalimba'));
   });
 
-  it('sanitizes songs with kalimba and music_box without reverting them to default', () => {
+  it('sanitizes notes with kalimba and music_box without reverting them to default', () => {
     const rawKalimbaSong: any = {
       id: 'test-kalimba-song',
       title: 'Kalimba Tune',
-      instrument: 'kalimba',
       key: 'C',
       timeSignature: '4/4',
-      tempo: 100,
+      bpm: 100,
       measures: [
         {
           id: 'm-1',
-          number: 1,
-          notes: [{ id: 'n-1', pitch: 1, octave: 0, duration: 1 }],
+          measureNumber: 1,
+          notes: [{ id: 'n-1', pitch: 1, octave: 0, duration: 1, instrument: 'kalimba', lyric: { hanlo: '琴' } }],
         },
       ],
     };
 
     const sanitizedKalimba = sanitizeSong(rawKalimbaSong);
     assert.ok(sanitizedKalimba);
-    assert.equal(sanitizedKalimba.instrument, 'kalimba');
+    assert.equal(sanitizedKalimba.measures[0].notes[0].instrument, 'kalimba');
 
     const rawMusicBoxSong: any = {
       ...rawKalimbaSong,
       id: 'test-music-box-song',
-      instrument: 'music_box',
+      measures: [
+        {
+          id: 'm-2',
+          measureNumber: 1,
+          notes: [{ id: 'n-2', pitch: 3, octave: 1, duration: 1, instrument: 'music_box', lyric: { hanlo: '音' } }],
+        },
+      ],
     };
     const sanitizedMusicBox = sanitizeSong(rawMusicBoxSong);
     assert.ok(sanitizedMusicBox);
-    assert.equal(sanitizedMusicBox.instrument, 'music_box');
+    assert.equal(sanitizedMusicBox.measures[0].notes[0].instrument, 'music_box');
+
+    const invalidSong: any = {
+      ...rawKalimbaSong,
+      id: 'test-invalid-song',
+      measures: [
+        {
+          id: 'm-3',
+          measureNumber: 1,
+          notes: [{ id: 'n-3', pitch: 5, octave: 0, duration: 1, instrument: 'non_existent_inst', lyric: { hanlo: '試' } }],
+        },
+      ],
+    };
+    const sanitizedInvalid = sanitizeSong(invalidSong);
+    assert.ok(sanitizedInvalid);
+    assert.equal(sanitizedInvalid.measures[0].notes[0].instrument, undefined);
   });
 
   it('allows storage persistence of kalimba and music_box', () => {
