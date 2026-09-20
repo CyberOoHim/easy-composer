@@ -121,6 +121,24 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
     setStoredExportFormat(fmt);
   };
 
+  const hasPojLyrics = React.useMemo(() => {
+    return currentSong.measures.some(m =>
+      m.notes.some(n => Boolean(n.lyric?.poj?.trim()) || Object.values(n.lyricsByVerse || {}).some(v => Boolean(v?.poj?.trim())))
+    );
+  }, [currentSong]);
+
+  const [selectedJsonFlavor, setSelectedJsonFlavor] = useState<'taigi' | 'standard' | null>(null);
+  const [flavorSongId, setFlavorSongId] = useState(currentSong.id);
+
+  const jsonFlavor = flavorSongId === currentSong.id && selectedJsonFlavor !== null
+    ? selectedJsonFlavor
+    : (hasPojLyrics ? 'taigi' : 'standard');
+
+  const setJsonFlavor = (flavor: 'taigi' | 'standard') => {
+    setSelectedJsonFlavor(flavor);
+    setFlavorSongId(currentSong.id);
+  };
+
   const [shareData, setShareData] = useState<{ song: Song; result: ShareUrlResult } | null>(null);
   const [urlGenerationError, setUrlGenerationError] = useState<string | null>(null);
   const [urlRetryCount, setUrlRetryCount] = useState(0);
@@ -453,7 +471,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
       URL.revokeObjectURL(url);
       return;
     }
-    const extension = exportFormat === 'json' ? 'taigi.json' : 'txt';
+    const extension = exportFormat === 'json' ? (jsonFlavor === 'taigi' ? 'taigi.json' : 'json') : 'txt';
     const mimeType = exportFormat === 'json' ? 'application/json' : 'text/plain';
     const blob = new Blob([currentExportString], { type: mimeType });
     const url = URL.createObjectURL(blob);
@@ -910,7 +928,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     }`}
                   >
                     <Code2 className="w-3.5 h-3.5 inline mr-1" />
-                    JSON (.taigi.json)
+                    {jsonFlavor === 'taigi' ? 'JSON (.taigi.json)' : 'JSON (.json)'}
                   </button>
                   <button
                     id="export-format-text-btn"
@@ -977,10 +995,58 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Download {exportFormat === 'midi' ? (midiFormat === 'kar' ? '.kar' : '.mid') : exportFormat === 'url' ? 'Web Link (.html)' : exportFormat === 'lyrics' ? 'Lyrics (.txt)' : 'File'}</span>
+                    <span>
+                      Download{' '}
+                      {exportFormat === 'midi'
+                        ? (midiFormat === 'kar' ? '.kar' : '.mid')
+                        : exportFormat === 'url'
+                        ? 'Web Link (.html)'
+                        : exportFormat === 'lyrics'
+                        ? 'Lyrics (.txt)'
+                        : exportFormat === 'json'
+                        ? (jsonFlavor === 'taigi' ? '.taigi.json' : '.json')
+                        : '.txt'}
+                    </span>
                   </button>
                 </div>
               </div>
+
+              {exportFormat === 'json' && (
+                <div id="json-format-flavor-bar" className="flex items-center justify-between flex-wrap gap-2 p-2.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950/40 text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-zinc-700 dark:text-zinc-300">File Type:</span>
+                    <button
+                      id="export-json-taigi-btn"
+                      type="button"
+                      onClick={() => setJsonFlavor('taigi')}
+                      className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                        jsonFlavor === 'taigi'
+                          ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
+                          : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                      }`}
+                    >
+                      Taigi Song (.taigi.json)
+                    </button>
+                    <button
+                      id="export-json-standard-btn"
+                      type="button"
+                      onClick={() => setJsonFlavor('standard')}
+                      className={`px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                        jsonFlavor === 'standard'
+                          ? 'bg-amber-500 text-zinc-950 font-bold shadow-xs'
+                          : 'bg-white dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700'
+                      }`}
+                    >
+                      Standard Song (.json)
+                    </button>
+                  </div>
+                  <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                    {jsonFlavor === 'taigi'
+                      ? 'Format for Taiwanese Hokkien with POJ romanization'
+                      : 'Format for general/non-Taigi numbered notation'}
+                  </span>
+                </div>
+              )}
 
               {exportFormat === 'midi' ? (
                 <div id="midi-export-config" className="flex flex-col gap-4 p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-950/50">
@@ -1459,7 +1525,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
             <div id="import-panel" className="flex flex-col gap-4">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                  Paste JSON or plain text Numbered Notation format, or upload a score file:
+                  Paste JSON (.taigi.json or .json) or plain text Numbered Notation format, or upload a score file:
                 </p>
 
                 <label htmlFor="import-file-input" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 cursor-pointer transition-colors">

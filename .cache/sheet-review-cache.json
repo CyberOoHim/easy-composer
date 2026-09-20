@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "files": {
+    "/app/applet/data/sheets/bang-chhun-hong.taigi.json": {
+      "sha256": "0c0bad3d6e74ab12f41a1849f7fce6e72c980209cb0af524e79db463909578df",
+      "mtime": 1789903198852.142,
+      "status": "valid",
+      "songId": "bang-chhun-hong",
+      "title": "望春風",
+      "isTaigi": true
+    },
+    "/app/applet/data/sheets/su-ki-hong.taigi.json": {
+      "sha256": "47df1a3d6a2a68d40e0fa43b0851e273b7a8d42a1b92850a16e9978423944f21",
+      "mtime": 1789903198858.8225,
+      "status": "valid",
+      "songId": "su-ki-hong",
+      "title": "四季紅",
+      "isTaigi": true
+    },
+    "/app/applet/data/sheets/taiwan-the-green.taigi.json": {
+      "sha256": "66c7b58cf3631fb4c66f119bd46645688deae31518d0c3beceafecaa41ebfa88",
+      "mtime": 1789903198859.3306,
+      "status": "valid",
+      "songId": "taiwan-the-green",
+      "title": "台灣翠青",
+      "isTaigi": true
+    },
+    "/app/applet/data/sheets/u-ia-hoe.taigi.json": {
+      "sha256": "d70fc771627589135fa5efb669148a39d9465a60fdbab51f5882af2b4c03c49a",
+      "mtime": 1789903198857.891,
+      "status": "valid",
+      "songId": "u-ia-hoe",
+      "title": "雨夜花 (Ú-iā-hoe)",
+      "isTaigi": true
+    }
+  }
+}

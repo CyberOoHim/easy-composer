@@ -197,6 +197,15 @@ export function pickBootstrapSong(
   const localIsUnmodifiedPreset = Boolean(
     localSong && isFactoryPresetId(localSong.id) && !isSongModifiedFromPreset(localSong)
   );
+  const idbIsUnmodifiedPreset = Boolean(
+    idbSong && isFactoryPresetId(idbSong.id) && !isSongModifiedFromPreset(idbSong)
+  );
+
+  // If neither IndexedDB nor localStorage has any user edits (both are pristine factory presets),
+  // always prefer the primary default preset PRESET_SONGS[0].
+  if ((localIsUnmodifiedPreset || !localSong) && (idbIsUnmodifiedPreset || !idbSong)) {
+    return { song: PRESET_SONGS[0], fromLocalDraft: false };
+  }
 
   if (localIsUnmodifiedPreset) {
     return { song: canonIdb ?? canonLocal ?? PRESET_SONGS[0], fromLocalDraft: false };

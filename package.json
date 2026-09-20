@@ -8,6 +8,10 @@
   },
   "scripts": {
     "dev": "next dev -p 3000 -H 0.0.0.0",
+    "review:sheets": "node scripts/review-sheets.mjs",
+    "generate:sheets": "node scripts/generate-sheet-manifest.mjs",
+    "prebuild": "npm run review:sheets && npm run generate:sheets",
+    "predev": "npm run review:sheets && npm run generate:sheets",
     "build": "NODE_ENV=production next build",
     "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
     "lint": "eslint --cache .",

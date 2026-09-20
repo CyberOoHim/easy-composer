@@ -64,6 +64,33 @@ SOFTWARE.
 
 ---
 
+## Managing Sheet Scores (`/data/sheets/`)
+
+Preset songs and library sheets are stored as individual files under `/data/sheets/`:
+
+- **Taigi Songs (`*.taigi.json`)**: Formatted for Taiwanese Hokkien lyrics with Pe̍h-ōe-jī (POJ) romanization and Hàn-lô text.
+- **General Songs (`*.json`)**: Formatted for non-Taigi songs (Mandarin, English, instrumental, etc.) without requiring POJ romanization.
+
+### Adding or Removing Sheets
+1. Place or remove `.taigi.json` or `.json` files inside `/data/sheets/`.
+2. Optionally specify an `"order": 1` field to set its presentation order in the presets menu.
+3. When building or running `npm run dev` / `npm run build`, sheets are automatically reviewed incrementally:
+   - Only added, modified, or deleted sheets are checked via `.cache/sheet-review-cache.json`.
+   - `lib/sheetManifest.ts` is automatically regenerated and statically bundled.
+
+```bash
+# Manually review sheet integrity (incremental)
+npm run review:sheets
+
+# Force-review all sheets
+npm run review:sheets -- --all
+
+# Regenerate sheet manifest
+npm run generate:sheets
+```
+
+---
+
 ## Development
 
 ```bash
