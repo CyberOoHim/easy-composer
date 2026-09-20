@@ -27,7 +27,7 @@ const VALID_ARTICULATIONS = new Set<ArticulationType>([
 const VALID_INSTRUMENTS = new Set<InstrumentType>([
   'piano', 'flute', 'whistle', 'guitar', 'synth', 'bell', 'cello',
   'guitar_acoustic', 'accordion', 'harmonica', 'epiano_fm', 'saxophone', 'guitar_electric',
-  'kalimba', 'music_box', 'music-box',
+  'kalimba', 'music_box', 'music-box', 'choir_aahs', 'voice_oohs',
 ]);
 const VALID_BARLINES = new Set<BarlineType>([
   'single', 'double', 'end', 'repeat_start', 'repeat_end',

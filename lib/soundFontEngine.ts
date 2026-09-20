@@ -26,7 +26,7 @@ export interface SoundFontMeta {
   instrument: InstrumentType;
   gmName: string;
   gmProgram: number;
-  category: 'folk' | 'pop' | 'standard';
+  category: 'folk' | 'pop' | 'standard' | 'vocal';
   labelEn: string;
   labelZh: string;
   anchorPitches: number[]; // MIDI note numbers for base samples (e.g. 48, 60, 72, 84)
@@ -122,6 +122,24 @@ export const SOUNDFONT_CATALOG: Record<string, SoundFontMeta> = {
     labelEn: 'Music Box',
     labelZh: '音樂盒 (八音盒)',
     anchorPitches: [60, 67, 72, 79, 84, 91, 96],
+  },
+  choir_aahs: {
+    instrument: 'choir_aahs',
+    gmName: 'choir_aahs',
+    gmProgram: 52,
+    category: 'vocal',
+    labelEn: 'Choir Aahs',
+    labelZh: '人聲合唱 (啊)',
+    anchorPitches: [48, 53, 57, 60, 65, 69, 72, 77, 81, 84], // C3 to C6
+  },
+  voice_oohs: {
+    instrument: 'voice_oohs',
+    gmName: 'voice_oohs',
+    gmProgram: 53,
+    category: 'vocal',
+    labelEn: 'Vocal Oohs / Humming',
+    labelZh: '人聲哼唱 (嗚 / 導唱)',
+    anchorPitches: [48, 53, 57, 60, 65, 69, 72, 77, 81, 84], // C3 to C6
   },
 };
 
@@ -401,6 +419,64 @@ export class SoundFontEngine {
         break;
       }
 
+      case 'choir_aahs': {
+        // Choral Human Voice ("Aah" [a] vowel formant structure):
+        // 1. Multi-voice choral detune (3 voices: center, +6 cents, -6 cents)
+        // 2. Open throat vocal formants: F1 ~800 Hz, F2 ~1250 Hz, F3 ~2600 Hz
+        // 3. Gentle choral vibrato (5.2 Hz, ~5 cents) and natural breath aspiration
+        const f1 = baseFreq;
+        const f2 = baseFreq * Math.pow(2, 6 / 1200);
+        const f3 = baseFreq * Math.pow(2, -6 / 1200);
+        for (let n = 0; n < numSamples; n++) {
+          const t = n / sampleRate;
+          const vib = t > 0.08 ? 0.0035 * Math.sin(2 * Math.PI * 5.2 * (t - 0.08)) : 0;
+          // Glottal harmonic pulse excitation
+          const v1 = Math.sin(2 * Math.PI * f1 * (1 + vib) * t) * 0.45 +
+                     Math.sin(2 * Math.PI * f1 * 2 * (1 + vib) * t) * 0.28 +
+                     Math.sin(2 * Math.PI * f1 * 3 * (1 + vib) * t) * 0.16 +
+                     Math.sin(2 * Math.PI * f1 * 4 * (1 + vib) * t) * 0.08;
+          const v2 = Math.sin(2 * Math.PI * f2 * (1 + vib) * t) * 0.35 +
+                     Math.sin(2 * Math.PI * f2 * 2 * (1 + vib) * t) * 0.20;
+          const v3 = Math.sin(2 * Math.PI * f3 * (1 + vib) * t) * 0.35 +
+                     Math.sin(2 * Math.PI * f3 * 2 * (1 + vib) * t) * 0.20;
+          // Formant resonance weighting (F1 800Hz / F2 1250Hz vowel [a] bloom)
+          const period = Math.max(2, Math.floor(sampleRate / baseFreq));
+          const formantF1 = Math.sin(2 * Math.PI * 800 * t) * 0.18 * Math.exp(-((n % period) / (sampleRate * 0.003)));
+          const formantF2 = Math.sin(2 * Math.PI * 1250 * t) * 0.12 * Math.exp(-((n % period) / (sampleRate * 0.002)));
+          // Breath turbulence
+          const breathNoise = (Math.random() * 2 - 1) * 0.035;
+          // Soft vocal onset (45ms) and gentle choral decay
+          const env = t < 0.045 ? t / 0.045 : Math.exp(-t / (durationSec * 1.5));
+          data[n] = ((v1 + v2 + v3) * 0.35 + formantF1 + formantF2 + breathNoise) * env * 0.88;
+        }
+        break;
+      }
+
+      case 'voice_oohs': {
+        // Intimate Solfège Guide & Vocal Humming ("Ooh" [u] vowel):
+        // 1. Focused fundamental + warm rounded 2nd harmonic (glottal closure)
+        // 2. Low vowel tract formants: F1 ~320 Hz, F2 ~850 Hz
+        // 3. Gentle natural human vibrato (5.0 Hz, ~4 cents) starting smoothly after 100ms
+        const period = Math.max(2, Math.floor(sampleRate / baseFreq));
+        for (let n = 0; n < numSamples; n++) {
+          const t = n / sampleRate;
+          const vib = t > 0.10 ? 0.0028 * Math.sin(2 * Math.PI * 5.0 * (t - 0.10)) : 0;
+          const toneFreq = baseFreq * (1 + vib);
+          // Rounded glottal wave dominated by fundamental with soft 2nd harmonic
+          const glottal = Math.sin(2 * Math.PI * toneFreq * t) * 0.74 +
+                          Math.sin(2 * Math.PI * toneFreq * 2 * t) * 0.20 +
+                          Math.sin(2 * Math.PI * toneFreq * 3 * t) * 0.05;
+          // Intimate mouth-cavity / humming resonance (~320Hz F1 and ~850Hz F2)
+          const humRes = Math.sin(2 * Math.PI * 320 * t) * 0.14 * Math.exp(-((n % period) / (sampleRate * 0.005)));
+          // Very gentle breath whisper
+          const breath = (Math.random() * 2 - 1) * 0.02 * (1 + 0.3 * Math.sin(2 * Math.PI * toneFreq * t));
+          // Soft organic vocal attack (35ms)
+          const env = t < 0.035 ? t / 0.035 : Math.exp(-t / (durationSec * 1.6));
+          data[n] = (glottal * 0.82 + humRes + breath) * env * 0.86;
+        }
+        break;
+      }
+
       default: {
         for (let n = 0; n < numSamples; n++) {
           const t = n / sampleRate;
@@ -556,7 +632,13 @@ export class SoundFontEngine {
     const vol = (options?.volumeMultiplier ?? 1.0) * 0.85;
 
     // Envelope according to instrument type
-    const attackTime = options?.isLegato ? 0.015 : 0.006;
+    const attackTime = options?.isLegato
+      ? 0.018
+      : inst === 'choir_aahs'
+      ? 0.045
+      : inst === 'voice_oohs'
+      ? 0.035
+      : 0.006;
     const playDuration = Math.max(0.06, duration);
     const stopTime = playStart + playDuration + 0.04;
 

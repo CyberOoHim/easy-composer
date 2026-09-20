@@ -52,6 +52,8 @@ export const GM_INSTRUMENT_MAP: Record<InstrumentType, number> = {
   kalimba: 108,         // Kalimba
   music_box: 10,        // Music Box
   'music-box': 10,
+  choir_aahs: 52,       // Choir Aahs
+  voice_oohs: 53,       // Voice Oohs
 };
 
 /** Key signature sharp/flat count (-7 to +7) */

@@ -1537,6 +1537,8 @@ export const INSTRUMENT_LABELS: Record<InstrumentType, { en: string; zh: string 
   kalimba: { en: 'Kalimba', zh: 'Kalimba / 卡林巴琴' },
   music_box: { en: 'Music Box', zh: 'Music Box / 音樂盒' },
   'music-box': { en: 'Music Box', zh: 'Music Box / 音樂盒' },
+  choir_aahs: { en: 'Choir Aahs', zh: 'Choir (Aahs) / 人聲合唱' },
+  voice_oohs: { en: 'Vocal Oohs / Solfège Guide', zh: 'Voice (Oohs) / 唱名導唱' },
 };
 
 export interface InstrumentOption {
@@ -1544,12 +1546,12 @@ export interface InstrumentOption {
   labelZh: string;
   labelEn: string;
   shortLabelEn?: string;
-  category: 'standard' | 'folk' | 'pop';
+  category: 'standard' | 'folk' | 'pop' | 'vocal';
   badge?: string;
 }
 
 export const CATEGORIZED_INSTRUMENT_OPTIONS: {
-  category: 'standard' | 'folk' | 'pop';
+  category: 'standard' | 'folk' | 'pop' | 'vocal';
   labelEn: string;
   labelZh: string;
   options: InstrumentOption[];
@@ -1590,11 +1592,20 @@ export const CATEGORIZED_INSTRUMENT_OPTIONS: {
       { value: 'saxophone', labelZh: '薩克斯風 (Saxophone)', labelEn: 'Saxophone', shortLabelEn: 'Saxophone', category: 'pop', badge: 'SoundFont' },
     ],
   },
+  {
+    category: 'vocal',
+    labelEn: 'Vocal & Solfège',
+    labelZh: '人聲與導唱',
+    options: [
+      { value: 'choir_aahs', labelZh: '人聲合唱 (Choir Aahs "啊")', labelEn: 'Choir Aahs', shortLabelEn: 'Choir Aahs', category: 'vocal', badge: 'SoundFont' },
+      { value: 'voice_oohs', labelZh: '人聲哼唱 / 導唱 (Vocal Oohs "嗚")', labelEn: 'Vocal Oohs / Solfège', shortLabelEn: 'Vocal Oohs', category: 'vocal', badge: 'SoundFont' },
+    ],
+  },
 ];
 
 export const INSTRUMENT_OPTIONS: InstrumentOption[] = CATEGORIZED_INSTRUMENT_OPTIONS.flatMap(g => g.options);
 
-export function getInstrumentCategory(inst: InstrumentType): 'standard' | 'folk' | 'pop' {
+export function getInstrumentCategory(inst: InstrumentType): 'standard' | 'folk' | 'pop' | 'vocal' {
   for (const group of CATEGORIZED_INSTRUMENT_OPTIONS) {
     if (group.options.some(opt => opt.value === inst)) {
       return group.category;

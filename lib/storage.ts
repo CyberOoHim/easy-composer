@@ -298,6 +298,8 @@ const ALL_VALID_INSTRUMENTS = new Set<string>([
   'kalimba',
   'music_box',
   'music-box',
+  'choir_aahs',
+  'voice_oohs',
 ]);
 
 export function getStoredInstrument(): InstrumentType {

@@ -143,4 +143,92 @@ describe('New Instruments Integration (Flute, Kalimba, Music Box)', () => {
     assert.notEqual(harmonicaMeta.gmName, saxMeta.gmName);
     assert.notEqual(fluteMeta.gmName, saxMeta.gmName);
   });
+
+  it('includes choir_aahs and voice_oohs in SOUNDFONT_CATALOG with proper GM metadata', () => {
+    const choirMeta = SOUNDFONT_CATALOG['choir_aahs'];
+    const voiceMeta = SOUNDFONT_CATALOG['voice_oohs'];
+
+    assert.ok(choirMeta, 'choir_aahs metadata must exist in SOUNDFONT_CATALOG');
+    assert.ok(voiceMeta, 'voice_oohs metadata must exist in SOUNDFONT_CATALOG');
+
+    assert.equal(choirMeta.gmProgram, 52);
+    assert.equal(choirMeta.gmName, 'choir_aahs');
+    assert.equal(choirMeta.category, 'vocal');
+    assert.ok(choirMeta.anchorPitches.length > 0);
+
+    assert.equal(voiceMeta.gmProgram, 53);
+    assert.equal(voiceMeta.gmName, 'voice_oohs');
+    assert.equal(voiceMeta.category, 'vocal');
+    assert.ok(voiceMeta.anchorPitches.length > 0);
+  });
+
+  it('maps choir_aahs and voice_oohs in GM_INSTRUMENT_MAP for MIDI export', () => {
+    assert.equal(GM_INSTRUMENT_MAP.choir_aahs, 52);
+    assert.equal(GM_INSTRUMENT_MAP.voice_oohs, 53);
+  });
+
+  it('exposes choir_aahs and voice_oohs in UI options and vocal category', () => {
+    assert.equal(getInstrumentCategory('choir_aahs'), 'vocal');
+    assert.equal(getInstrumentCategory('voice_oohs'), 'vocal');
+
+    assert.ok(INSTRUMENT_LABELS.choir_aahs, 'choir_aahs label must be defined');
+    assert.ok(INSTRUMENT_LABELS.voice_oohs, 'voice_oohs label must be defined');
+
+    const vocalGroup = CATEGORIZED_INSTRUMENT_OPTIONS.find(g => g.category === 'vocal');
+    assert.ok(vocalGroup, 'Vocal instrument category group must exist in UI');
+    assert.ok(vocalGroup.options.some(opt => opt.value === 'choir_aahs'), 'choir_aahs must be present in vocal options');
+    assert.ok(vocalGroup.options.some(opt => opt.value === 'voice_oohs'), 'voice_oohs must be present in vocal options');
+  });
+
+  it('sanitizes notes with choir_aahs and voice_oohs without reverting them', () => {
+    const rawVocalSong: any = {
+      id: 'test-vocal-song',
+      title: 'Vocal Melody',
+      key: 'D',
+      timeSignature: '4/4',
+      bpm: 90,
+      measures: [
+        {
+          id: 'm-v1',
+          measureNumber: 1,
+          notes: [
+            { id: 'n-c1', pitch: 1, octave: 0, duration: 2, instrument: 'choir_aahs', lyric: { hanlo: '啊' } },
+            { id: 'n-v1', pitch: 2, octave: 0, duration: 2, instrument: 'voice_oohs', lyric: { hanlo: '嗚' } },
+          ],
+        },
+      ],
+    };
+
+    const sanitized = sanitizeSong(rawVocalSong);
+    assert.ok(sanitized);
+    assert.equal(sanitized.measures[0].notes[0].instrument, 'choir_aahs');
+    assert.equal(sanitized.measures[0].notes[1].instrument, 'voice_oohs');
+  });
+
+  it('allows storage persistence of choir_aahs and voice_oohs', () => {
+    const store: Record<string, string> = {};
+    (globalThis as any).window = {
+      localStorage: {
+        getItem: (k: string) => store[k] ?? null,
+        setItem: (k: string, v: string) => { store[k] = String(v); },
+      },
+    };
+    (globalThis as any).localStorage = (globalThis as any).window.localStorage;
+
+    store['taigi_composer_instrument'] = 'choir_aahs';
+    assert.equal(getStoredInstrument(), 'choir_aahs');
+
+    store['taigi_composer_instrument'] = 'voice_oohs';
+    assert.equal(getStoredInstrument(), 'voice_oohs');
+  });
+
+  it('verifies acoustic differentiation between choir_aahs, voice_oohs, and other instruments', () => {
+    const choirMeta = SOUNDFONT_CATALOG['choir_aahs'];
+    const voiceMeta = SOUNDFONT_CATALOG['voice_oohs'];
+
+    assert.notEqual(choirMeta.gmProgram, voiceMeta.gmProgram);
+    assert.notEqual(choirMeta.gmName, voiceMeta.gmName);
+    assert.notEqual(choirMeta.gmProgram, GM_INSTRUMENT_MAP['piano']);
+    assert.notEqual(voiceMeta.gmProgram, SOUNDFONT_CATALOG['flute'].gmProgram);
+  });
 });

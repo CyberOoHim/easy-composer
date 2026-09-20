@@ -149,7 +149,9 @@ export type InstrumentType =
   | 'guitar_electric'
   | 'kalimba'
   | 'music_box'
-  | 'music-box';
+  | 'music-box'
+  | 'choir_aahs'
+  | 'voice_oohs';
 
 export type EditorEditMode = 'note' | 'sheet' | 'verse' | 'measure';
 export type NoteEditSubMode = 'verse' | 'measure';
