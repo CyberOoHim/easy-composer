@@ -37,7 +37,20 @@ import {
   setStoredMidiInstrument,
   getStoredInstrument,
   ExportFormat,
+  getStoredLyricExportScript,
+  setStoredLyricExportScript,
+  getStoredLyricExportHeader,
+  setStoredLyricExportHeader,
+  getStoredLyricExportSections,
+  setStoredLyricExportSections,
+  getStoredLyricExportVerse,
+  setStoredLyricExportVerse,
 } from '@/lib/storage';
+import {
+  exportSongLyrics,
+  getSongLyricsSummary,
+  LyricScriptMode,
+} from '@/lib/lyricExport';
 import {
   Download,
   Upload,
@@ -58,6 +71,7 @@ import {
   Search,
   Share2,
   ExternalLink,
+  AlignLeft,
 } from 'lucide-react';
 import { searchSongLyrics } from '@/lib/lyricSearch';
 import {
@@ -81,7 +95,7 @@ interface ImportExportModalProps {
   modifiedPresetIds?: Set<string>;
   onResetPreset?: (presetId: string) => void;
   initialTab?: 'presets' | 'custom' | 'export' | 'import';
-  initialExportFormat?: 'json' | 'text' | 'midi' | 'url';
+  initialExportFormat?: ExportFormat;
   onOpenShare?: () => void;
 }
 
@@ -210,6 +224,42 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
       return next;
     });
   };
+
+  const [lyricExportScript, setLyricExportScriptState] = useState<LyricScriptMode>(() => {
+    if (typeof window !== 'undefined') return getStoredLyricExportScript('hanlo');
+    return 'hanlo';
+  });
+  const setLyricExportScript = (mode: LyricScriptMode) => {
+    setLyricExportScriptState(mode);
+    setStoredLyricExportScript(mode);
+  };
+
+  const [lyricExportHeader, setLyricExportHeaderState] = useState(() => {
+    if (typeof window !== 'undefined') return getStoredLyricExportHeader(true);
+    return true;
+  });
+  const setLyricExportHeader = (val: boolean) => {
+    setLyricExportHeaderState(val);
+    setStoredLyricExportHeader(val);
+  };
+
+  const [lyricExportSections, setLyricExportSectionsState] = useState(() => {
+    if (typeof window !== 'undefined') return getStoredLyricExportSections(true);
+    return true;
+  });
+  const setLyricExportSections = (val: boolean) => {
+    setLyricExportSectionsState(val);
+    setStoredLyricExportSections(val);
+  };
+
+  const [lyricExportVerse, setLyricExportVerseState] = useState<'all' | number>(() => {
+    if (typeof window !== 'undefined') return getStoredLyricExportVerse('all');
+    return 'all';
+  });
+  const setLyricExportVerse = (val: 'all' | number) => {
+    setLyricExportVerseState(val);
+    setStoredLyricExportVerse(val);
+  };
   const [copied, setCopied] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -296,9 +346,20 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
       ? exportSongToJson(currentSong)
       : exportFormat === 'text'
       ? exportSongToText(currentSong)
+      : exportFormat === 'lyrics'
+      ? exportSongLyrics(currentSong, {
+          scriptMode: lyricExportScript,
+          includeHeader: lyricExportHeader,
+          includeSections: lyricExportSections,
+          verseSelection: lyricExportVerse,
+        })
       : exportFormat === 'url'
       ? shareResult?.url || ''
       : '';
+
+  const lyricsSummary = React.useMemo(() => {
+    return getSongLyricsSummary(currentSong);
+  }, [currentSong]);
 
   const midiLyricsSummary = React.useMemo(() => {
     return getSongMidiLyricsSummary(currentSong, midiLyricType);
@@ -377,6 +438,19 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
     }
     if (exportFormat === 'midi') {
       handleDownloadMidi(midiFormat);
+      return;
+    }
+    if (exportFormat === 'lyrics') {
+      const scriptSuffix =
+        lyricExportScript === 'both' ? '_Dual' : lyricExportScript === 'poj' ? '_POJ' : '_Hanlo';
+      const filename = `${currentSong.title.replace(/\s+/g, '_')}_Lyrics${scriptSuffix}.txt`;
+      const blob = new Blob([currentExportString], { type: 'text/plain;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
       return;
     }
     const extension = exportFormat === 'json' ? 'taigi.json' : 'txt';
@@ -851,6 +925,18 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     Plain Text (.txt)
                   </button>
                   <button
+                    id="export-format-lyrics-btn"
+                    onClick={() => setExportFormat('lyrics')}
+                    className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
+                      exportFormat === 'lyrics'
+                        ? 'bg-amber-500 text-zinc-950 shadow-xs font-bold'
+                        : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400'
+                    }`}
+                  >
+                    <AlignLeft className="w-3.5 h-3.5 inline mr-1" />
+                    Lyrics Only (.txt)
+                  </button>
+                  <button
                     id="export-format-midi-btn"
                     onClick={() => setExportFormat('midi')}
                     className={`px-3 py-1 rounded-lg font-medium transition-all ${
@@ -883,7 +969,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 text-xs font-semibold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
                   >
                     {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    <span>{copied ? 'Copied!' : exportFormat === 'midi' ? 'Copy Info' : 'Copy'}</span>
+                    <span>{copied ? 'Copied!' : exportFormat === 'midi' ? 'Copy Info' : exportFormat === 'lyrics' ? 'Copy Lyrics' : 'Copy'}</span>
                   </button>
                   <button
                     id="export-download-btn"
@@ -891,7 +977,7 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 text-xs font-bold hover:opacity-90 transition-opacity cursor-pointer"
                   >
                     <Download className="w-3.5 h-3.5" />
-                    <span>Download {exportFormat === 'midi' ? (midiFormat === 'kar' ? '.kar' : '.mid') : exportFormat === 'url' ? 'Web Link (.html)' : 'File'}</span>
+                    <span>Download {exportFormat === 'midi' ? (midiFormat === 'kar' ? '.kar' : '.mid') : exportFormat === 'url' ? 'Web Link (.html)' : exportFormat === 'lyrics' ? 'Lyrics (.txt)' : 'File'}</span>
                   </button>
                 </div>
               </div>
@@ -1254,13 +1340,116 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                   </p>
                 </div>
               ) : (
-                <textarea
-                  id="export-preview-textarea"
-                  readOnly
-                  rows={12}
-                  value={currentExportString}
-                  className="w-full px-3 py-2 text-xs font-mono bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden"
-                />
+                <div className="flex flex-col gap-3">
+                  {exportFormat === 'lyrics' && (
+                    <div id="lyrics-export-config" className="flex flex-col gap-3 p-3.5 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-zinc-50/70 dark:bg-zinc-950/50">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-bold text-zinc-700 dark:text-zinc-300 mr-1">Script:</span>
+                          <button
+                            type="button"
+                            id="export-lyrics-script-hanlo-btn"
+                            onClick={() => setLyricExportScript('hanlo')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              lyricExportScript === 'hanlo'
+                                ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                                : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-amber-400'
+                            }`}
+                          >
+                            Hanlo (漢字/漢羅)
+                          </button>
+                          <button
+                            type="button"
+                            id="export-lyrics-script-poj-btn"
+                            onClick={() => setLyricExportScript('poj')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              lyricExportScript === 'poj'
+                                ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                                : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-amber-400'
+                            }`}
+                          >
+                            POJ (白話字)
+                          </button>
+                          <button
+                            type="button"
+                            id="export-lyrics-script-both-btn"
+                            onClick={() => setLyricExportScript('both')}
+                            className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                              lyricExportScript === 'both'
+                                ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                                : 'bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:border-amber-400'
+                            }`}
+                          >
+                            Dual (漢羅 + POJ)
+                          </button>
+                        </div>
+
+                        <div className="flex items-center gap-2 text-xs text-zinc-500 dark:text-zinc-400">
+                          <span className="px-2 py-0.5 rounded bg-zinc-200/70 dark:bg-zinc-800 font-mono text-[11px] text-zinc-700 dark:text-zinc-300">
+                            {lyricsSummary.totalSyllables} syllables · {lyricsSummary.totalLines} lines · {lyricsSummary.totalVerses} verse(s)
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-zinc-200 dark:border-zinc-800 text-xs">
+                        <div className="flex items-center gap-4 flex-wrap">
+                          {/* Header Toggle */}
+                          <label className="flex items-center gap-1.5 cursor-pointer text-zinc-700 dark:text-zinc-300 select-none">
+                            <input
+                              type="checkbox"
+                              id="export-lyrics-header-toggle"
+                              checked={lyricExportHeader}
+                              onChange={e => setLyricExportHeader(e.target.checked)}
+                              className="w-3.5 h-3.5 accent-amber-500 rounded cursor-pointer"
+                            />
+                            <span>Include Song Header</span>
+                          </label>
+
+                          {/* Section Tag Toggle */}
+                          <label className="flex items-center gap-1.5 cursor-pointer text-zinc-700 dark:text-zinc-300 select-none">
+                            <input
+                              type="checkbox"
+                              id="export-lyrics-sections-toggle"
+                              checked={lyricExportSections}
+                              onChange={e => setLyricExportSections(e.target.checked)}
+                              className="w-3.5 h-3.5 accent-amber-500 rounded cursor-pointer"
+                            />
+                            <span>Include Section Tags [Verse/Chorus]</span>
+                          </label>
+                        </div>
+
+                        {/* Multi-verse selector if song has verses */}
+                        {lyricsSummary.availableVerses.length > 1 && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-zinc-500 dark:text-zinc-400 font-medium">Verse:</span>
+                            <select
+                              id="export-lyrics-verse-select"
+                              value={lyricExportVerse}
+                              onChange={e => {
+                                const val = e.target.value;
+                                setLyricExportVerse(val === 'all' ? 'all' : parseInt(val, 10));
+                              }}
+                              className="px-2 py-0.5 rounded border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs font-semibold text-zinc-800 dark:text-zinc-200 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                            >
+                              <option value="all">All Verses ({lyricsSummary.availableVerses.length})</option>
+                              {lyricsSummary.availableVerses.map(v => (
+                                <option key={v} value={v}>Verse {v}</option>
+                              ))}
+                            </select>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  <textarea
+                    id="export-preview-textarea"
+                    readOnly
+                    rows={12}
+                    value={currentExportString}
+                    className="w-full px-3 py-2 text-xs font-mono bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden"
+                  />
+                </div>
               )}
             </div>
           )}

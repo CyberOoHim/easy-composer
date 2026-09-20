@@ -56,6 +56,10 @@ export const STORAGE_KEYS = {
   QUICK_ALIGN_TARGET: 'taigi_composer_quick_align_target',
   // MIDI & Score Export Selections
   EXPORT_FORMAT: 'taigi_composer_export_format',
+  LYRIC_EXPORT_SCRIPT: 'taigi_lyric_export_script',
+  LYRIC_EXPORT_HEADER: 'taigi_lyric_export_header',
+  LYRIC_EXPORT_SECTIONS: 'taigi_lyric_export_sections',
+  LYRIC_EXPORT_VERSE: 'taigi_lyric_export_verse',
   MIDI_INSTRUMENT: 'taigi_composer_midi_instrument',
   MIDI_LYRIC_TYPE: 'taigi_composer_midi_lyric_type',
   MIDI_FORMAT: 'taigi_composer_midi_format',
@@ -83,7 +87,7 @@ export type PianoQuantizeGrid = 'quarter' | 'eighth' | 'sixteenth' | 'thirtyseco
 export type PianoDeckMode = 'step' | 'transcribe';
 export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit' | 'creativity';
 export type AccompanimentStyle = 'block' | 'arpeggio' | 'folk' | 'waltz';
-export type ExportFormat = 'json' | 'text' | 'midi' | 'url';
+export type ExportFormat = 'json' | 'text' | 'lyrics' | 'midi' | 'url';
 export type MidiLyricMode = 'hanlo' | 'poj' | 'both' | 'none';
 export type SearchScope = 'all' | 'current';
 export type SearchMatchFilter = 'all' | 'measure' | 'verse';
@@ -836,12 +840,56 @@ export function setStoredSyncAllMeasures(val: boolean): void {
 // ============================================================================
 export function getStoredExportFormat(defaultVal: ExportFormat = 'json'): ExportFormat {
   const val = safeGetItem(STORAGE_KEYS.EXPORT_FORMAT);
-  if (val === 'json' || val === 'text' || val === 'midi' || val === 'url') return val;
+  if (val === 'json' || val === 'text' || val === 'lyrics' || val === 'midi' || val === 'url') return val;
   return defaultVal;
 }
 
 export function setStoredExportFormat(format: ExportFormat): void {
   safeSetItem(STORAGE_KEYS.EXPORT_FORMAT, format);
+}
+
+export function getStoredLyricExportScript(defaultVal: 'hanlo' | 'poj' | 'both' = 'hanlo'): 'hanlo' | 'poj' | 'both' {
+  const val = safeGetItem(STORAGE_KEYS.LYRIC_EXPORT_SCRIPT);
+  if (val === 'hanlo' || val === 'poj' || val === 'both') return val;
+  return defaultVal;
+}
+
+export function setStoredLyricExportScript(val: 'hanlo' | 'poj' | 'both'): void {
+  safeSetItem(STORAGE_KEYS.LYRIC_EXPORT_SCRIPT, val);
+}
+
+export function getStoredLyricExportHeader(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.LYRIC_EXPORT_HEADER);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredLyricExportHeader(val: boolean): void {
+  safeSetItem(STORAGE_KEYS.LYRIC_EXPORT_HEADER, String(val));
+}
+
+export function getStoredLyricExportSections(defaultVal = true): boolean {
+  const val = safeGetItem(STORAGE_KEYS.LYRIC_EXPORT_SECTIONS);
+  if (val !== null) return val === 'true';
+  return defaultVal;
+}
+
+export function setStoredLyricExportSections(val: boolean): void {
+  safeSetItem(STORAGE_KEYS.LYRIC_EXPORT_SECTIONS, String(val));
+}
+
+export function getStoredLyricExportVerse(defaultVal: 'all' | number = 'all'): 'all' | number {
+  const val = safeGetItem(STORAGE_KEYS.LYRIC_EXPORT_VERSE);
+  if (val === 'all') return 'all';
+  if (val !== null) {
+    const num = parseInt(val, 10);
+    if (!isNaN(num) && num >= 1 && num <= 5) return num;
+  }
+  return defaultVal;
+}
+
+export function setStoredLyricExportVerse(val: 'all' | number): void {
+  safeSetItem(STORAGE_KEYS.LYRIC_EXPORT_VERSE, String(val));
 }
 
 export function getStoredMidiLyricType(defaultVal: MidiLyricMode = 'hanlo'): MidiLyricMode {
