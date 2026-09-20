@@ -1,6 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import { SOUNDFONT_CATALOG } from '../lib/soundFontEngine.ts';
+import { SOUNDFONT_CATALOG, SoundFontEngine } from '../lib/soundFontEngine.ts';
 import { CATEGORIZED_INSTRUMENT_OPTIONS, INSTRUMENT_LABELS, getInstrumentCategory } from '../lib/taigiUtils.ts';
 import { GM_INSTRUMENT_MAP } from '../lib/midiExport.ts';
 import { sanitizeSong } from '../lib/songParser.ts';
@@ -230,5 +230,67 @@ describe('New Instruments Integration (Flute, Kalimba, Music Box)', () => {
     assert.notEqual(choirMeta.gmName, voiceMeta.gmName);
     assert.notEqual(choirMeta.gmProgram, GM_INSTRUMENT_MAP['piano']);
     assert.notEqual(voiceMeta.gmProgram, SOUNDFONT_CATALOG['flute'].gmProgram);
+  });
+
+  it('generates high-fidelity vocal PCM samples with physical glottal and formant modeling', () => {
+    const sfEngine = new SoundFontEngine();
+    const mockCtx = {
+      sampleRate: 44100,
+      createBuffer: (channels: number, length: number, sampleRate: number) => {
+        const data = new Float32Array(length);
+        return {
+          numberOfChannels: channels,
+          length,
+          sampleRate,
+          duration: length / sampleRate,
+          getChannelData: () => data,
+        };
+      },
+    };
+    (sfEngine as any).ctx = mockCtx;
+
+    // Test choir_aahs PCM generation
+    const choirBuf = (sfEngine as any).generatePcmSample(mockCtx, 'choir_aahs', 60, 1.0);
+    assert.ok(choirBuf, 'Choir buffer must be generated');
+    const choirData = choirBuf.getChannelData(0);
+    assert.equal(choirData.length, 44100);
+
+    let choirRms = 0;
+    let choirMax = 0;
+    for (let i = 0; i < choirData.length; i++) {
+      const s = choirData[i];
+      assert.ok(!isNaN(s) && isFinite(s), `Choir sample ${i} must be a valid number`);
+      choirRms += s * s;
+      if (Math.abs(s) > choirMax) choirMax = Math.abs(s);
+    }
+    choirRms = Math.sqrt(choirRms / choirData.length);
+    assert.ok(choirRms > 0.05, 'Choir vocal sample must have substantial acoustic resonance');
+    assert.ok(choirMax <= 1.0, 'Choir vocal sample must avoid digital clipping');
+
+    // Test voice_oohs PCM generation
+    const voiceBuf = (sfEngine as any).generatePcmSample(mockCtx, 'voice_oohs', 60, 1.0);
+    assert.ok(voiceBuf, 'Voice Oohs buffer must be generated');
+    const voiceData = voiceBuf.getChannelData(0);
+    assert.equal(voiceData.length, 44100);
+
+    let voiceRms = 0;
+    let voiceMax = 0;
+    for (let i = 0; i < voiceData.length; i++) {
+      const s = voiceData[i];
+      assert.ok(!isNaN(s) && isFinite(s), `Voice sample ${i} must be a valid number`);
+      voiceRms += s * s;
+      if (Math.abs(s) > voiceMax) voiceMax = Math.abs(s);
+    }
+    voiceRms = Math.sqrt(voiceRms / voiceData.length);
+    assert.ok(voiceRms > 0.05, 'Voice oohs sample must have warm acoustic presence');
+    assert.ok(voiceMax <= 1.0, 'Voice oohs sample must avoid digital clipping');
+
+    // Verify dense anchor pitches prevent formant distortion across registers (A2 to E6)
+    const choirAnchors = SOUNDFONT_CATALOG['choir_aahs'].anchorPitches;
+    const voiceAnchors = SOUNDFONT_CATALOG['voice_oohs'].anchorPitches;
+    assert.ok(choirAnchors.length >= 20, 'Choir must have dense anchor pitches');
+    assert.ok(voiceAnchors.length >= 20, 'Voice guide must have dense anchor pitches');
+    assert.ok(choirAnchors[0] <= 45, 'Choir range starts at or below A2');
+    assert.ok(choirAnchors[choirAnchors.length - 1] >= 88, 'Choir range extends to or above E6');
   });
 });

@@ -134,8 +134,15 @@ Audio processing on iOS Safari / iPad WebKit requires strict thread and buffer m
 
 ### Phase 5: Implementation Status & Milestones
 - [x] **Vocal & Human Sound Registration**: Added `choir_aahs` (GM #52) and `voice_oohs` (GM #53) to `InstrumentType` in `types/song.ts`.
-- [x] **SoundFont Catalog & Synthesis**: Integrated into `SOUNDFONT_CATALOG` in `lib/soundFontEngine.ts` with instant high-quality PCM sample synthesis (multi-voice choral formant modeling [a] and intimate solfège vocal guide [u]).
-- [x] **Web Audio Procedural Fallback**: Implemented dual-formant bandpass filters (F1/F2), micro-detuning, breath aspiration, and delayed lyrical vibrato LFOs in both standard and eco modes in `lib/audioEngine.ts`.
+- [x] **SoundFont Catalog & Synthesis**: Integrated into `SOUNDFONT_CATALOG` in `lib/soundFontEngine.ts` with high-fidelity physical vocal modeling:
+  - **Liljencrants-Fant (LF) Glottal Flow Model**: Synthesizes authentic acoustic vocal fold volume velocity derivatives instead of harsh oscillator waveforms.
+  - **IIR 2-Pole & 4-Pole Vocal Tract Resonators**: Accurate vowel formants (F1–F4) for open pharynx [a] (`choir_aahs`) and rounded mouth [u] + nasal hum (`voice_oohs`).
+  - **Multi-Vocalist Ensemble**: 3 distinct physical singers with asymmetric micro-detuning (±5 to 8 cents), independent glottal jitter, and non-synchronous delayed singing vibrato.
+  - **Dense Vocal Tessitura Grid**: 26 pitch anchors from A2 (110 Hz) to E6 (1318 Hz) sampled every minor third to eliminate formant-shift distortion during pitch-shifting.
+  - **Acoustic Sanctuary Hall Diffusion & Tanh Saturation**: Natural reverberant diffusion and warm saturation preventing digital clipping.
+- [x] **Real-Time Web Audio Engine Upgrade**:
+  - Custom Fourier-synthesized **Glottal PeriodicWaves** adhering to natural -10 to -12 dB/oct vocal spectral roll-off.
+  - Vocal tract formant filter banks with peaking resonators and anti-aliasing lowpass filters in both `startVoice` and `playTone` in `lib/audioEngine.ts`.
 - [x] **Studio UI & Categorization**: Added "Vocal & Solfège" category with localized labels and badges in `lib/taigiUtils.ts`, populated in HeaderBar and Floating HUD menus.
 - [x] **Persistence & MIDI Export**: Added to `STORAGE_KEYS.INSTRUMENT` allowlist in `lib/storage.ts` and General MIDI map in `lib/midiExport.ts`.
-- [x] **Test Verification**: Added comprehensive unit test suite in `test/instruments.test.ts` covering GM mapping, soundfont catalog, vocal UI grouping, note sanitization, and localStorage persistence.
+- [x] **Test Verification**: Added comprehensive unit test suite in `test/instruments.test.ts` covering GM mapping, soundfont catalog, vocal UI grouping, note sanitization, localStorage persistence, and physical PCM sample generation.

@@ -177,6 +177,8 @@ export class AudioEngine {
   private melodyScheduleCursor = 0;
   private beatScheduleCursor = 0;
   private playbackEndedReason: PlaybackEndedReason = 'song';
+  private glottalPeriodicWave: PeriodicWave | null = null;
+  private vocalOohPeriodicWave: PeriodicWave | null = null;
 
   private static readonly AUDIO_LOOKAHEAD_SEC = 0.32;
   private static readonly SCHEDULER_INTERVAL_MS = 50;
@@ -865,6 +867,63 @@ export class AudioEngine {
   }
 
   /**
+   * Helper to create an oscillator driven by a custom human glottal PeriodicWave.
+   */
+  private createVoicePeriodicOsc(
+    wave: PeriodicWave,
+    freq: number,
+    startTime: number,
+    stopTime?: number
+  ): OscillatorNode {
+    const osc = this.ctx!.createOscillator();
+    this.registerOscillator(osc);
+    osc.setPeriodicWave(wave);
+    osc.frequency.setValueAtTime(freq, startTime);
+    osc.start(startTime);
+    if (stopTime !== undefined) {
+      try {
+        osc.stop(stopTime);
+      } catch {}
+    }
+    return osc;
+  }
+
+  /**
+   * Generates and caches an acoustic glottal volume velocity derivative PeriodicWave.
+   * Eliminates harsh electronic buzz by adhering to natural vocal fold spectral roll-off (~ -10 to -12 dB/oct).
+   */
+  private getGlottalPeriodicWave(): PeriodicWave {
+    if (this.glottalPeriodicWave) return this.glottalPeriodicWave;
+    const n = 48;
+    const real = new Float32Array(n);
+    const imag = new Float32Array(n);
+    real[0] = 0;
+    imag[0] = 0;
+    for (let k = 1; k < n; k++) {
+      imag[k] = (1.0 / Math.pow(k, 1.45)) * Math.cos(((k - 1) * Math.PI) / (2 * n));
+    }
+    this.glottalPeriodicWave = this.ctx!.createPeriodicWave(real, imag, { disableNormalization: false });
+    return this.glottalPeriodicWave;
+  }
+
+  /**
+   * Generates and caches a rounded, mellow glottal PeriodicWave for "ooh" / humming vocal guidance.
+   */
+  private getVocalOohPeriodicWave(): PeriodicWave {
+    if (this.vocalOohPeriodicWave) return this.vocalOohPeriodicWave;
+    const n = 32;
+    const real = new Float32Array(n);
+    const imag = new Float32Array(n);
+    real[0] = 0;
+    imag[0] = 0;
+    for (let k = 1; k < n; k++) {
+      imag[k] = (1.0 / Math.pow(k, 2.05)) * (k % 2 === 0 ? 0.65 : 1.0);
+    }
+    this.vocalOohPeriodicWave = this.ctx!.createPeriodicWave(real, imag, { disableNormalization: false });
+    return this.vocalOohPeriodicWave;
+  }
+
+  /**
    * Helper to create and initialize a gain node with an initial value at startTime.
    */
   private createVoiceGain(startTime: number, initialGain = 0.0001): GainNode {
@@ -1466,33 +1525,36 @@ export class AudioEngine {
         break;
       }
       case 'choir_aahs': {
-        // Multi-voice choral ensemble with parallel formant filter bank (F1 800 Hz, F2 1250 Hz)
-        const v1 = this.createVoiceOsc('sawtooth', freq, startTime);
-        const v2 = this.createVoiceOsc('triangle', freq * 1.004, startTime);
-        const v3 = this.createVoiceOsc('sawtooth', freq * 0.996, startTime);
+        // Multi-voice choral ensemble with vocal glottal wave, 3-formant bank (F1 760Hz, F2 1220Hz, F3 2680Hz), and breath anti-aliasing lowpass
+        const glottalWave = this.getGlottalPeriodicWave();
+        const v1 = this.createVoicePeriodicOsc(glottalWave, freq, startTime);
+        const v2 = this.createVoicePeriodicOsc(glottalWave, freq * 1.0042, startTime);
+        const v3 = this.createVoicePeriodicOsc(glottalWave, freq * 0.9958, startTime);
         oscs.push(v1, v2, v3);
 
-        const f1Band = this.createVoiceFilter('bandpass', 800, 2.5, 0, startTime);
-        const f2Band = this.createVoiceFilter('bandpass', 1250, 2.8, 0, startTime);
-
-        const vMix = this.createVoiceGain(startTime, 0.42);
+        const vMix = this.createVoiceGain(startTime, 0.45);
         v1.connect(vMix);
         v2.connect(vMix);
         v3.connect(vMix);
 
-        const f1Gain = this.createVoiceGain(startTime, 0.55 * volMul);
-        const f2Gain = this.createVoiceGain(startTime, 0.45 * volMul);
+        // Vocal tract formant resonators (vowel [a] "Aah" open pharynx)
+        const f1Band = this.createVoiceFilter('peaking', 760, 3.2, 5.5, startTime);
+        const f2Band = this.createVoiceFilter('peaking', 1220, 3.5, 4.5, startTime);
+        const f3Band = this.createVoiceFilter('peaking', 2680, 4.0, 3.8, startTime);
+        // Anti-sizzle warm lowpass removing synthetic electronic treble
+        const vocalLp = this.createVoiceFilter('lowpass', 4200, 0.7, 0, startTime);
+
         vMix.connect(f1Band);
-        vMix.connect(f2Band);
-        f1Band.connect(f1Gain);
-        f2Band.connect(f2Gain);
-        f1Gain.connect(voiceGain);
-        f2Gain.connect(voiceGain);
-        gains.push(vMix, f1Gain, f2Gain);
+        f1Band.connect(f2Band);
+        f2Band.connect(f3Band);
+        f3Band.connect(vocalLp);
+        vocalLp.connect(voiceGain);
+
+        gains.push(vMix);
 
         if (!isEco) {
-          // Warm choral ensemble vibrato (5.2 Hz, 0.0035 depth, entering gently after 0.12s)
-          const { lfo } = this.createVibratoLfo(5.2, freq * 0.0035, startTime, startTime + 25.0, [
+          // Warm choral ensemble vibrato (5.1 Hz, entering gently after 0.12s)
+          const { lfo } = this.createVibratoLfo(5.1, freq * 0.0032, startTime, startTime + 25.0, [
             v1.frequency,
             v2.frequency,
             v3.frequency,
@@ -1501,48 +1563,48 @@ export class AudioEngine {
         }
 
         voiceGain.gain.setValueAtTime(0.0001, startTime);
-        voiceGain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + 0.045);
+        voiceGain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + 0.05);
         break;
       }
       case 'voice_oohs': {
-        // Intimate Solfège Vocal Guide & Humming ("Ooh" [u] vowel: F1 320 Hz, F2 850 Hz)
-        const glottal = this.createVoiceOsc('triangle', freq, startTime);
-        const throatSub = this.createVoiceOsc('sine', freq * 2, startTime);
+        // Intimate Solfège Vocal Guide & Humming ("Ooh" [u] vowel: F1 320 Hz, F2 780 Hz, Nasal 220 Hz)
+        const oohWave = this.getVocalOohPeriodicWave();
+        const glottal = this.createVoicePeriodicOsc(oohWave, freq, startTime);
+        const throatSub = this.createVoiceOsc('sine', freq, startTime);
         oscs.push(glottal, throatSub);
 
-        const f1Band = this.createVoiceFilter('bandpass', 320, 2.2, 0, startTime);
-        const f2Band = this.createVoiceFilter('bandpass', 850, 2.5, 0, startTime);
-
-        const throatGain = this.createVoiceGain(startTime, 0.22);
+        const throatGain = this.createVoiceGain(startTime, 0.32);
         throatSub.connect(throatGain);
-        gains.push(throatGain);
 
-        const glottalMix = this.createVoiceGain(startTime, 0.55);
+        const glottalMix = this.createVoiceGain(startTime, 0.65);
         glottal.connect(glottalMix);
         throatGain.connect(glottalMix);
-        gains.push(glottalMix);
 
-        const f1Gain = this.createVoiceGain(startTime, 0.62 * volMul);
-        const f2Gain = this.createVoiceGain(startTime, 0.38 * volMul);
-        glottalMix.connect(f1Band);
-        glottalMix.connect(f2Band);
-        f1Band.connect(f1Gain);
-        f2Band.connect(f2Gain);
-        f1Gain.connect(voiceGain);
-        f2Gain.connect(voiceGain);
-        gains.push(f1Gain, f2Gain);
+        // Vocal tract formant resonators for rounded mouth [u] and chest/nasal hum
+        const f1Band = this.createVoiceFilter('peaking', 320, 2.8, 5.0, startTime);
+        const f2Band = this.createVoiceFilter('peaking', 780, 3.0, 3.8, startTime);
+        const nasalBand = this.createVoiceFilter('peaking', 220, 3.5, 4.2, startTime);
+        const oohLp = this.createVoiceFilter('lowpass', 2400, 0.8, 0, startTime);
+
+        glottalMix.connect(nasalBand);
+        nasalBand.connect(f1Band);
+        f1Band.connect(f2Band);
+        f2Band.connect(oohLp);
+        oohLp.connect(voiceGain);
+
+        gains.push(throatGain, glottalMix);
 
         if (!isEco) {
-          // Natural human vocal vibrato (5.0 Hz, 0.0028 depth, delayed 0.15s)
-          const { lfo } = this.createVibratoLfo(5.0, freq * 0.0028, startTime, startTime + 25.0, [
+          // Natural human vocal vibrato (5.0 Hz, 0.0026 depth, delayed 0.14s)
+          const { lfo } = this.createVibratoLfo(5.0, freq * 0.0026, startTime, startTime + 25.0, [
             glottal.frequency,
             throatSub.frequency,
-          ], 0.15, 0.22);
+          ], 0.14, 0.22);
           oscs.push(lfo);
         }
 
         voiceGain.gain.setValueAtTime(0.0001, startTime);
-        voiceGain.gain.linearRampToValueAtTime(0.82 * volMul, startTime + 0.035);
+        voiceGain.gain.linearRampToValueAtTime(0.82 * volMul, startTime + 0.038);
         break;
       }
       default: {
@@ -2042,10 +2104,12 @@ export class AudioEngine {
         voiceOutput = f;
       } else if (instrument === 'choir_aahs') {
         const f = this.createVoiceFilter('bandpass', 950, 1.8, 0, startTime);
+        const lp = this.createVoiceFilter('lowpass', 3800, 0.7, 0, startTime);
         osc.connect(f);
-        voiceOutput = f;
+        f.connect(lp);
+        voiceOutput = lp;
       } else if (instrument === 'voice_oohs') {
-        const f = this.createVoiceFilter('lowpass', Math.min(1800, Math.max(450, freq * 1.8)), 1.5, 0, startTime);
+        const f = this.createVoiceFilter('lowpass', Math.min(1600, Math.max(450, freq * 1.5)), 1.8, 0, startTime);
         osc.connect(f);
         voiceOutput = f;
       }
@@ -2632,41 +2696,39 @@ export class AudioEngine {
         break;
       }
       case 'choir_aahs': {
-        // Multi-voice Choral "Aah" [a] vowel with parallel formant filters (F1 800 Hz, F2 1250 Hz)
+        // Multi-voice Choral "Aah" [a] vowel with glottal wave, formant filter bank (F1 760Hz, F2 1220Hz, F3 2680Hz), and warm lowpass
         const glideFreq = options?.glideFromFreq || freq;
-        const v1 = this.createVoiceOsc('sawtooth', glideFreq, startTime, stopTime);
-        const v2 = this.createVoiceOsc('triangle', glideFreq * 1.004, startTime, stopTime);
-        const v3 = this.createVoiceOsc('sawtooth', glideFreq * 0.996, startTime, stopTime);
+        const glottalWave = this.getGlottalPeriodicWave();
+        const v1 = this.createVoicePeriodicOsc(glottalWave, glideFreq, startTime, stopTime);
+        const v2 = this.createVoicePeriodicOsc(glottalWave, glideFreq * 1.0042, startTime, stopTime);
+        const v3 = this.createVoicePeriodicOsc(glottalWave, glideFreq * 0.9958, startTime, stopTime);
         if (options?.glideFromFreq) {
           v1.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
-          v2.frequency.exponentialRampToValueAtTime(freq * 1.004, startTime + Math.min(0.08, effectiveDuration * 0.5));
-          v3.frequency.exponentialRampToValueAtTime(freq * 0.996, startTime + Math.min(0.08, effectiveDuration * 0.5));
+          v2.frequency.exponentialRampToValueAtTime(freq * 1.0042, startTime + Math.min(0.08, effectiveDuration * 0.5));
+          v3.frequency.exponentialRampToValueAtTime(freq * 0.9958, startTime + Math.min(0.08, effectiveDuration * 0.5));
         }
 
-        const vMix = this.createVoiceGain(startTime, 0.42);
+        const vMix = this.createVoiceGain(startTime, 0.45);
         v1.connect(vMix);
         v2.connect(vMix);
         v3.connect(vMix);
 
-        const f1Band = this.createVoiceFilter('bandpass', 800, 2.5, 0, startTime);
-        const f2Band = this.createVoiceFilter('bandpass', 1250, 2.8, 0, startTime);
-        const f1Gain = this.createVoiceGain(startTime, 0.55 * volMul);
-        const f2Gain = this.createVoiceGain(startTime, 0.45 * volMul);
+        const f1Band = this.createVoiceFilter('peaking', 760, 3.2, 5.5, startTime);
+        const f2Band = this.createVoiceFilter('peaking', 1220, 3.5, 4.5, startTime);
+        const f3Band = this.createVoiceFilter('peaking', 2680, 4.0, 3.8, startTime);
+        const vocalLp = this.createVoiceFilter('lowpass', 4200, 0.7, 0, startTime);
+
         vMix.connect(f1Band);
-        vMix.connect(f2Band);
-        f1Band.connect(f1Gain);
-        f2Band.connect(f2Gain);
+        f1Band.connect(f2Band);
+        f2Band.connect(f3Band);
+        f3Band.connect(vocalLp);
+        outputNode = vocalLp;
 
-        const vocalOut = this.createVoiceGain(startTime, 1.0);
-        f1Gain.connect(vocalOut);
-        f2Gain.connect(vocalOut);
-        outputNode = vocalOut;
-
-        // Choral vibrato LFO (5.2 Hz, ~5 cents)
+        // Choral vibrato LFO (5.1 Hz, ~5 cents)
         if (effectiveDuration > 0.22) {
           this.createVibratoLfo(
-            5.2,
-            freq * 0.0035,
+            5.1,
+            freq * 0.0032,
             startTime,
             stopTime,
             [v1.frequency, v2.frequency, v3.frequency],
@@ -2675,7 +2737,7 @@ export class AudioEngine {
           );
         }
 
-        const attack = isLegato ? 0.018 : 0.045;
+        const attack = isLegato ? 0.02 : 0.05;
         gain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + attack);
         const sustainT = Math.max(startTime + attack + 0.005, startTime + effectiveDuration * 0.88);
         gain.gain.setValueAtTime(0.76 * volMul, sustainT);
@@ -2683,41 +2745,39 @@ export class AudioEngine {
         break;
       }
       case 'voice_oohs': {
-        // Intimate Solfège Vocal Guide & Humming ("Ooh" [u] vowel: F1 320 Hz, F2 850 Hz)
+        // Intimate Solfège Vocal Guide & Humming ("Ooh" [u] vowel: F1 320 Hz, F2 780 Hz, Nasal 220 Hz)
         const glideFreq = options?.glideFromFreq || freq;
-        const glottal = this.createVoiceOsc('triangle', glideFreq, startTime, stopTime);
-        const throatSub = this.createVoiceOsc('sine', glideFreq * 2, startTime, stopTime);
+        const oohWave = this.getVocalOohPeriodicWave();
+        const glottal = this.createVoicePeriodicOsc(oohWave, glideFreq, startTime, stopTime);
+        const throatSub = this.createVoiceOsc('sine', glideFreq, startTime, stopTime);
         if (options?.glideFromFreq) {
           glottal.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.07, effectiveDuration * 0.45));
-          throatSub.frequency.exponentialRampToValueAtTime(freq * 2, startTime + Math.min(0.07, effectiveDuration * 0.45));
+          throatSub.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.07, effectiveDuration * 0.45));
         }
 
-        const throatGain = this.createVoiceGain(startTime, 0.22);
+        const throatGain = this.createVoiceGain(startTime, 0.32);
         throatSub.connect(throatGain);
 
-        const glottalMix = this.createVoiceGain(startTime, 0.55);
+        const glottalMix = this.createVoiceGain(startTime, 0.65);
         glottal.connect(glottalMix);
         throatGain.connect(glottalMix);
 
-        const f1Band = this.createVoiceFilter('bandpass', 320, 2.2, 0, startTime);
-        const f2Band = this.createVoiceFilter('bandpass', 850, 2.5, 0, startTime);
-        const f1Gain = this.createVoiceGain(startTime, 0.62 * volMul);
-        const f2Gain = this.createVoiceGain(startTime, 0.38 * volMul);
-        glottalMix.connect(f1Band);
-        glottalMix.connect(f2Band);
-        f1Band.connect(f1Gain);
-        f2Band.connect(f2Gain);
+        const f1Band = this.createVoiceFilter('peaking', 320, 2.8, 5.0, startTime);
+        const f2Band = this.createVoiceFilter('peaking', 780, 3.0, 3.8, startTime);
+        const nasalBand = this.createVoiceFilter('peaking', 220, 3.5, 4.2, startTime);
+        const oohLp = this.createVoiceFilter('lowpass', 2400, 0.8, 0, startTime);
 
-        const oohOut = this.createVoiceGain(startTime, 1.0);
-        f1Gain.connect(oohOut);
-        f2Gain.connect(oohOut);
-        outputNode = oohOut;
+        glottalMix.connect(nasalBand);
+        nasalBand.connect(f1Band);
+        f1Band.connect(f2Band);
+        f2Band.connect(oohLp);
+        outputNode = oohLp;
 
-        // Natural vocal guide vibrato (5.0 Hz, 0.0028 depth, delayed 0.15s)
+        // Natural vocal guide vibrato (5.0 Hz, 0.0026 depth, delayed 0.14s)
         if (effectiveDuration > 0.22) {
           this.createVibratoLfo(
             5.0,
-            freq * 0.0028,
+            freq * 0.0026,
             startTime,
             stopTime,
             [glottal.frequency, throatSub.frequency],
@@ -2726,7 +2786,7 @@ export class AudioEngine {
           );
         }
 
-        const attack = isLegato ? 0.015 : 0.035;
+        const attack = isLegato ? 0.016 : 0.038;
         gain.gain.linearRampToValueAtTime(0.82 * volMul, startTime + attack);
         const sustainT = Math.max(startTime + attack + 0.005, startTime + effectiveDuration * 0.88);
         gain.gain.setValueAtTime(0.74 * volMul, sustainT);
