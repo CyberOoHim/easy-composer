@@ -1543,6 +1543,7 @@ export interface InstrumentOption {
   value: InstrumentType;
   labelZh: string;
   labelEn: string;
+  shortLabelEn?: string;
   category: 'standard' | 'folk' | 'pop';
   badge?: string;
 }
@@ -1555,38 +1556,38 @@ export const CATEGORIZED_INSTRUMENT_OPTIONS: {
 }[] = [
   {
     category: 'standard',
-    labelEn: 'Standard & Classical',
+    labelEn: 'Standard',
     labelZh: '經典與古典',
     options: [
-      { value: 'piano', labelZh: '鋼琴 (Piano)', labelEn: 'Grand Piano', category: 'standard' },
-      { value: 'flute', labelZh: '長笛 / 竹笛 (Flute)', labelEn: 'Flute', category: 'standard', badge: 'SoundFont' },
-      { value: 'music_box', labelZh: '音樂盒 (Music Box)', labelEn: 'Music Box', category: 'standard', badge: 'SoundFont' },
-      { value: 'cello', labelZh: '大提琴 (Cello)', labelEn: 'Cello', category: 'standard' },
-      { value: 'whistle', labelZh: '哨笛 (Whistle)', labelEn: 'Whistle', category: 'standard' },
-      { value: 'bell', labelZh: '鐘琴 (Glockenspiel)', labelEn: 'Glockenspiel', category: 'standard' },
-      { value: 'synth', labelZh: '合成器 (80s Synth)', labelEn: '80s Synth', category: 'standard' },
+      { value: 'piano', labelZh: '鋼琴 (Piano)', labelEn: 'Piano', shortLabelEn: 'Piano', category: 'standard' },
+      { value: 'flute', labelZh: '長笛 / 竹笛 (Flute)', labelEn: 'Flute', shortLabelEn: 'Flute', category: 'standard', badge: 'SoundFont' },
+      { value: 'music_box', labelZh: '音樂盒 (Music Box)', labelEn: 'Music Box', shortLabelEn: 'Music Box', category: 'standard', badge: 'SoundFont' },
+      { value: 'cello', labelZh: '大提琴 (Cello)', labelEn: 'Cello', shortLabelEn: 'Cello', category: 'standard' },
+      { value: 'whistle', labelZh: '哨笛 (Whistle)', labelEn: 'Whistle', shortLabelEn: 'Whistle', category: 'standard' },
+      { value: 'bell', labelZh: '鐘琴 (Glockenspiel)', labelEn: 'Glockenspiel', shortLabelEn: 'Bell', category: 'standard' },
+      { value: 'synth', labelZh: '合成器 (80s Synth)', labelEn: '80s Synth', shortLabelEn: 'Synth', category: 'standard' },
     ],
   },
   {
     category: 'folk',
-    labelEn: 'Folk & Ballad',
+    labelEn: 'Folk',
     labelZh: '民謠與老歌',
     options: [
-      { value: 'guitar_acoustic', labelZh: '民謠吉他 (Acoustic Guitar)', labelEn: 'Acoustic Guitar (Folk)', category: 'folk', badge: 'SoundFont' },
-      { value: 'kalimba', labelZh: '卡林巴琴 (Kalimba)', labelEn: 'Kalimba (Thumb Piano)', category: 'folk', badge: 'SoundFont' },
-      { value: 'accordion', labelZh: '手風琴 (Accordion)', labelEn: 'Accordion (Musette)', category: 'folk', badge: 'SoundFont' },
-      { value: 'harmonica', labelZh: '口琴 (Harmonica)', labelEn: 'Harmonica', category: 'folk', badge: 'SoundFont' },
-      { value: 'guitar', labelZh: '古典吉他 (Classic Guitar)', labelEn: 'Classic Guitar', category: 'folk' },
+      { value: 'guitar_acoustic', labelZh: '民謠吉他 (Acoustic Guitar)', labelEn: 'Acoustic Guitar', shortLabelEn: 'Acoustic Gtr', category: 'folk', badge: 'SoundFont' },
+      { value: 'kalimba', labelZh: '卡林巴琴 (Kalimba)', labelEn: 'Kalimba', shortLabelEn: 'Kalimba', category: 'folk', badge: 'SoundFont' },
+      { value: 'accordion', labelZh: '手風琴 (Accordion)', labelEn: 'Accordion', shortLabelEn: 'Accordion', category: 'folk', badge: 'SoundFont' },
+      { value: 'harmonica', labelZh: '口琴 (Harmonica)', labelEn: 'Harmonica', shortLabelEn: 'Harmonica', category: 'folk', badge: 'SoundFont' },
+      { value: 'guitar', labelZh: '古典吉他 (Classic Guitar)', labelEn: 'Classic Guitar', shortLabelEn: 'Classic Gtr', category: 'folk' },
     ],
   },
   {
     category: 'pop',
-    labelEn: 'Modern Pop',
+    labelEn: 'Pop',
     labelZh: '當代流行',
     options: [
-      { value: 'epiano_fm', labelZh: '流行電鋼琴 (FM E-Piano)', labelEn: 'FM E-Piano (DX7 Rhodes)', category: 'pop', badge: 'FM Synth' },
-      { value: 'guitar_electric', labelZh: '電吉他 (Clean E-Guitar)', labelEn: 'Clean Electric Guitar', category: 'pop', badge: 'SoundFont' },
-      { value: 'saxophone', labelZh: '薩克斯風 (Saxophone)', labelEn: 'Saxophone', category: 'pop', badge: 'SoundFont' },
+      { value: 'epiano_fm', labelZh: '流行電鋼琴 (FM E-Piano)', labelEn: 'FM E-Piano', shortLabelEn: 'FM E-Piano', category: 'pop', badge: 'FM Synth' },
+      { value: 'guitar_electric', labelZh: '電吉他 (Clean E-Guitar)', labelEn: 'Clean E-Guitar', shortLabelEn: 'E-Guitar', category: 'pop', badge: 'SoundFont' },
+      { value: 'saxophone', labelZh: '薩克斯風 (Saxophone)', labelEn: 'Saxophone', shortLabelEn: 'Saxophone', category: 'pop', badge: 'SoundFont' },
     ],
   },
 ];

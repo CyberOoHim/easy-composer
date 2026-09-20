@@ -873,10 +873,10 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
               className="bg-transparent font-bold text-zinc-200 focus:outline-hidden cursor-pointer"
             >
               {CATEGORIZED_INSTRUMENT_OPTIONS.map(group => (
-                <optgroup key={group.category} label={`${group.labelEn} (${group.labelZh})`}>
+                <optgroup key={group.category} label={group.labelEn}>
                   {group.options.map(opt => (
                     <option key={opt.value} value={opt.value} className="bg-zinc-900 text-zinc-100">
-                      {opt.labelEn} {opt.badge ? `[${opt.badge}]` : ''}
+                      {opt.shortLabelEn || opt.labelEn}
                     </option>
                   ))}
                 </optgroup>

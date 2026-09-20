@@ -265,7 +265,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
           {/* Song Quick Picker & Metadata Badge */}
           <div className="flex items-center gap-1 min-w-0">
-            <div className="relative flex items-center min-w-0 max-w-[130px] sm:max-w-[180px] md:max-w-[220px] xl:max-w-[250px]">
+            <div className="relative flex items-center min-w-0 max-w-[115px] sm:max-w-[160px] md:max-w-[200px] xl:max-w-[240px]">
               <select
                 id="header-preset-song-select"
                 value={song.id}
@@ -363,7 +363,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           {onSetInstrument && (
             <div
               id="header-instrument-selector"
-              className="hidden md:flex items-center gap-1 bg-zinc-100 dark:bg-[#151822] px-2 py-0.5 rounded-lg border border-zinc-200/90 dark:border-zinc-750 text-xs h-7.5 sm:h-8 shrink-0 shadow-2xs"
+              className="hidden md:flex items-center gap-1 bg-zinc-100 dark:bg-[#151822] px-1.5 sm:px-2 py-0.5 rounded-lg border border-zinc-200/90 dark:border-zinc-750 text-xs h-7.5 sm:h-8 shrink-0 shadow-2xs max-w-[125px] lg:max-w-[155px]"
             >
               <Music className="w-3 h-3 text-amber-500 shrink-0" />
               {soundStatus === 'loading' ? (
@@ -375,14 +375,14 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                 id="header-instrument-select"
                 value={instrument}
                 onChange={e => onSetInstrument(e.target.value as InstrumentType)}
-                className="bg-transparent font-bold text-xs text-zinc-800 dark:text-zinc-200 focus:outline-hidden cursor-pointer touch-manipulation"
+                className="bg-transparent font-bold text-xs text-zinc-800 dark:text-zinc-200 focus:outline-hidden cursor-pointer touch-manipulation truncate max-w-[85px] lg:max-w-[115px] min-w-0"
                 title="Select Melody Instrument"
               >
                 {CATEGORIZED_INSTRUMENT_OPTIONS.map(group => (
-                  <optgroup key={group.category} label={`${group.labelEn} (${group.labelZh})`}>
+                  <optgroup key={group.category} label={group.labelEn}>
                     {group.options.map(opt => (
                       <option key={opt.value} value={opt.value} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                        {opt.labelEn} {opt.badge ? `[${opt.badge}]` : ''}
+                        {opt.shortLabelEn || opt.labelEn}
                       </option>
                     ))}
                   </optgroup>
