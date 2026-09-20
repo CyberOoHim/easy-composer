@@ -128,7 +128,7 @@ export const SOUNDFONT_CATALOG: Record<string, SoundFontMeta> = {
 export class SoundFontEngine {
   private static instance: SoundFontEngine | null = null;
   private static readonly MAX_POLYPHONY = 16;
-  private static readonly CACHE_NAME = 'taigi-soundfont-cache-v1';
+  private static readonly CACHE_NAME = 'taigi-soundfont-cache-v2';
 
   // In-memory decoded PCM buffer cache: instrument -> (midiPitch -> AudioBuffer)
   private bufferBank: Map<string, Map<number, AudioBuffer>> = new Map();
@@ -242,18 +242,23 @@ export class SoundFontEngine {
       }
 
       case 'harmonica': {
-        // Dynamic bandpass reed buzz with soulful breath tremolo
+        // Free-reed brass harmonica:
+        // Rich reed harmonics with signature hand-cup / mouth cavity resonance and breath tremolo (volume pulse, NOT pitch warp)
         for (let n = 0; n < numSamples; n++) {
           const t = n / sampleRate;
-          const vib = 1 + 0.02 * Math.sin(2 * Math.PI * 5.2 * t);
-          const f = baseFreq * vib;
+          // Asymmetric free-reed harmonic distribution
           const reed =
-            Math.sin(2 * Math.PI * f * t) * 0.55 +
-            Math.sin(2 * Math.PI * f * 2 * t) * 0.24 +
-            Math.sin(2 * Math.PI * f * 3 * t) * 0.16 +
-            Math.sin(2 * Math.PI * f * 5 * t) * 0.08;
-          const env = t < 0.03 ? t / 0.03 : Math.exp(-t / (durationSec * 1.5));
-          data[n] = reed * env * 0.8;
+            Math.sin(2 * Math.PI * baseFreq * t) * 0.48 +
+            Math.sin(2 * Math.PI * baseFreq * 2 * t) * 0.26 +
+            Math.sin(2 * Math.PI * baseFreq * 3 * t) * 0.22 +
+            Math.sin(2 * Math.PI * baseFreq * 4 * t) * 0.12 +
+            Math.sin(2 * Math.PI * baseFreq * 5 * t) * 0.08;
+          // Snappy brass reed tongue articulation attack (< 15ms)
+          const reedClick = Math.sin(2 * Math.PI * baseFreq * 6.0 * t) * 0.16 * Math.exp(-t / 0.012);
+          // Diaphragm breath tremolo (subtle 5.0 Hz amplitude modulation, rock-solid pitch)
+          const tremolo = t > 0.1 ? 1 + 0.12 * Math.sin(2 * Math.PI * 5.0 * (t - 0.1)) : 1;
+          const env = (t < 0.018 ? t / 0.018 : Math.exp(-t / (durationSec * 1.6))) * tremolo;
+          data[n] = (reed * 0.82 + reedClick) * env;
         }
         break;
       }
@@ -276,19 +281,29 @@ export class SoundFontEngine {
       }
 
       case 'saxophone': {
-        // Conical bore reed acoustic tone with formant shaping
+        // Conical bore brass instrument with single cane reed:
+        // Full harmonic series (even & odd) with dual formants (horn throat 600Hz + reed bite 2600Hz)
+        let saxPhase = 0;
         for (let n = 0; n < numSamples; n++) {
           const t = n / sampleRate;
-          const vib = t > 0.1 ? 1 + 0.018 * Math.sin(2 * Math.PI * 4.8 * (t - 0.1)) : 1;
-          const f = baseFreq * vib;
-          // Conical bore produces both even and odd harmonics
+          // Smooth phase accumulation with subtle 4.6 Hz vibrato on sustained notes (> 0.22s, ~4.5 cents)
+          const vib = t > 0.22 ? 0.003 * Math.sin(2 * Math.PI * 4.6 * (t - 0.22)) : 0;
+          saxPhase += (2 * Math.PI * baseFreq * (1 + vib)) / sampleRate;
+
+          // Full conical bore spectrum with brass body warmth
           const wave =
-            Math.sin(2 * Math.PI * f * t) * 0.5 +
-            Math.sin(2 * Math.PI * f * 2 * t) * 0.3 +
-            Math.sin(2 * Math.PI * f * 3 * t) * 0.15 +
-            Math.sin(2 * Math.PI * f * 4 * t) * 0.08;
-          const env = t < 0.04 ? t / 0.04 : Math.exp(-t / (durationSec * 1.6));
-          data[n] = wave * env * 0.8;
+            Math.sin(saxPhase) * 0.44 +
+            Math.sin(saxPhase * 2) * 0.30 +
+            Math.sin(saxPhase * 3) * 0.20 +
+            Math.sin(saxPhase * 4) * 0.12 +
+            Math.sin(saxPhase * 5) * 0.07 +
+            Math.sin(saxPhase * 6) * 0.04;
+          // Mouthpiece reed buzz formant (2.6 kHz peak)
+          const reedBite = Math.sin(2 * Math.PI * 2600 * t) * 0.12 * Math.exp(-t / 0.07);
+          // Cane reed attack chiff (< 25ms)
+          const chiff = (Math.random() * 2 - 1) * 0.07 * Math.exp(-t / 0.02);
+          const env = t < 0.028 ? t / 0.028 : Math.exp(-t / (durationSec * 1.65));
+          data[n] = (wave * 0.84 + reedBite + chiff) * env;
         }
         break;
       }
@@ -308,21 +323,20 @@ export class SoundFontEngine {
       }
 
       case 'flute': {
-        // Pure orchestral / concert flute with subtle breath chiff and warm cylindrical resonance
+        // Pure concert & bamboo flute:
+        // Crystalline fundamental sine dominance, delicate 2nd harmonic, soft breath chiff transient
         for (let n = 0; n < numSamples; n++) {
           const t = n / sampleRate;
-          // Natural expressive vibrato (~5.2Hz) developing after 0.08s
-          const vib = t > 0.08 ? 1 + 0.012 * Math.sin(2 * Math.PI * 5.2 * (t - 0.08)) : 1;
-          const f = baseFreq * vib;
-          // Fundamental dominant + 2nd & 3rd harmonic air-column overtones
-          const wave =
-            Math.sin(2 * Math.PI * f * t) * 0.76 +
-            Math.sin(2 * Math.PI * f * 2 * t) * 0.16 +
-            Math.sin(2 * Math.PI * f * 3 * t) * 0.06;
-          // Breath chiff transient at note onset (< 35ms)
-          const chiffNoise = (Math.random() * 2 - 1) * 0.12 * Math.exp(-t / 0.025);
-          const env = t < 0.035 ? t / 0.035 : Math.exp(-t / (durationSec * 1.6));
-          data[n] = (wave + chiffNoise) * env * 0.85;
+          // Pure cylindrical tube harmonics (dominated by fundamental sine)
+          const airWave =
+            Math.sin(2 * Math.PI * baseFreq * t) * 0.89 +
+            Math.sin(2 * Math.PI * baseFreq * 2 * t) * 0.08 +
+            Math.sin(2 * Math.PI * baseFreq * 3 * t) * 0.03;
+          // Soft embouchure breath chiff transient at note onset (< 30ms)
+          const chiffNoise = (Math.random() * 2 - 1) * 0.07 * Math.exp(-t / 0.025);
+          // Natural breath attack (25ms) and smooth woodwind sustain
+          const env = t < 0.025 ? t / 0.025 : Math.exp(-t / (durationSec * 1.8));
+          data[n] = (airWave + chiffNoise) * env * 0.88;
         }
         break;
       }

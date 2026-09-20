@@ -931,6 +931,38 @@ export class AudioEngine {
     return { lfo, lfoGain };
   }
 
+  private createTremoloLfo(
+    rate: number,
+    depth: number,
+    startTime: number,
+    stopTime: number,
+    target: AudioParam,
+    delaySec = 0,
+    rampSec = 0.15
+  ): { lfo: OscillatorNode; lfoGain: GainNode } {
+    const lfo = this.ctx!.createOscillator();
+    this.registerOscillator(lfo);
+    lfo.frequency.setValueAtTime(rate, startTime);
+
+    const lfoGain = this.ctx!.createGain();
+    const lfoStart = startTime + Math.max(0, delaySec);
+    lfoGain.gain.setValueAtTime(0.0001, startTime);
+    if (delaySec > 0) {
+      lfoGain.gain.setValueAtTime(0.0001, lfoStart);
+    }
+    lfoGain.gain.linearRampToValueAtTime(depth, lfoStart + rampSec);
+
+    lfo.connect(lfoGain);
+    lfoGain.connect(target);
+
+    lfo.start(startTime);
+    try {
+      lfo.stop(stopTime);
+    } catch {}
+
+    return { lfo, lfoGain };
+  }
+
   /**
    * Start playing a sustained musical note (for live screen piano, QWERTY typing, or Web MIDI).
    * Holds the note steadily for as long as the key is depressed, and smoothly releases when stopSustainedNote is called.
@@ -1020,39 +1052,37 @@ export class AudioEngine {
         break;
       }
       case 'flute': {
+        // Pure concert & bamboo flute: pure cylindrical air-column with subtle 2nd harmonic warmth
         const mainOsc = this.createVoiceOsc('sine', freq, startTime);
         mainOsc.connect(voiceGain);
         oscs.push(mainOsc);
 
-        // 3rd Odd harmonic (cylindrical tube hollow resonance)
-        const oddHarm = this.createVoiceOsc('sine', freq * 3, startTime);
-        const oddGain = this.createVoiceGain(startTime, 0.18 * volMul);
-        oddHarm.connect(oddGain);
-        oddGain.connect(voiceGain);
-        oscs.push(oddHarm);
-        gains.push(oddGain);
+        // 2nd harmonic (sweetness) & 3rd harmonic (hollow tube resonance)
+        const harm2 = this.createVoiceOsc('sine', freq * 2, startTime);
+        const harm2Gain = this.createVoiceGain(startTime, 0.08 * volMul);
+        harm2.connect(harm2Gain);
+        harm2Gain.connect(voiceGain);
+        oscs.push(harm2);
+        gains.push(harm2Gain);
+
+        const harm3 = this.createVoiceOsc('sine', freq * 3, startTime);
+        const harm3Gain = this.createVoiceGain(startTime, 0.03 * volMul);
+        harm3.connect(harm3Gain);
+        harm3Gain.connect(voiceGain);
+        oscs.push(harm3);
+        gains.push(harm3Gain);
 
         if (!isEco) {
-          // Di Mo (笛膜) reed buzzing membrane
-          const membrane = this.createVoiceOsc('sawtooth', freq * 2, startTime);
-          const membraneFilter = this.createVoiceFilter('bandpass', 2400, 3.4, 0, startTime);
-          const membraneGain = this.createVoiceGain(startTime, 0.14 * volMul);
-          membrane.connect(membraneFilter);
-          membraneFilter.connect(membraneGain);
-          membraneGain.connect(voiceGain);
-          oscs.push(membrane);
-          gains.push(membraneGain);
-
-          // Delayed breath vibrato
-          const { lfo } = this.createVibratoLfo(4.2, freq * 0.022, startTime, startTime + 25.0, [
+          // Delicate classical vibrato: 5.0 Hz, only ~3.5 cents depth (0.002), delayed by 0.22s
+          const { lfo } = this.createVibratoLfo(5.0, freq * 0.002, startTime, startTime + 25.0, [
             mainOsc.frequency,
-            membrane.frequency,
-          ], 0.12);
+            harm2.frequency,
+          ], 0.22, 0.2);
           oscs.push(lfo);
         }
 
         voiceGain.gain.setValueAtTime(0.0001, startTime);
-        voiceGain.gain.linearRampToValueAtTime(0.72 * volMul, startTime + 0.035);
+        voiceGain.gain.linearRampToValueAtTime(0.78 * volMul, startTime + 0.025);
         break;
       }
       case 'whistle': {
@@ -1286,19 +1316,21 @@ export class AudioEngine {
         break;
       }
       case 'harmonica': {
+        // Free-reed brass harmonica: square/pulse wave shaped through nasal mouth cavity formant
         const mainOsc = this.createVoiceOsc('square', freq, startTime);
-        const formantFilter = this.createVoiceFilter('bandpass', 1600, 2.2, 0, startTime);
+        const formantFilter = this.createVoiceFilter('bandpass', Math.min(2200, Math.max(1200, freq * 1.8)), 1.9, 0, startTime);
         mainOsc.connect(formantFilter);
         formantFilter.connect(voiceGain);
         oscs.push(mainOsc);
 
         if (!isEco) {
-          const { lfo } = this.createVibratoLfo(5.2, freq * 0.02, startTime, startTime + 25.0, [mainOsc.frequency], 0.1);
+          // Breath tremolo (amplitude modulation at 5.0 Hz, 12% depth) - rock-solid pitch without pitch warping
+          const { lfo } = this.createTremoloLfo(5.0, 0.12 * volMul, startTime, startTime + 25.0, voiceGain.gain, 0.12, 0.2);
           oscs.push(lfo);
         }
 
         voiceGain.gain.setValueAtTime(0.0001, startTime);
-        voiceGain.gain.linearRampToValueAtTime(0.8 * volMul, startTime + 0.018);
+        voiceGain.gain.linearRampToValueAtTime(0.82 * volMul, startTime + 0.015);
         break;
       }
       case 'epiano_fm': {
@@ -1331,19 +1363,23 @@ export class AudioEngine {
         break;
       }
       case 'saxophone': {
+        // Conical bore brass instrument with dual horn acoustic formants (throat body + reed bite)
         const mainOsc = this.createVoiceOsc('sawtooth', freq, startTime);
-        const hornFilter = this.createVoiceFilter('lowpass', Math.min(3200, freq * 3.4), 1.8, 0, startTime);
+        const hornFilter = this.createVoiceFilter('lowpass', Math.min(3600, freq * 3.6), 1.6, 0, startTime);
+        const hornPeaking = this.createVoiceFilter('peaking', 650, 1.6, 4.0, startTime);
         mainOsc.connect(hornFilter);
-        hornFilter.connect(voiceGain);
+        hornFilter.connect(hornPeaking);
+        hornPeaking.connect(voiceGain);
         oscs.push(mainOsc);
 
         if (!isEco) {
-          const { lfo } = this.createVibratoLfo(4.8, freq * 0.018, startTime, startTime + 25.0, [mainOsc.frequency], 0.12);
+          // Smooth jazz saxophone vibrato (4.6 Hz, subtle ~6 cents depth: 0.0035, delayed by 0.22s)
+          const { lfo } = this.createVibratoLfo(4.6, freq * 0.0035, startTime, startTime + 25.0, [mainOsc.frequency], 0.22, 0.25);
           oscs.push(lfo);
         }
 
         voiceGain.gain.setValueAtTime(0.0001, startTime);
-        voiceGain.gain.linearRampToValueAtTime(0.82 * volMul, startTime + 0.025);
+        voiceGain.gain.linearRampToValueAtTime(0.84 * volMul, startTime + 0.022);
         break;
       }
       case 'guitar_electric': {
@@ -1973,44 +2009,50 @@ export class AudioEngine {
         break;
       }
       case 'flute': {
+        // Pure concert & bamboo flute: pure cylindrical air-column resonance with crystalline tone
         const osc = this.createVoiceOsc('sine', options?.glideFromFreq || freq, startTime, stopTime);
         if (options?.glideFromFreq) {
           osc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
         }
 
-        // 1. Odd harmonics for hollow cylindrical bamboo tube body (fundamental + 3rd harmonic)
-        const oddHarm = this.createVoiceOsc('sine', freq * 3, startTime, stopTime);
-        const oddGain = this.createVoiceGain(startTime, 0.16 * volMul);
-        oddGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
-        oddHarm.connect(oddGain);
-        oddGain.connect(gain);
+        // 1. Soft 2nd harmonic (warmth/sweetness) and 3rd harmonic (hollow cylindrical tube)
+        const harm2 = this.createVoiceOsc('sine', freq * 2, startTime, stopTime);
+        const harm2Gain = this.createVoiceGain(startTime, 0.08 * volMul);
+        harm2Gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        harm2.connect(harm2Gain);
+        harm2Gain.connect(gain);
 
-        // 2. Di Mo (笛膜) Resonant Buzzing Membrane
-        const membrane = this.createVoiceOsc('sawtooth', freq * 2, startTime, stopTime);
-        const membraneFilter = this.createVoiceFilter('bandpass', 2400, 3.2, 0, startTime);
-        const membraneGain = this.createVoiceGain(startTime, 0.0001);
-        membraneGain.gain.linearRampToValueAtTime(0.14 * volMul, startTime + 0.04);
-        membraneGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
-        membrane.connect(membraneFilter);
-        membraneFilter.connect(membraneGain);
-        membraneGain.connect(gain);
+        const harm3 = this.createVoiceOsc('sine', freq * 3, startTime, stopTime);
+        const harm3Gain = this.createVoiceGain(startTime, 0.03 * volMul);
+        harm3Gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        harm3.connect(harm3Gain);
+        harm3Gain.connect(gain);
 
-        // 3. Expressive Traditional Flute Vibrato (4.2 Hz with delayed swelling onset)
-        this.createVibratoLfo(
-          4.2,
-          freq * 0.022,
-          startTime,
-          stopTime,
-          [osc.frequency, membrane.frequency],
-          Math.min(0.12, effectiveDuration * 0.3),
-          Math.min(0.2, effectiveDuration * 0.3)
-        );
+        // 2. Embouchure breath chiff transient at onset (< 28ms)
+        const chiff = this.createVoiceOsc('triangle', freq * 4.2, startTime, startTime + 0.03);
+        const chiffGain = this.createVoiceGain(startTime, 0.06 * volMul);
+        chiffGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.026);
+        chiff.connect(chiffGain);
+        chiffGain.connect(gain);
+
+        // 3. Delicate classical vibrato (5.0 Hz, subtle ~3.5 cents depth: 0.002, delayed for long held notes only)
+        if (effectiveDuration > 0.28) {
+          this.createVibratoLfo(
+            5.0,
+            freq * 0.002,
+            startTime,
+            stopTime,
+            [osc.frequency, harm2.frequency],
+            Math.min(0.2, effectiveDuration * 0.4),
+            0.18
+          );
+        }
 
         outputNode = osc;
-        const fluteAttack = isLegato ? 0.016 : 0.038;
-        gain.gain.linearRampToValueAtTime(0.72 * volMul, startTime + fluteAttack);
-        const fluteSustain = Math.max(startTime + fluteAttack + 0.005, startTime + effectiveDuration * 0.85);
-        gain.gain.setValueAtTime(0.66 * volMul, fluteSustain);
+        const fluteAttack = isLegato ? 0.012 : 0.024;
+        gain.gain.linearRampToValueAtTime(0.78 * volMul, startTime + fluteAttack);
+        const fluteSustain = Math.max(startTime + fluteAttack + 0.005, startTime + effectiveDuration * 0.88);
+        gain.gain.setValueAtTime(0.72 * volMul, fluteSustain);
         gain.gain.exponentialRampToValueAtTime(0.0001, Math.max(fluteSustain + 0.015, startTime + effectiveDuration));
         break;
       }
@@ -2273,30 +2315,41 @@ export class AudioEngine {
         break;
       }
       case 'harmonica': {
+        // Free-reed brass harmonica: square/reed tone with nasal acoustic cavity formant and breath tremolo
         const osc = this.createVoiceOsc('square', options?.glideFromFreq || freq, startTime, stopTime);
         if (options?.glideFromFreq) {
           osc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
         }
 
-        const formant = this.createVoiceFilter('bandpass', Math.min(2200, freq * 2.4), 2.2, 0, startTime);
-        formant.frequency.exponentialRampToValueAtTime(Math.max(800, freq * 1.4), startTime + Math.min(0.18, effectiveDuration * 0.5));
+        // Acoustic mouth & hand cavity formant filter
+        const formant = this.createVoiceFilter('bandpass', Math.min(2200, Math.max(1100, freq * 1.9)), 1.8, 0, startTime);
         osc.connect(formant);
         outputNode = formant;
 
-        this.createVibratoLfo(
-          5.2,
-          freq * 0.02,
-          startTime,
-          stopTime,
-          [osc.frequency],
-          Math.min(0.06, effectiveDuration * 0.2),
-          Math.min(0.14, effectiveDuration * 0.3)
-        );
+        // Snappy brass reed tongue articulation transient (< 16ms)
+        const tongueClick = this.createVoiceOsc('triangle', freq * 5.2, startTime, startTime + 0.02);
+        const clickGain = this.createVoiceGain(startTime, 0.14 * volMul);
+        clickGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.016);
+        tongueClick.connect(clickGain);
+        clickGain.connect(gain);
 
-        const attack = isLegato ? 0.012 : 0.018;
-        gain.gain.linearRampToValueAtTime(0.82 * volMul, startTime + attack);
-        const sustainT = Math.max(startTime + attack + 0.005, startTime + effectiveDuration * 0.86);
-        gain.gain.setValueAtTime(0.72 * volMul, sustainT);
+        // Diaphragm breath tremolo (amplitude pulse, rock-solid pitch without pitch warping)
+        if (effectiveDuration > 0.22) {
+          this.createTremoloLfo(
+            5.0,
+            0.12 * volMul,
+            startTime,
+            stopTime,
+            gain.gain,
+            Math.min(0.1, effectiveDuration * 0.25),
+            0.15
+          );
+        }
+
+        const attack = isLegato ? 0.008 : 0.014;
+        gain.gain.linearRampToValueAtTime(0.84 * volMul, startTime + attack);
+        const sustainT = Math.max(startTime + attack + 0.005, startTime + effectiveDuration * 0.88);
+        gain.gain.setValueAtTime(0.76 * volMul, sustainT);
         gain.gain.exponentialRampToValueAtTime(0.0001, Math.max(sustainT + 0.015, startTime + effectiveDuration));
         break;
       }
@@ -2331,38 +2384,45 @@ export class AudioEngine {
         break;
       }
       case 'saxophone': {
+        // Conical bore brass instrument with single cane reed:
+        // Rich brass harmonics with dual formants (throat resonance 650Hz + reed presence 2700Hz)
         const osc = this.createVoiceOsc('sawtooth', options?.glideFromFreq || freq, startTime, stopTime);
         if (options?.glideFromFreq) {
           osc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
         }
 
-        const hornFilter = this.createVoiceFilter('lowpass', Math.min(3200, freq * 3.4), 1.8, 0, startTime);
-        const hornPeaking = this.createVoiceFilter('peaking', 950, 1.8, 3.5, startTime);
+        const hornFilter = this.createVoiceFilter('lowpass', Math.min(3600, freq * 3.6), 1.6, 0, startTime);
+        const hornPeaking = this.createVoiceFilter('peaking', 650, 1.6, 4.5, startTime);
+        const reedPeaking = this.createVoiceFilter('peaking', 2700, 2.2, 3.0, startTime);
         hornFilter.connect(hornPeaking);
+        hornPeaking.connect(reedPeaking);
         osc.connect(hornFilter);
-        outputNode = hornPeaking;
+        outputNode = reedPeaking;
 
-        // Breath attack transient
-        const breath = this.createVoiceOsc('triangle', freq * 2.8, startTime, startTime + 0.035);
-        const breathGain = this.createVoiceGain(startTime, 0.2 * volMul);
-        breathGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.032);
+        // Cane reed breath onset transient (< 25ms)
+        const breath = this.createVoiceOsc('triangle', freq * 2.8, startTime, startTime + 0.03);
+        const breathGain = this.createVoiceGain(startTime, 0.14 * volMul);
+        breathGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.025);
         breath.connect(breathGain);
         breathGain.connect(gain);
 
-        this.createVibratoLfo(
-          4.8,
-          freq * 0.018,
-          startTime,
-          stopTime,
-          [osc.frequency],
-          Math.min(0.08, effectiveDuration * 0.25),
-          Math.min(0.16, effectiveDuration * 0.35)
-        );
+        // Expressive jazz saxophone vibrato (4.6 Hz, subtle ~6 cents depth: 0.0035, delayed on long notes)
+        if (effectiveDuration > 0.25) {
+          this.createVibratoLfo(
+            4.6,
+            freq * 0.0035,
+            startTime,
+            stopTime,
+            [osc.frequency],
+            Math.min(0.2, effectiveDuration * 0.35),
+            0.2
+          );
+        }
 
-        const attack = isLegato ? 0.014 : 0.024;
+        const attack = isLegato ? 0.012 : 0.022;
         gain.gain.linearRampToValueAtTime(0.84 * volMul, startTime + attack);
         const sustainT = Math.max(startTime + attack + 0.005, startTime + effectiveDuration * 0.88);
-        gain.gain.setValueAtTime(0.74 * volMul, sustainT);
+        gain.gain.setValueAtTime(0.76 * volMul, sustainT);
         gain.gain.exponentialRampToValueAtTime(0.0001, Math.max(sustainT + 0.015, startTime + effectiveDuration));
         break;
       }

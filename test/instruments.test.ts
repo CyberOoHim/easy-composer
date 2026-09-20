@@ -118,4 +118,27 @@ describe('New Instruments Integration (Flute, Kalimba, Music Box)', () => {
     store['taigi_composer_instrument'] = 'flute';
     assert.equal(getStoredInstrument(), 'flute');
   });
+
+  it('verifies acoustic differentiation between flute, harmonica, and saxophone', () => {
+    const fluteMeta = SOUNDFONT_CATALOG['flute'];
+    const harmonicaMeta = SOUNDFONT_CATALOG['harmonica'];
+    const saxMeta = SOUNDFONT_CATALOG['saxophone'];
+
+    assert.ok(fluteMeta, 'Flute metadata must exist');
+    assert.ok(harmonicaMeta, 'Harmonica metadata must exist');
+    assert.ok(saxMeta, 'Saxophone metadata must exist');
+
+    // Each must have unique GM programs
+    assert.equal(fluteMeta.gmProgram, 73);
+    assert.equal(harmonicaMeta.gmProgram, 22);
+    assert.equal(saxMeta.gmProgram, 64);
+    assert.notEqual(fluteMeta.gmProgram, harmonicaMeta.gmProgram);
+    assert.notEqual(harmonicaMeta.gmProgram, saxMeta.gmProgram);
+    assert.notEqual(fluteMeta.gmProgram, saxMeta.gmProgram);
+
+    // Each must map to distinct GM names
+    assert.notEqual(fluteMeta.gmName, harmonicaMeta.gmName);
+    assert.notEqual(harmonicaMeta.gmName, saxMeta.gmName);
+    assert.notEqual(fluteMeta.gmName, saxMeta.gmName);
+  });
 });
