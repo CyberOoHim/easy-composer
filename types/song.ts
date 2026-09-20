@@ -16,6 +16,14 @@ export interface GraceNote {
 export type ArticulationType = 'none' | 'staccato' | 'tenuto' | 'accent' | 'fermata' | 'portamento_up' | 'portamento_down';
 
 export interface LyricSyllable {
+  // Universal multilingual fields
+  text?: string;        // Primary lyric text: e.g. "A-", "mazing", "望", "桜", "さ"
+  phonetic?: string;    // Pronunciation reading: e.g. "wàng", "sa-ku-ra", "Pinyin/Furigana"
+  translation?: string; // Secondary translation text
+  isHyphenated?: boolean; // Word syllable continuation with hyphen
+  isWordEnd?: boolean;  // Word boundary for spacing
+
+  // Backward-compatible Taigi fields
   poj?: string;     // 羅馬字 (白話字 / POJ / Pe̍h-ōe-jī) e.g. "Bāng", "Ú", "chhun-hong"
   hanlo?: string;   // 漢羅 (Hàn-lô: 純漢字或漢羅合用) e.g. "望", "雨", "阮ê"
   /** @deprecated Legacy Hanji field for backward compatibility */
@@ -69,6 +77,14 @@ export interface Measure {
   isPrelude?: boolean;      // True if part of an instrumental prelude/interlude wrapped in parentheses ( ... )
 }
 
+export type SongLanguage = 'taigi' | 'mandarin' | 'english' | 'japanese' | 'multilingual';
+
+export interface SongLanguageOptions {
+  romanizationType?: 'poj' | 'tailo' | 'pinyin' | 'zhuyin' | 'romaji';
+  showRubyFurigana?: boolean;
+  autoHyphenateEnglish?: boolean;
+}
+
 export interface Song {
   id: string;
   title: string;
@@ -81,6 +97,8 @@ export interface Song {
   timeSignature: TimeSignature;
   bpm: number;
   measures: Measure[];
+  language?: SongLanguage;  // Song primary language: 'taigi' (default) | 'mandarin' | 'english' | 'japanese' | 'multilingual'
+  languageOptions?: SongLanguageOptions;
   notesPerLine?: number;    // Measures per line display (default 4)
   orientation?: SheetOrientation; // Realistic score sheet paper orientation ('portrait' | 'landscape')
   description?: string;

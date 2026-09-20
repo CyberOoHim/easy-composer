@@ -401,7 +401,10 @@ export function calculateNoteRequiredWidth(
   };
 
   // Check direct lyric
-  checkLyric(note.lyric?.hanlo || note.lyric?.hanji, note.lyric?.poj || note.lyric?.tl);
+  checkLyric(
+    note.lyric?.text || note.lyric?.hanlo || note.lyric?.hanji,
+    note.lyric?.phonetic || note.lyric?.poj || note.lyric?.tl
+  );
   if (note.lyric?.custom) {
     checkLyric(note.lyric.custom, undefined);
   }
@@ -411,7 +414,10 @@ export function calculateNoteRequiredWidth(
     for (const vKey of Object.keys(note.lyricsByVerse)) {
       const v = note.lyricsByVerse[Number(vKey)];
       if (v) {
-        checkLyric(v.hanlo || v.hanji || v.custom, v.poj || v.tl);
+        checkLyric(
+          v.text || v.hanlo || v.hanji || v.custom,
+          v.phonetic || v.poj || v.tl
+        );
       }
     }
   }
@@ -463,16 +469,16 @@ export function calculateMeasureRequiredWidth(
 export function measureHasLyrics(measure: Measure): boolean {
   if (!measure.notes || measure.notes.length === 0) return false;
   return measure.notes.some(note => {
-    const h = (note.lyric?.hanlo || note.lyric?.hanji || note.lyric?.custom || '').trim();
-    const p = (note.lyric?.poj || note.lyric?.tl || '').trim();
+    const h = (note.lyric?.text || note.lyric?.hanlo || note.lyric?.hanji || note.lyric?.custom || '').trim();
+    const p = (note.lyric?.phonetic || note.lyric?.poj || note.lyric?.tl || '').trim();
     if (h !== '' || p !== '') return true;
 
     if (note.lyricsByVerse) {
       for (const vKey of Object.keys(note.lyricsByVerse)) {
         const v = note.lyricsByVerse[Number(vKey)];
         if (v) {
-          const vH = (v.hanlo || v.hanji || v.custom || '').trim();
-          const vP = (v.poj || v.tl || '').trim();
+          const vH = (v.text || v.hanlo || v.hanji || v.custom || '').trim();
+          const vP = (v.phonetic || v.poj || v.tl || '').trim();
           if (vH !== '' || vP !== '') return true;
         }
       }

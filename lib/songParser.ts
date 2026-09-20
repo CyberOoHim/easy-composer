@@ -9,11 +9,17 @@ import type {
   NoteDuration,
   PitchNumber,
   Song,
+  SongLanguage,
+  SongLanguageOptions,
   TimeSignature,
   GraceNote,
   VerseDisplayOption,
 } from '../types/song.ts';
 import { isPunctuationOrSpacer, normalizeSongDurations } from './taigiUtils.ts';
+
+const VALID_LANGUAGES = new Set<SongLanguage>([
+  'taigi', 'mandarin', 'english', 'japanese', 'multilingual',
+]);
 
 const VALID_ARTICULATIONS = new Set<ArticulationType>([
   'staccato', 'tenuto', 'accent', 'fermata', 'portamento_up', 'portamento_down',
@@ -77,13 +83,20 @@ export function normalizeTimeSignature(raw: unknown): TimeSignature {
 
 function sanitizeLyric(raw: unknown): LyricSyllable {
   if (typeof raw === 'string') {
-    return { poj: '', hanlo: raw };
+    return { poj: '', hanlo: raw, text: raw };
   }
   const rawLyric = (raw && typeof raw === 'object') ? (raw as Record<string, unknown>) : {};
-  const hanlo = String(rawLyric.hanlo || rawLyric.hanji || rawLyric.custom || '');
-  const poj = String(rawLyric.poj || rawLyric.tl || '');
-  // Spread first so existing key order (factory `{ poj, hanlo }`) is preserved.
-  return { ...(rawLyric as LyricSyllable), hanlo, poj };
+  const hanlo = String(rawLyric.hanlo || rawLyric.hanji || rawLyric.custom || rawLyric.text || '');
+  const poj = String(rawLyric.poj || rawLyric.tl || rawLyric.phonetic || '');
+  const text = typeof rawLyric.text === 'string' ? rawLyric.text : (hanlo || '');
+  const phonetic = typeof rawLyric.phonetic === 'string' ? rawLyric.phonetic : (poj || '');
+  
+  // Spread first so existing key order is preserved
+  const res: LyricSyllable = { ...(rawLyric as LyricSyllable), hanlo, poj, text, phonetic };
+  if (typeof rawLyric.translation === 'string') res.translation = rawLyric.translation;
+  if (typeof rawLyric.isHyphenated === 'boolean') res.isHyphenated = rawLyric.isHyphenated;
+  if (typeof rawLyric.isWordEnd === 'boolean') res.isWordEnd = rawLyric.isWordEnd;
+  return res;
 }
 
 function sanitizeGraceNotes(raw: unknown): GraceNote[] | undefined {
@@ -280,6 +293,11 @@ export function sanitizeSong(raw: unknown): Song | null {
   const rawBpm = typeof parsed.bpm === 'string' ? parseInt(parsed.bpm, 10) : Number(parsed.bpm);
   const bpm = Number.isFinite(rawBpm) && rawBpm > 0 ? rawBpm : 80;
 
+  let language: SongLanguage = 'taigi';
+  if (typeof parsed.language === 'string' && VALID_LANGUAGES.has(parsed.language as SongLanguage)) {
+    language = parsed.language as SongLanguage;
+  }
+
   const song: Song = {
     ...(parsed as unknown as Song),
     id,
@@ -287,8 +305,13 @@ export function sanitizeSong(raw: unknown): Song | null {
     key: normalizeKeySignature(parsed.key),
     timeSignature: normalizeTimeSignature(parsed.timeSignature),
     bpm,
+    language,
     measures: parsed.measures.map((m, idx) => sanitizeMeasure(m, idx)),
   };
+
+  if (parsed.languageOptions && typeof parsed.languageOptions === 'object') {
+    song.languageOptions = { ...(parsed.languageOptions as SongLanguageOptions) };
+  }
 
   if (parsed.orientation != null && parsed.orientation !== 'landscape' && parsed.orientation !== 'portrait') {
     delete song.orientation;

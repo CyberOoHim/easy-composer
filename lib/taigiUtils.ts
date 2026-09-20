@@ -2569,10 +2569,25 @@ export function applyLyricTokensToSong(
       tokIdx++;
 
       const targetHanlo =
-        tok.hanlo !== undefined ? tok.hanlo : tok.hanji !== undefined ? tok.hanji : tok.custom;
-      const targetPoj = tok.poj !== undefined ? tok.poj : tok.tl;
+        tok.text !== undefined
+          ? tok.text
+          : tok.hanlo !== undefined
+          ? tok.hanlo
+          : tok.hanji !== undefined
+          ? tok.hanji
+          : tok.custom;
+      const targetPoj =
+        tok.phonetic !== undefined
+          ? tok.phonetic
+          : tok.poj !== undefined
+          ? tok.poj
+          : tok.tl;
 
       const patch: LyricSyllable = {};
+      if (tok.text !== undefined) patch.text = tok.text;
+      if (tok.phonetic !== undefined) patch.phonetic = tok.phonetic;
+      if (tok.isHyphenated !== undefined) patch.isHyphenated = tok.isHyphenated;
+      if (tok.isWordEnd !== undefined) patch.isWordEnd = tok.isWordEnd;
       if (targetHanlo !== undefined) patch.hanlo = targetHanlo;
       if (targetPoj !== undefined) patch.poj = targetPoj;
 
@@ -2607,4 +2622,18 @@ export function applyLyricTokensToSong(
     measures: newMeasures,
   });
 }
+
+export {
+  LANGUAGE_CONFIGS,
+  LANGUAGE_OPTIONS,
+  type LanguageConfig,
+  type MultilingualLyricToken,
+  splitEnglishLyricSyllables,
+  splitMandarinLyricSyllables,
+  splitJapaneseLyricSyllables,
+  splitMultilingualLyrics,
+  stripToneDiacritics,
+  matchesLyricSearch,
+  getNormalizedLyricDisplay,
+} from './multilingualUtils.ts';
 

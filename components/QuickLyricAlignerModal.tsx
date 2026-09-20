@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
-import { LyricSyllable, NoteDuration, Song } from '@/types/song';
+import React, { useState, useMemo, useEffect } from 'react';
+import { LyricSyllable, NoteDuration, Song, SongLanguage } from '@/types/song';
 import {
   splitTaigiLyricSyllables,
+  splitMultilingualLyrics,
   groupSongIntoVerses,
   isNonNotationItem,
   isPunctuationOrSpacer,
@@ -19,6 +20,7 @@ import {
   Trash2,
   Edit2,
   Sparkles,
+  Languages,
 } from 'lucide-react';
 import { getStoredQuickAlignTarget, setStoredQuickAlignTarget } from '@/lib/storage';
 
@@ -49,6 +51,13 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   onApplyLyrics,
   activeCoordinate,
 }) => {
+  const [alignLanguage, setAlignLanguage] = useState<SongLanguage>(() => song.language || 'taigi');
+  const [prevSongLanguage, setPrevSongLanguage] = useState<SongLanguage | undefined>(song.language);
+
+  if (song.language !== prevSongLanguage) {
+    setPrevSongLanguage(song.language);
+    setAlignLanguage(song.language || 'taigi');
+  }
   const [inputText, setInputText] = useState('');
   const [romanText, setRomanText] = useState('');
   const [hanloText, setHanloText] = useState('');
@@ -111,11 +120,55 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     return versePreviews.reduce((acc, vp) => acc + vp.tokens.length, 0);
   }, [versePreviews]);
 
+  // Pre-fill quick demo samples per language
+  const handleLoadSample = (lang: SongLanguage) => {
+    setAlignLanguage(lang);
+    if (targetField === 'dual') {
+      if (lang === 'english') {
+        setRomanText('A-ma-zing grace, how sweet the sound\nThat saved a wretch like me');
+        setHanloText('A-ma-zing grace, how sweet the sound\nThat saved a wretch like me');
+      } else if (lang === 'mandarin') {
+        setRomanText('Cháng tíng wài, gǔ dào biān\nFāng cǎo bì lián tiān');
+        setHanloText('長亭外，古道邊\n芳草碧連天');
+      } else if (lang === 'japanese') {
+        setRomanText('Sa-ku-ra sa-ku-ra\nYa-yo-i no so-ra wa');
+        setHanloText('桜[さくら] 桜[さくら]\n野山[のやま]も里[さと]も');
+      } else {
+        // Taigi default
+        setRomanText('To̍k iā bô phōaⁿ siú teng-ē\nChheng-hong tùi bīn chhoe');
+        setHanloText('獨夜無伴守燈下\n清風對面吹');
+      }
+    } else {
+      if (lang === 'english') {
+        setInputText('A-ma-zing grace, how sweet the sound\nThat saved a wretch like me');
+      } else if (lang === 'mandarin') {
+        setInputText(
+          targetField === 'roman'
+            ? 'Cháng tíng wài, gǔ dào biān\nFāng cǎo bì lián tiān'
+            : '長亭外，古道邊\n芳草碧連天'
+        );
+      } else if (lang === 'japanese') {
+        setInputText(
+          targetField === 'roman'
+            ? 'Sa-ku-ra sa-ku-ra\nYa-yo-i no so-ra wa'
+            : '桜[さくら] 桜[さくら]\n野山[のやま]も里[さと]も'
+        );
+      } else {
+        // Taigi default
+        setInputText(
+          targetField === 'roman'
+            ? 'To̍k iā bô phōaⁿ siú teng-ē\nChheng-hong tùi bīn chhoe'
+            : '獨夜無伴守燈下\n清風對面吹'
+        );
+      }
+    }
+  };
+
   if (!isOpen) return null;
 
   // Handle preview generation
   const handleGeneratePreview = () => {
-    // DUAL MODE: User provides both Romanization and Han-lo separately
+    // DUAL MODE: User provides both Phonetic and Primary Text separately
     if (targetField === 'dual') {
       if (!romanText.trim() && !hanloText.trim()) return;
 
@@ -127,17 +180,23 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
       for (let idx = 0; idx < lineCount; idx++) {
         const rLine = rLines[idx] || '';
         const hLine = hLines[idx] || '';
-        const rSyllables = rLine ? splitTaigiLyricSyllables(rLine) : [];
-        const hSyllables = hLine ? splitTaigiLyricSyllables(hLine) : [];
+        const rSyllables = rLine ? splitMultilingualLyrics(rLine, alignLanguage) : [];
+        const hSyllables = hLine ? splitMultilingualLyrics(hLine, alignLanguage) : [];
         const maxSyl = Math.max(rSyllables.length, hSyllables.length);
 
         const tokens: LyricSyllable[] = [];
         for (let sIdx = 0; sIdx < maxSyl; sIdx++) {
-          const r = rSyllables[sIdx] || '';
-          const h = hSyllables[sIdx] || '';
+          const r = rSyllables[sIdx];
+          const h = hSyllables[sIdx];
+          const rText = r ? r.text : '';
+          const hText = h ? h.text : '';
           tokens.push({
-            poj: r,
-            hanlo: h,
+            text: hText || rText,
+            phonetic: rText || (h ? h.phonetic : undefined),
+            isHyphenated: h?.isHyphenated ?? r?.isHyphenated,
+            isWordEnd: h?.isWordEnd ?? r?.isWordEnd,
+            poj: rText,
+            hanlo: hText,
           });
         }
 
@@ -159,7 +218,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
       return;
     }
 
-    // SINGLE MODE: Romanization or Han-Lo
+    // SINGLE MODE: Romanization/Phonetic or Han-Lo/Primary Text
     if (!inputText.trim()) return;
 
     const lines = inputText
@@ -171,12 +230,26 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
     const isRomanTarget = targetField === 'roman' || targetField === 'poj' || targetField === 'tl';
     const previews: VersePreviewItem[] = lines.map((line, idx) => {
-      const rawSyllables = splitTaigiLyricSyllables(line);
+      const rawSyllables = splitMultilingualLyrics(line, alignLanguage);
       const tokens: LyricSyllable[] = rawSyllables.map(s => {
         if (isRomanTarget) {
-          return { poj: s };
+          return {
+            text: s.text,
+            phonetic: s.phonetic || s.text,
+            isHyphenated: s.isHyphenated,
+            isWordEnd: s.isWordEnd,
+            poj: s.text,
+            hanlo: s.text,
+          };
         } else {
-          return { hanlo: s };
+          return {
+            text: s.text,
+            phonetic: s.phonetic,
+            isHyphenated: s.isHyphenated,
+            isWordEnd: s.isWordEnd,
+            poj: s.phonetic || s.text,
+            hanlo: s.text,
+          };
         }
       });
       const matchedVerse = songVerses[idx];
@@ -210,10 +283,14 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
       const targetVerse = { ...next[vIdx] };
       const nextTokens = [...targetVerse.tokens];
       const tok = { ...nextTokens[tIdx] };
+      const trimmed = tokenDraftText.trim();
       if (targetField === 'roman' || targetField === 'poj' || targetField === 'tl') {
-        tok.poj = tokenDraftText.trim();
+        tok.poj = trimmed;
+        tok.phonetic = trimmed;
+        if (!tok.text) tok.text = trimmed;
       } else {
-        tok.hanlo = tokenDraftText.trim();
+        tok.hanlo = trimmed;
+        tok.text = trimmed;
       }
       nextTokens[tIdx] = tok;
       targetVerse.tokens = nextTokens;
@@ -240,7 +317,9 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
       const targetVerse = { ...next[vIdx] };
       targetVerse.tokens = [
         ...targetVerse.tokens,
-        targetField === 'roman' ? { poj: 'syl' } : { hanlo: '字' },
+        targetField === 'roman'
+          ? { poj: 'syl', text: 'syl', phonetic: 'syl' }
+          : { hanlo: '字', text: '字' },
       ];
       next[vIdx] = targetVerse;
       return next;
@@ -251,13 +330,17 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     if (versePreviews.length === 0) return;
 
     const allTokens = versePreviews.flatMap(vp => vp.tokens);
+    const updatedSongBase: Song = {
+      ...song,
+      language: alignLanguage,
+    };
 
     // Selection / measure / verse scopes write tokens as-is so dual mode
     // keeps both POJ and Hàn-lô instead of flattening to hanlo || poj.
     if (alignScope === 'selection' && activeCoordinate) {
       const [startM, startN] = activeCoordinate;
       onApplyLyrics(
-        applyLyricTokensToSong(song, allTokens, {
+        applyLyricTokensToSong(updatedSongBase, allTokens, {
           startMeasureIdx: startM,
           startNoteIdx: startN,
           verseIndex: selectedTargetVerse,
@@ -269,7 +352,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
     if (alignScope === 'measure') {
       onApplyLyrics(
-        applyLyricTokensToSong(song, allTokens, {
+        applyLyricTokensToSong(updatedSongBase, allTokens, {
           startMeasureIdx: selectedStartMeasure,
           startNoteIdx: 0,
           verseIndex: selectedTargetVerse,
@@ -281,7 +364,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
     if (alignScope === 'verse') {
       onApplyLyrics(
-        applyLyricTokensToSong(song, allTokens, {
+        applyLyricTokensToSong(updatedSongBase, allTokens, {
           startMeasureIdx: 0,
           startNoteIdx: 0,
           verseIndex: selectedTargetVerse,
@@ -292,7 +375,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     }
 
     // Default: Multi-line verse alignment across the whole song
-    const newMeasures = song.measures.map(m => ({
+    const newMeasures = updatedSongBase.measures.map(m => ({
       ...m,
       notes: m.notes.map(note => ({
         ...note,
@@ -314,7 +397,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
           const isNoteNonNotation = isNonNotationItem(note);
           const tok = vp.tokens[tokIdx];
-          const isTokenPunct = isPunctuationOrSpacer(tok.hanlo || tok.hanji || tok.custom || '');
+          const isTokenPunct = isPunctuationOrSpacer(tok.text || tok.hanlo || tok.hanji || tok.custom || '');
 
           if (isNoteNonNotation && !isTokenPunct) {
             continue;
@@ -327,11 +410,17 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           const isLastTokenInLine = tokIdx === vp.tokens.length;
           const formattedHanlo = isLastTokenInLine && targetHanlo && !targetHanlo.includes('\n') ? `${targetHanlo}\n` : targetHanlo;
           const formattedPoj = isLastTokenInLine && targetPoj && !targetPoj.includes('\n') ? `${targetPoj}\n` : targetPoj;
+          const targetText = tok.text || formattedHanlo || targetHanlo;
+          const targetPhonetic = tok.phonetic || formattedPoj || targetPoj;
 
           note.lyric = {
             ...note.lyric,
             ...(formattedHanlo !== undefined ? { hanlo: formattedHanlo } : {}),
             ...(formattedPoj !== undefined ? { poj: formattedPoj } : {}),
+            ...(targetText !== undefined ? { text: targetText } : {}),
+            ...(targetPhonetic !== undefined ? { phonetic: targetPhonetic } : {}),
+            ...(tok.isHyphenated !== undefined ? { isHyphenated: tok.isHyphenated } : {}),
+            ...(tok.isWordEnd !== undefined ? { isWordEnd: tok.isWordEnd } : {}),
           };
 
           if (isTokenPunct && isNoteNonNotation) {
@@ -349,7 +438,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           if (tokenIdx < flatTokens.length) {
             const isNoteNonNotation = isNonNotationItem(note);
             const tok = flatTokens[tokenIdx];
-            const isTokenPunct = isPunctuationOrSpacer(tok.hanlo || tok.hanji || tok.custom || '');
+            const isTokenPunct = isPunctuationOrSpacer(tok.text || tok.hanlo || tok.hanji || tok.custom || '');
 
             if (isNoteNonNotation && !isTokenPunct) {
               return;
@@ -358,10 +447,17 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             tokenIdx++;
             const targetHanlo = tok.hanlo !== undefined ? tok.hanlo : (tok.hanji !== undefined ? tok.hanji : tok.custom);
             const targetPoj = tok.poj !== undefined ? tok.poj : tok.tl;
+            const targetText = tok.text || targetHanlo;
+            const targetPhonetic = tok.phonetic || targetPoj;
+
             note.lyric = {
               ...note.lyric,
               ...(targetHanlo !== undefined ? { hanlo: targetHanlo } : {}),
               ...(targetPoj !== undefined ? { poj: targetPoj } : {}),
+              ...(targetText !== undefined ? { text: targetText } : {}),
+              ...(targetPhonetic !== undefined ? { phonetic: targetPhonetic } : {}),
+              ...(tok.isHyphenated !== undefined ? { isHyphenated: tok.isHyphenated } : {}),
+              ...(tok.isWordEnd !== undefined ? { isWordEnd: tok.isWordEnd } : {}),
             };
 
             if (isTokenPunct && isNoteNonNotation) {
@@ -375,7 +471,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
     onApplyLyrics(
       normalizeSongDurations({
-        ...song,
+        ...updatedSongBase,
         measures: newMeasures,
       })
     );
@@ -403,6 +499,107 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
         {/* Modal Body */}
         <div className="p-6 flex flex-col gap-4 max-h-[75vh] overflow-y-auto">
+          {/* Language Selection & Sample Presets (Default: Taigi) */}
+          <div className="flex flex-col gap-2 bg-amber-500/5 dark:bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold text-zinc-800 dark:text-zinc-200 flex items-center gap-1.5">
+                <Languages className="w-3.5 h-3.5 text-amber-500" />
+                <span>Lyric Language</span>
+              </label>
+              <span className="text-[11px] text-amber-700 dark:text-amber-300 font-medium">
+                Default: Taigi (台語)
+              </span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+              <button
+                type="button"
+                id="aligner-lang-taigi"
+                onClick={() => setAlignLanguage('taigi')}
+                className={`px-2.5 py-1.5 rounded-lg border font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  alignLanguage === 'taigi'
+                    ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
+                    : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
+                }`}
+              >
+                <span>🇹🇼 台語 (Taigi)</span>
+                {alignLanguage === 'taigi' && <span className="text-[10px] bg-zinc-900 text-amber-300 px-1 rounded-sm">Default</span>}
+              </button>
+
+              <button
+                type="button"
+                id="aligner-lang-english"
+                onClick={() => setAlignLanguage('english')}
+                className={`px-2.5 py-1.5 rounded-lg border font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  alignLanguage === 'english'
+                    ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
+                    : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
+                }`}
+              >
+                <span>🇬🇧 English</span>
+              </button>
+
+              <button
+                type="button"
+                id="aligner-lang-mandarin"
+                onClick={() => setAlignLanguage('mandarin')}
+                className={`px-2.5 py-1.5 rounded-lg border font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  alignLanguage === 'mandarin'
+                    ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
+                    : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
+                }`}
+              >
+                <span>🇨🇳 華語 (Mandarin)</span>
+              </button>
+
+              <button
+                type="button"
+                id="aligner-lang-japanese"
+                onClick={() => setAlignLanguage('japanese')}
+                className={`px-2.5 py-1.5 rounded-lg border font-bold transition-all cursor-pointer flex items-center justify-center gap-1 ${
+                  alignLanguage === 'japanese'
+                    ? 'bg-amber-500 text-zinc-950 border-amber-500 shadow-xs'
+                    : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
+                }`}
+              >
+                <span>🇯🇵 日本語 (Japanese)</span>
+              </button>
+            </div>
+
+            {/* Quick demo presets */}
+            <div className="flex flex-wrap items-center gap-1.5 pt-1 text-[11px] text-zinc-500 dark:text-zinc-400">
+              <span className="font-medium">Try Sample:</span>
+              <button
+                type="button"
+                onClick={() => handleLoadSample('taigi')}
+                className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 font-mono cursor-pointer transition-colors"
+              >
+                Taigi (望春風)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLoadSample('english')}
+                className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 font-mono cursor-pointer transition-colors"
+              >
+                English (Amazing Grace)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLoadSample('mandarin')}
+                className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 font-mono cursor-pointer transition-colors"
+              >
+                Mandarin (送別)
+              </button>
+              <button
+                type="button"
+                onClick={() => handleLoadSample('japanese')}
+                className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 font-mono cursor-pointer transition-colors"
+              >
+                Japanese (さくらさくら)
+              </button>
+            </div>
+          </div>
+
           {/* Target Scope Selection (MOD-5 / MOD-3) */}
           <div className="flex flex-col gap-1.5 bg-zinc-50 dark:bg-zinc-800/40 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700/70">
             <div className="flex items-center justify-between">
@@ -706,7 +903,14 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         {vp.tokens.map((tok, tokIdx) => {
                           const isExceedingNote = !isOverflowVerse && tokIdx >= vp.noteCount;
                           const isEditingThis = editingTokenCoord?.vIdx === vIdx && editingTokenCoord?.tIdx === tokIdx;
-                          const displayVal = tok.hanlo || tok.custom || tok.hanji || (tok.poj || tok.tl || '');
+                          const displayVal =
+                            tok.text ||
+                            tok.hanlo ||
+                            tok.custom ||
+                            tok.hanji ||
+                            (tok.phonetic || tok.poj || tok.tl || '');
+                          const phoneticVal = tok.phonetic || tok.poj || tok.tl;
+                          const hasSecondaryPhonetic = (tok.text || tok.hanlo || tok.custom || tok.hanji) && phoneticVal && phoneticVal !== displayVal;
 
                           return (
                             <div
@@ -752,9 +956,9 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                                 </span>
                               )}
 
-                              {(tok.hanlo || tok.custom || tok.hanji) && (tok.poj || tok.tl) && (
+                              {hasSecondaryPhonetic && (
                                 <span className="font-serif italic text-emerald-600 dark:text-emerald-400 text-[10px] leading-tight">
-                                  {tok.poj || tok.tl}
+                                  {phoneticVal}
                                 </span>
                               )}
                             </div>

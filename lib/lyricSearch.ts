@@ -1,5 +1,6 @@
 import type { Song } from '../types/song.ts';
 import { groupSongIntoVerses } from './taigiUtils.ts';
+import { matchesLyricSearch } from './multilingualUtils.ts';
 
 export type SearchScope = 'all' | 'current';
 export type InSongFilter = 'all' | 'measure' | 'verse';
@@ -271,6 +272,7 @@ export function searchSongLyrics(
 
   // 2. Verse & Phrase Search (cross-note continuous lyrics)
   const verses = groupSongIntoVerses(song);
+  const songLang = song.language || 'taigi';
 
   verses.forEach((verse, vIdx) => {
     const vHanlo = verse.lyricSummary.hanlo || '';
@@ -285,13 +287,15 @@ export function searchSongLyrics(
     const hanloMatches =
       vHanlo.toLowerCase().includes(query.toLowerCase()) ||
       normHanlo.includes(normQuery) ||
-      denseHanlo.includes(denseQuery);
+      denseHanlo.includes(denseQuery) ||
+      matchesLyricSearch(vHanlo, query, songLang);
 
     // Check POJ / Romanization match
     const pojMatches =
       vPoj.toLowerCase().includes(query.toLowerCase()) ||
       normPoj.includes(normQuery) ||
-      densePoj.includes(denseQuery);
+      densePoj.includes(denseQuery) ||
+      matchesLyricSearch(vPoj, query, songLang);
 
     if (hanloMatches || pojMatches) {
       // Pinpoint the first note in this verse that triggered the match
@@ -300,15 +304,36 @@ export function searchSongLyrics(
 
       // Attempt note-level location
       for (const nRef of verse.notes) {
-        const noteHanlo = nRef.note.lyric?.hanlo || nRef.note.lyric?.custom || nRef.note.lyric?.hanji || '';
-        const notePoj = nRef.note.lyric?.poj || nRef.note.lyric?.tl || '';
+        const noteHanlo =
+          nRef.note.lyric?.text ||
+          nRef.note.lyric?.hanlo ||
+          nRef.note.lyric?.custom ||
+          nRef.note.lyric?.hanji ||
+          '';
+        const notePoj =
+          nRef.note.lyric?.phonetic ||
+          nRef.note.lyric?.poj ||
+          nRef.note.lyric?.tl ||
+          '';
 
         if (
-          (hanloMatches && (noteHanlo.includes(query) || normalizeDense(noteHanlo).includes(denseQuery))) ||
-          (pojMatches && (notePoj.toLowerCase().includes(query.toLowerCase()) || normalizeDense(notePoj).includes(denseQuery)))
+          (hanloMatches &&
+            (noteHanlo.includes(query) ||
+              normalizeDense(noteHanlo).includes(denseQuery) ||
+              matchesLyricSearch(noteHanlo, query, songLang))) ||
+          (pojMatches &&
+            (notePoj.toLowerCase().includes(query.toLowerCase()) ||
+              normalizeDense(notePoj).includes(denseQuery) ||
+              matchesLyricSearch(notePoj, query, songLang)))
         ) {
           matchedNoteRef = nRef;
-          matchedField = hanloMatches && (noteHanlo.includes(query) || normalizeDense(noteHanlo).includes(denseQuery)) ? 'hanlo' : 'poj';
+          matchedField =
+            hanloMatches &&
+            (noteHanlo.includes(query) ||
+              normalizeDense(noteHanlo).includes(denseQuery) ||
+              matchesLyricSearch(noteHanlo, query, songLang))
+              ? 'hanlo'
+              : 'poj';
           break;
         }
       }
@@ -351,8 +376,8 @@ export function searchSongLyrics(
     let mAnnotation = '';
 
     measure.notes.forEach(n => {
-      const h = n.lyric?.hanlo || n.lyric?.custom || n.lyric?.hanji || '';
-      const p = n.lyric?.poj || n.lyric?.tl || '';
+      const h = n.lyric?.text || n.lyric?.hanlo || n.lyric?.custom || n.lyric?.hanji || '';
+      const p = n.lyric?.phonetic || n.lyric?.poj || n.lyric?.tl || '';
       if (h && !/[\r\n]/.test(h)) mHanlo += h;
       if (p && !/[\r\n]/.test(p)) mPoj += (mPoj ? ' ' : '') + p;
       if (n.annotation) mAnnotation += (mAnnotation ? ' ' : '') + n.annotation;
@@ -364,9 +389,21 @@ export function searchSongLyrics(
     const densePoj = normalizeDense(mPoj);
     const normAnnotation = normalizeForSearch(mAnnotation);
 
-    const hanloMatch = mHanlo && (mHanlo.toLowerCase().includes(query.toLowerCase()) || normHanlo.includes(normQuery) || denseHanlo.includes(denseQuery));
-    const pojMatch = mPoj && (mPoj.toLowerCase().includes(query.toLowerCase()) || normPoj.includes(normQuery) || densePoj.includes(denseQuery));
-    const annotMatch = mAnnotation && (mAnnotation.toLowerCase().includes(query.toLowerCase()) || normAnnotation.includes(normQuery));
+    const hanloMatch =
+      mHanlo &&
+      (mHanlo.toLowerCase().includes(query.toLowerCase()) ||
+        normHanlo.includes(normQuery) ||
+        denseHanlo.includes(denseQuery) ||
+        matchesLyricSearch(mHanlo, query, songLang));
+    const pojMatch =
+      mPoj &&
+      (mPoj.toLowerCase().includes(query.toLowerCase()) ||
+        normPoj.includes(normQuery) ||
+        densePoj.includes(denseQuery) ||
+        matchesLyricSearch(mPoj, query, songLang));
+    const annotMatch =
+      mAnnotation &&
+      (mAnnotation.toLowerCase().includes(query.toLowerCase()) || normAnnotation.includes(normQuery));
 
     if (hanloMatch || pojMatch || annotMatch) {
       const matchedField: 'hanlo' | 'poj' | 'metadata' = hanloMatch ? 'hanlo' : (pojMatch ? 'poj' : 'metadata');
@@ -424,12 +461,14 @@ export function searchWithinSong(
   const lowerQuery = query.toLowerCase();
   const normQuery = normalizeForSearch(query);
   const denseQuery = normalizeDense(query);
+  const songLang = song.language || 'taigi';
 
   const checkMatch = (text: string | undefined): boolean => {
     if (!text) return false;
     if (text.toLowerCase().includes(lowerQuery)) return true;
     if (normQuery && normalizeForSearch(text).includes(normQuery)) return true;
     if (denseQuery && normalizeDense(text).includes(denseQuery)) return true;
+    if (matchesLyricSearch(text, query, songLang)) return true;
     return false;
   };
 
@@ -444,8 +483,8 @@ export function searchWithinSong(
     const matchedNoteIndices: number[] = [];
 
     measure.notes.forEach((n, nIdx) => {
-      const h = n.lyric?.hanlo || n.lyric?.custom || n.lyric?.hanji || '';
-      const p = n.lyric?.poj || n.lyric?.tl || '';
+      const h = n.lyric?.text || n.lyric?.hanlo || n.lyric?.custom || n.lyric?.hanji || '';
+      const p = n.lyric?.phonetic || n.lyric?.poj || n.lyric?.tl || '';
       const a = n.annotation || '';
 
       if (h && !/[\r\n]/.test(h)) mHanlo += h;
@@ -502,8 +541,17 @@ export function searchWithinSong(
     const matchedNoteIndices: number[] = [];
 
     verse.notes.forEach((nRef, nIdx) => {
-      const h = nRef.note.lyric?.hanlo || nRef.note.lyric?.custom || nRef.note.lyric?.hanji || '';
-      const p = nRef.note.lyric?.poj || nRef.note.lyric?.tl || '';
+      const h =
+        nRef.note.lyric?.text ||
+        nRef.note.lyric?.hanlo ||
+        nRef.note.lyric?.custom ||
+        nRef.note.lyric?.hanji ||
+        '';
+      const p =
+        nRef.note.lyric?.phonetic ||
+        nRef.note.lyric?.poj ||
+        nRef.note.lyric?.tl ||
+        '';
       const a = nRef.note.annotation || '';
       if (a) vAnnotation += (vAnnotation ? ' ' : '') + a;
 

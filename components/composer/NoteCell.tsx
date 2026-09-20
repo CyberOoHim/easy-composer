@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { NumberedNotationNote, LyricDisplayMode } from '@/types/song';
+import { NumberedNotationNote, LyricDisplayMode, SongLanguage } from '@/types/song';
 import {
   isNonNotationItem,
   isPunctuationOrSpacer,
@@ -21,6 +21,7 @@ interface NoteCellProps {
   isSelected: boolean;
   isPlaybackActive: boolean;
   displayMode: LyricDisplayMode;
+  language?: SongLanguage;
   onSelectNote: (mIdx: number, nIdx: number) => void;
   onUpdateLyric: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo', val: string) => void;
   onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
@@ -37,6 +38,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   isSelected,
   isPlaybackActive,
   displayMode,
+  language = 'taigi',
   onSelectNote,
   onUpdateLyric,
   onUpdateAnnotation,
@@ -477,13 +479,13 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
         }}
         className="w-full flex flex-col gap-1.5 pt-1.5 border-t border-zinc-200 dark:border-zinc-800/80 shrink-0"
       >
-        {/* Roman (POJ) Lyric Input - on top */}
+        {/* Upper Lyric Input (Roman / Pinyin / Furigana / Alt) */}
         {displayMode !== 'hanlo' && displayMode !== 'hanji_only' && displayMode !== 'custom_only' && (
           <div className="w-full flex flex-col shrink-0">
             <input
               id={`lyric-input-${mIdx}-${nIdx}-roman`}
               type="text"
-              value={note.lyric.poj || note.lyric.tl || ''}
+              value={note.lyric.phonetic || note.lyric.poj || note.lyric.tl || ''}
               onClick={e => e.stopPropagation()}
               onFocus={() => {
                 onSelectNote(mIdx, nIdx);
@@ -509,20 +511,36 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                   }
                 }
               }}
-              placeholder="Roman (POJ)"
+              placeholder={
+                language === 'english'
+                  ? 'Alt / IPA'
+                  : language === 'mandarin'
+                  ? 'Pinyin (拼音)'
+                  : language === 'japanese'
+                  ? 'Furigana (ふりがな)'
+                  : 'Roman (POJ)'
+              }
               className="w-full text-center font-serif italic text-[22px] leading-tight font-bold px-1 py-1 rounded-lg bg-emerald-50/80 dark:bg-[#0c1410] border border-emerald-300 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 h-[42px] min-h-[42px] placeholder:text-[13px] placeholder:font-normal placeholder:not-italic placeholder:text-emerald-800/50 dark:placeholder:text-emerald-400/40 touch-manipulation"
-              title="Romanization (POJ) - Space, hyphen, or Tab moves to next note"
+              title={
+                language === 'english'
+                  ? 'Alternative pronunciation / IPA - Space, hyphen, or Tab moves to next note'
+                  : language === 'mandarin'
+                  ? 'Pinyin - Space or Tab moves to next note'
+                  : language === 'japanese'
+                  ? 'Furigana / Romaji - Space or Tab moves to next note'
+                  : 'Romanization (POJ) - Space, hyphen, or Tab moves to next note'
+              }
             />
           </div>
         )}
 
-        {/* Hanlo Lyric Input - below Roman (POJ) */}
+        {/* Primary Lyric Input (Hanlo / Hanzi / Kanji / English lyrics) */}
         {displayMode !== 'roman' && displayMode !== 'poj_only' && (
           <div className="w-full flex flex-col shrink-0">
             <input
               id={`lyric-input-${mIdx}-${nIdx}-hanlo`}
               type="text"
-              value={note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || ''}
+              value={note.lyric.text || note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || ''}
               onClick={e => e.stopPropagation()}
               onFocus={() => {
                 onSelectNote(mIdx, nIdx);
@@ -543,9 +561,25 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                   }
                 }
               }}
-              placeholder="Han-lô"
+              placeholder={
+                language === 'english'
+                  ? 'Lyric / Word'
+                  : language === 'mandarin'
+                  ? 'Hanzi (漢字)'
+                  : language === 'japanese'
+                  ? 'Kanji / Kana (歌詞)'
+                  : 'Han-lô'
+              }
               className="w-full text-center font-black text-[25px] leading-tight px-1 py-1 rounded-lg bg-zinc-100/90 dark:bg-[#0a0c10] border border-zinc-300 dark:border-zinc-700 text-zinc-950 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 h-[46px] min-h-[46px] placeholder:text-[14px] placeholder:font-normal placeholder:text-zinc-500 dark:placeholder:text-zinc-500 touch-manipulation"
-              title="Han-lô / Lyrics - Space or Tab moves to next note"
+              title={
+                language === 'english'
+                  ? 'English lyrics - Space or Tab moves to next note'
+                  : language === 'mandarin'
+                  ? 'Chinese Hanzi - Space or Tab moves to next note'
+                  : language === 'japanese'
+                  ? 'Japanese lyrics - Space or Tab moves to next note'
+                  : 'Han-lô / Lyrics - Space or Tab moves to next note'
+              }
             />
           </div>
         )}

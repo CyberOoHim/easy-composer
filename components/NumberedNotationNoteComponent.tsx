@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { NumberedNotationNote, LyricDisplayMode } from '@/types/song';
+import { NumberedNotationNote, LyricDisplayMode, SongLanguage } from '@/types/song';
 import { cn } from '@/lib/utils';
 import {
   isMelismaContinuation,
@@ -20,6 +20,7 @@ export interface NumberedNotationNoteComponentProps {
   isActive?: boolean;
   playProgress?: number; // 0 to 1 progress within this note during playback
   displayMode?: LyricDisplayMode;
+  language?: SongLanguage;
   onClick?: (e?: React.MouseEvent) => void;
   className?: string;
   isKaraokeMode?: boolean;
@@ -33,6 +34,7 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
   isActive = false,
   playProgress = 0,
   displayMode = 'all',
+  language = 'taigi',
   onClick,
   className,
   isKaraokeMode = false,
@@ -81,12 +83,13 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
       ? Math.floor(note.duration) - 1
       : 0;
 
-  // Lyric texts
-  const hanlo = note.lyric?.hanlo || note.lyric?.custom || note.lyric?.hanji || '';
-  const poj = note.lyric?.poj || note.lyric?.tl || '';
+  // Lyric texts - compatible with universal multilingual and legacy Taigi fields
+  const hanlo = note.lyric?.text || note.lyric?.hanlo || note.lyric?.custom || note.lyric?.hanji || '';
+  const poj = note.lyric?.phonetic || note.lyric?.poj || note.lyric?.tl || '';
   const annotation = note.annotation || '';
+  const isHyphenated = Boolean(note.lyric?.isHyphenated || hanlo.endsWith('-') || poj.endsWith('-'));
 
-  // Determine what lyrics to show based on display mode
+  // Determine what lyrics to show based on display mode and language
   const renderLyricContent = () => {
     const hasText = Boolean(hanlo || poj || annotation);
     if (!hasText) {
@@ -112,6 +115,91 @@ export const NumberedNotationNoteComponent: React.FC<NumberedNotationNoteCompone
     const primaryText = hanlo || annotation || poj || '';
     const isPunctuation = isPunctuationOrSpacer(primaryText);
 
+    // English language rendering: clean single word/syllable line by default, or secondary translation/IPA above/below
+    if (language === 'english') {
+      const engLyric = hanlo || poj || annotation || '—';
+      const secondaryEng = hanlo && poj && hanlo !== poj ? poj : '';
+      if (secondaryEng && (displayMode === 'all' || displayMode === 'roman_major_hanlo' || displayMode === 'hanlo_major_roman')) {
+        return (
+          <div className="flex flex-col items-center leading-tight gap-0">
+            <span className="text-[11px] sm:text-xs font-sans text-zinc-500 dark:text-zinc-400 font-normal leading-tight">
+              {secondaryEng}
+            </span>
+            <span className={cn(
+              'font-serif text-base font-bold leading-tight',
+              isPunctuation ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-900 dark:text-zinc-100',
+              isHyphenated && 'tracking-tight'
+            )}>
+              {engLyric}
+            </span>
+          </div>
+        );
+      }
+      return (
+        <span
+          className={cn(
+            'font-serif text-base font-bold tracking-tight',
+            isPunctuation ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-900 dark:text-zinc-100'
+          )}
+        >
+          {engLyric}
+        </span>
+      );
+    }
+
+    // Japanese language rendering: Furigana ruby reading above Kanji/Kana
+    if (language === 'japanese') {
+      const kanjiText = hanlo || poj || annotation || '—';
+      const furiganaText = poj !== hanlo ? poj : '';
+      if (furiganaText && displayMode !== 'hanlo' && displayMode !== 'hanji_only') {
+        return (
+          <div className="flex flex-col items-center leading-none gap-0.5">
+            <span className="text-[11px] font-sans text-amber-700 dark:text-amber-400 font-medium leading-none">
+              {furiganaText}
+            </span>
+            <span className={cn(
+              'font-bold text-base tracking-wide leading-tight',
+              isPunctuation ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-900 dark:text-zinc-100'
+            )}>
+              {kanjiText}
+            </span>
+          </div>
+        );
+      }
+      return (
+        <span className={cn('font-bold text-base tracking-wide', isPunctuation ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-900 dark:text-zinc-100')}>
+          {kanjiText}
+        </span>
+      );
+    }
+
+    // Mandarin language rendering: Pinyin reading above Hanzi
+    if (language === 'mandarin') {
+      const hanziText = hanlo || annotation || '—';
+      const pinyinText = poj;
+      if (pinyinText && displayMode !== 'hanlo' && displayMode !== 'hanji_only') {
+        return (
+          <div className="flex flex-col items-center leading-tight gap-0">
+            <span className="text-[12px] font-serif italic text-emerald-700 dark:text-emerald-400 font-medium leading-tight">
+              {pinyinText}
+            </span>
+            <span className={cn(
+              'font-bold text-base tracking-wide leading-tight',
+              isPunctuation ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-900 dark:text-zinc-100'
+            )}>
+              {hanziText}
+            </span>
+          </div>
+        );
+      }
+      return (
+        <span className={cn('font-bold text-base tracking-wide', isPunctuation ? 'text-amber-700 dark:text-amber-400' : 'text-zinc-900 dark:text-zinc-100')}>
+          {hanziText}
+        </span>
+      );
+    }
+
+    // Default: Taigi (Taiwanese Hokkien) - Full backward-compatible dual-line Hanlo & POJ
     const effectiveMode: 'roman' | 'hanlo' | 'roman_major_hanlo' | 'hanlo_major_roman' =
       displayMode === 'hanlo_major_roman' || displayMode === 'hanji_poj'
         ? 'hanlo_major_roman'
