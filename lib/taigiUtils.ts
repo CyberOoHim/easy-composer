@@ -1522,7 +1522,7 @@ export function getDiatonicChords(key: KeySignature): DiatonicChordOption[] {
 // Instrument labels and options
 export const INSTRUMENT_LABELS: Record<InstrumentType, { en: string; zh: string }> = {
   piano: { en: 'Grand Piano', zh: 'Piano' },
-  flute: { en: 'Bamboo Flute', zh: 'Flute' },
+  flute: { en: 'Flute', zh: 'Flute / 長笛' },
   whistle: { en: 'Whistle', zh: 'Whistle' },
   guitar: { en: 'Classic Guitar', zh: 'Guitar' },
   synth: { en: '80s Synth', zh: 'Synth' },
@@ -1534,6 +1534,9 @@ export const INSTRUMENT_LABELS: Record<InstrumentType, { en: string; zh: string 
   epiano_fm: { en: 'FM E-Piano', zh: 'E-Piano' },
   saxophone: { en: 'Saxophone', zh: 'Saxophone' },
   guitar_electric: { en: 'Clean E-Guitar', zh: 'E-Guitar' },
+  kalimba: { en: 'Kalimba', zh: 'Kalimba / 卡林巴琴' },
+  music_box: { en: 'Music Box', zh: 'Music Box / 音樂盒' },
+  'music-box': { en: 'Music Box', zh: 'Music Box / 音樂盒' },
 };
 
 export interface InstrumentOption {
@@ -1556,7 +1559,8 @@ export const CATEGORIZED_INSTRUMENT_OPTIONS: {
     labelZh: '經典與古典',
     options: [
       { value: 'piano', labelZh: '鋼琴 (Piano)', labelEn: 'Grand Piano', category: 'standard' },
-      { value: 'flute', labelZh: '竹笛 (Flute)', labelEn: 'Bamboo Flute', category: 'standard' },
+      { value: 'flute', labelZh: '長笛 / 竹笛 (Flute)', labelEn: 'Flute', category: 'standard', badge: 'SoundFont' },
+      { value: 'music_box', labelZh: '音樂盒 (Music Box)', labelEn: 'Music Box', category: 'standard', badge: 'SoundFont' },
       { value: 'cello', labelZh: '大提琴 (Cello)', labelEn: 'Cello', category: 'standard' },
       { value: 'whistle', labelZh: '哨笛 (Whistle)', labelEn: 'Whistle', category: 'standard' },
       { value: 'bell', labelZh: '鐘琴 (Glockenspiel)', labelEn: 'Glockenspiel', category: 'standard' },
@@ -1569,6 +1573,7 @@ export const CATEGORIZED_INSTRUMENT_OPTIONS: {
     labelZh: '民謠與老歌',
     options: [
       { value: 'guitar_acoustic', labelZh: '民謠吉他 (Acoustic Guitar)', labelEn: 'Acoustic Guitar (Folk)', category: 'folk', badge: 'SoundFont' },
+      { value: 'kalimba', labelZh: '卡林巴琴 (Kalimba)', labelEn: 'Kalimba (Thumb Piano)', category: 'folk', badge: 'SoundFont' },
       { value: 'accordion', labelZh: '手風琴 (Accordion)', labelEn: 'Accordion (Musette)', category: 'folk', badge: 'SoundFont' },
       { value: 'harmonica', labelZh: '口琴 (Harmonica)', labelEn: 'Harmonica', category: 'folk', badge: 'SoundFont' },
       { value: 'guitar', labelZh: '古典吉他 (Classic Guitar)', labelEn: 'Classic Guitar', category: 'folk' },

@@ -49,6 +49,9 @@ export const GM_INSTRUMENT_MAP: Record<InstrumentType, number> = {
   epiano_fm: 4,         // Electric Piano 1 (Rhodes / FM)
   saxophone: 64,        // Soprano Saxophone
   guitar_electric: 27,  // Electric Guitar (clean)
+  kalimba: 108,         // Kalimba
+  music_box: 10,        // Music Box
+  'music-box': 10,
 };
 
 /** Key signature sharp/flat count (-7 to +7) */

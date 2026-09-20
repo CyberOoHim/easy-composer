@@ -87,6 +87,42 @@ export const SOUNDFONT_CATALOG: Record<string, SoundFontMeta> = {
     labelZh: '純音電吉他',
     anchorPitches: [40, 47, 52, 59, 64, 71, 76], // E2 to E5
   },
+  flute: {
+    instrument: 'flute',
+    gmName: 'flute',
+    gmProgram: 73,
+    category: 'standard',
+    labelEn: 'Flute',
+    labelZh: '長笛 / 竹笛',
+    anchorPitches: [60, 65, 69, 72, 77, 81, 84, 89, 96], // C4 to C7
+  },
+  kalimba: {
+    instrument: 'kalimba',
+    gmName: 'kalimba',
+    gmProgram: 108,
+    category: 'folk',
+    labelEn: 'Kalimba (Thumb Piano)',
+    labelZh: '卡林巴琴 (拇指琴)',
+    anchorPitches: [53, 57, 60, 64, 67, 72, 76, 79, 84, 88], // F3 to E6
+  },
+  music_box: {
+    instrument: 'music_box',
+    gmName: 'music_box',
+    gmProgram: 10,
+    category: 'standard',
+    labelEn: 'Music Box',
+    labelZh: '音樂盒 (八音盒)',
+    anchorPitches: [60, 67, 72, 79, 84, 91, 96], // C4 to C7
+  },
+  'music-box': {
+    instrument: 'music_box',
+    gmName: 'music_box',
+    gmProgram: 10,
+    category: 'standard',
+    labelEn: 'Music Box',
+    labelZh: '音樂盒 (八音盒)',
+    anchorPitches: [60, 67, 72, 79, 84, 91, 96],
+  },
 };
 
 export class SoundFontEngine {
@@ -271,6 +307,68 @@ export class SoundFontEngine {
         break;
       }
 
+      case 'flute': {
+        // Pure orchestral / concert flute with subtle breath chiff and warm cylindrical resonance
+        for (let n = 0; n < numSamples; n++) {
+          const t = n / sampleRate;
+          // Natural expressive vibrato (~5.2Hz) developing after 0.08s
+          const vib = t > 0.08 ? 1 + 0.012 * Math.sin(2 * Math.PI * 5.2 * (t - 0.08)) : 1;
+          const f = baseFreq * vib;
+          // Fundamental dominant + 2nd & 3rd harmonic air-column overtones
+          const wave =
+            Math.sin(2 * Math.PI * f * t) * 0.76 +
+            Math.sin(2 * Math.PI * f * 2 * t) * 0.16 +
+            Math.sin(2 * Math.PI * f * 3 * t) * 0.06;
+          // Breath chiff transient at note onset (< 35ms)
+          const chiffNoise = (Math.random() * 2 - 1) * 0.12 * Math.exp(-t / 0.025);
+          const env = t < 0.035 ? t / 0.035 : Math.exp(-t / (durationSec * 1.6));
+          data[n] = (wave + chiffNoise) * env * 0.85;
+        }
+        break;
+      }
+
+      case 'kalimba': {
+        // Plucked steel tine on wooden resonator box:
+        // Inharmonic metallic strike transient (2.76x & 5.4x) decaying into sweet singing chime
+        const fTine = baseFreq * 2.76;
+        const fTine2 = baseFreq * 5.4;
+        for (let n = 0; n < numSamples; n++) {
+          const t = n / sampleRate;
+          const tineStrike =
+            Math.sin(2 * Math.PI * fTine * t) * 0.35 * Math.exp(-t / 0.07) +
+            Math.sin(2 * Math.PI * fTine2 * t) * 0.18 * Math.exp(-t / 0.03);
+          // Pure singing sine-triangle fundamental with 2nd harmonic
+          const fundamental =
+            Math.sin(2 * Math.PI * baseFreq * t) * 0.72 +
+            Math.sin(2 * Math.PI * baseFreq * 2 * t) * 0.18;
+          // Wooden cavity body bloom impulse
+          const woodBloom = Math.sin(2 * Math.PI * 260 * t) * 0.15 * Math.exp(-t / 0.12);
+          const env = Math.exp(-t / (durationSec * 0.95));
+          data[n] = (fundamental + tineStrike + woodBloom) * env * 0.88;
+        }
+        break;
+      }
+
+      case 'music_box':
+      case 'music-box': {
+        // Mechanical music box steel comb tines:
+        // Crystalline sharp high chime with bright 3.14x and 6.28x overtones
+        const fChime1 = baseFreq * 3.14;
+        const fChime2 = baseFreq * 6.28;
+        for (let n = 0; n < numSamples; n++) {
+          const t = n / sampleRate;
+          const metallicPluck =
+            Math.sin(2 * Math.PI * fChime1 * t) * 0.42 * Math.exp(-t / 0.06) +
+            Math.sin(2 * Math.PI * fChime2 * t) * 0.22 * Math.exp(-t / 0.025);
+          const fundamental =
+            Math.sin(2 * Math.PI * baseFreq * t) * 0.8 +
+            Math.sin(2 * Math.PI * baseFreq * 2 * t) * 0.15;
+          const env = Math.exp(-t / (durationSec * 0.7));
+          data[n] = (fundamental + metallicPluck) * env * 0.85;
+        }
+        break;
+      }
+
       default: {
         for (let n = 0; n < numSamples; n++) {
           const t = n / sampleRate;
@@ -433,13 +531,20 @@ export class SoundFontEngine {
     gain.gain.setValueAtTime(0.0001, playStart);
     gain.gain.linearRampToValueAtTime(vol, playStart + attackTime);
 
-    if (inst === 'guitar_acoustic' || inst === 'epiano_fm' || inst === 'guitar_electric') {
-      // Natural percussive string/bell decay
+    if (
+      inst === 'guitar_acoustic' ||
+      inst === 'epiano_fm' ||
+      inst === 'guitar_electric' ||
+      inst === 'kalimba' ||
+      inst === 'music_box' ||
+      inst === 'music-box'
+    ) {
+      // Natural percussive string/tine/bell decay
       const decayTarget = Math.max(0.0001, vol * 0.35);
       gain.gain.exponentialRampToValueAtTime(decayTarget, playStart + Math.min(0.25, playDuration * 0.5));
       gain.gain.exponentialRampToValueAtTime(0.00001, stopTime);
     } else {
-      // Sustained wind/reed envelope
+      // Sustained wind/reed envelope (flute, accordion, harmonica, saxophone)
       const sustainTime = playStart + playDuration * 0.85;
       gain.gain.setValueAtTime(vol * 0.8, sustainTime);
       gain.gain.exponentialRampToValueAtTime(0.00001, stopTime);

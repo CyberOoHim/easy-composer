@@ -291,6 +291,9 @@ const ALL_VALID_INSTRUMENTS = new Set<string>([
   'epiano_fm',
   'saxophone',
   'guitar_electric',
+  'kalimba',
+  'music_box',
+  'music-box',
 ]);
 
 export function getStoredInstrument(): InstrumentType {

@@ -128,7 +128,10 @@ export type InstrumentType =
   | 'harmonica'
   | 'epiano_fm'
   | 'saxophone'
-  | 'guitar_electric';
+  | 'guitar_electric'
+  | 'kalimba'
+  | 'music_box'
+  | 'music-box';
 
 export type EditorEditMode = 'note' | 'sheet' | 'verse' | 'measure';
 export type NoteEditSubMode = 'verse' | 'measure';

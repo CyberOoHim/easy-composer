@@ -717,6 +717,9 @@ export class AudioEngine {
       try {
         localStorage.setItem('taigi_composer_instrument', opts.instrument);
       } catch {}
+      if (this.ctx) {
+        soundFontEngine.loadInstrument(this.ctx, opts.instrument).catch(() => {});
+      }
     }
     if (this.ctx) {
       if (this.melodyGain && this.options.melodyVolume !== undefined) {
@@ -1358,6 +1361,55 @@ export class AudioEngine {
         voiceGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 7.5);
         break;
       }
+      case 'kalimba': {
+        // Metallic tine transient + warm wooden resonator box
+        const mainOsc = this.createVoiceOsc('sine', freq, startTime);
+        const overtone = this.createVoiceOsc('sine', freq * 2.76, startTime);
+        const overtoneGain = this.createVoiceGain(startTime, 0.35 * volMul);
+        overtoneGain.gain.exponentialRampToValueAtTime(Math.max(0.001, 0.02 * volMul), startTime + 0.12);
+        overtone.connect(overtoneGain);
+        overtoneGain.connect(voiceGain);
+        oscs.push(overtone);
+        gains.push(overtoneGain);
+
+        if (!isEco) {
+          const woodBody = this.createVoiceFilter('peaking', 280, 2.5, 4.0, startTime);
+          mainOsc.connect(woodBody);
+          woodBody.connect(voiceGain);
+        } else {
+          mainOsc.connect(voiceGain);
+        }
+        oscs.push(mainOsc);
+
+        voiceGain.gain.setValueAtTime(0.0001, startTime);
+        voiceGain.gain.linearRampToValueAtTime(0.92 * volMul, startTime + 0.002);
+        voiceGain.gain.exponentialRampToValueAtTime(Math.max(0.02, 0.25 * volMul), startTime + 0.25);
+        voiceGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 5.0);
+        break;
+      }
+      case 'music_box':
+      case 'music-box': {
+        // Crystalline steel comb tines: pure fundamental + sharp sparkling 3.14x & 6.28x overtones
+        const mainOsc = this.createVoiceOsc('sine', freq, startTime);
+        mainOsc.connect(voiceGain);
+        oscs.push(mainOsc);
+
+        if (!isEco) {
+          const tineHarm = this.createVoiceOsc('sine', freq * 3.14, startTime);
+          const tineGain = this.createVoiceGain(startTime, 0.4 * volMul);
+          tineGain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.08);
+          tineHarm.connect(tineGain);
+          tineGain.connect(voiceGain);
+          oscs.push(tineHarm);
+          gains.push(tineGain);
+        }
+
+        voiceGain.gain.setValueAtTime(0.0001, startTime);
+        voiceGain.gain.linearRampToValueAtTime(0.95 * volMul, startTime + 0.001);
+        voiceGain.gain.exponentialRampToValueAtTime(Math.max(0.01, 0.22 * volMul), startTime + 0.2);
+        voiceGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 4.5);
+        break;
+      }
       default: {
         const mainOsc = this.createVoiceOsc('triangle', freq, startTime);
         mainOsc.connect(voiceGain);
@@ -1789,6 +1841,15 @@ export class AudioEngine {
           ecoFreq = freq > 350 ? freq * 0.5 : freq;
           attackSec = isLegato ? 0.014 : 0.028;
           break;
+        case 'kalimba':
+          ecoType = 'sine';
+          attackSec = isLegato ? 0.008 : 0.002;
+          break;
+        case 'music_box':
+        case 'music-box':
+          ecoType = 'sine';
+          attackSec = 0.001;
+          break;
       }
 
       const osc = this.createVoiceOsc(ecoType, ecoFreq, startTime, stopTime);
@@ -1816,6 +1877,15 @@ export class AudioEngine {
         const f = this.createVoiceFilter('lowpass', Math.min(4400, freq * 4.0), 1.2, 0, startTime);
         osc.connect(f);
         voiceOutput = f;
+      } else if (instrument === 'kalimba') {
+        const f = this.createVoiceFilter('lowpass', Math.min(3200, freq * 3.0), 1.4, 0, startTime);
+        f.frequency.exponentialRampToValueAtTime(Math.max(220, freq * 1.1), startTime + Math.min(0.08, effectiveDuration * 0.3));
+        osc.connect(f);
+        voiceOutput = f;
+      } else if (instrument === 'music_box' || instrument === 'music-box') {
+        const f = this.createVoiceFilter('highpass', 400, 1.0, 0, startTime);
+        osc.connect(f);
+        voiceOutput = f;
       } else if (instrument === 'cello') {
         const f = this.createVoiceFilter('lowpass', Math.min(2400, Math.max(600, ecoFreq * 2.8)), 1.2, 0, startTime);
         osc.connect(f);
@@ -1833,7 +1903,10 @@ export class AudioEngine {
         instrument === 'guitar_electric' ||
         instrument === 'epiano_fm' ||
         instrument === 'bell' ||
-        instrument === 'piano'
+        instrument === 'piano' ||
+        instrument === 'kalimba' ||
+        instrument === 'music_box' ||
+        instrument === 'music-box'
       ) {
         // Percussive decay envelope
         gain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + attackSec);
@@ -2311,6 +2384,58 @@ export class AudioEngine {
         gain.gain.linearRampToValueAtTime(0.88 * volMul, startTime + attack);
         const drop = startTime + Math.min(0.14, effectiveDuration * 0.35);
         gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.36 * volMul), drop);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        break;
+      }
+      case 'kalimba': {
+        // Kalimba: clear singing fundamental + inharmonic metallic tine strike transient + wooden cavity resonance
+        const mainOsc = this.createVoiceOsc('sine', options?.glideFromFreq || freq, startTime, stopTime);
+        if (options?.glideFromFreq) {
+          mainOsc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.06, effectiveDuration * 0.4));
+        }
+
+        // Metallic tine strike overtone (2.76x fundamental)
+        const tineOsc = this.createVoiceOsc('sine', (options?.glideFromFreq || freq) * 2.76, startTime, stopTime);
+        const tineGain = this.createVoiceGain(startTime, 0.38 * volMul);
+        tineGain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(0.12, effectiveDuration * 0.3));
+        tineOsc.connect(tineGain);
+
+        // Warm wooden body acoustic bloom
+        const bodyFilter = this.createVoiceFilter('peaking', 280, 2.2, 3.8, startTime);
+        mainOsc.connect(bodyFilter);
+        tineGain.connect(bodyFilter);
+        outputNode = bodyFilter;
+
+        const attack = isLegato ? 0.008 : 0.002;
+        gain.gain.linearRampToValueAtTime(0.92 * volMul, startTime + attack);
+        const drop = startTime + Math.min(0.15, effectiveDuration * 0.32);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.32 * volMul), drop);
+        gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        break;
+      }
+      case 'music_box':
+      case 'music-box': {
+        // Music Box: Sparkling crystalline high steel comb tines (sine fundamental + 3.14x sharp bell chime)
+        const mainOsc = this.createVoiceOsc('sine', options?.glideFromFreq || freq, startTime, stopTime);
+        if (options?.glideFromFreq) {
+          mainOsc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.05, effectiveDuration * 0.3));
+        }
+
+        // Metallic comb strike transient
+        const chimeOsc = this.createVoiceOsc('sine', (options?.glideFromFreq || freq) * 3.14, startTime, stopTime);
+        const chimeGain = this.createVoiceGain(startTime, 0.42 * volMul);
+        chimeGain.gain.exponentialRampToValueAtTime(0.0001, startTime + Math.min(0.09, effectiveDuration * 0.25));
+        chimeOsc.connect(chimeGain);
+
+        const highPass = this.createVoiceFilter('highpass', 420, 0.8, 0, startTime);
+        mainOsc.connect(highPass);
+        chimeGain.connect(highPass);
+        outputNode = highPass;
+
+        const attack = 0.001; // Instant crisp steel pin pluck
+        gain.gain.linearRampToValueAtTime(0.95 * volMul, startTime + attack);
+        const drop = startTime + Math.min(0.12, effectiveDuration * 0.28);
+        gain.gain.exponentialRampToValueAtTime(Math.max(0.0001, 0.28 * volMul), drop);
         gain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
         break;
       }
