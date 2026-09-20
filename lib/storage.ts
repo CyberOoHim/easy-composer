@@ -425,13 +425,14 @@ export function getStoredUiZoom(defaultVal = 1.0): number {
   const val = safeGetItem(STORAGE_KEYS.UI_TEXT_ZOOM);
   if (val !== null) {
     const num = parseFloat(val);
-    if (!isNaN(num) && num >= 0.7 && num <= 2.0) return num;
+    if (!isNaN(num) && num >= 0.7 && num <= 2.0) return Math.round(num * 100) / 100;
   }
   return defaultVal;
 }
 
 export function setStoredUiZoom(zoom: number): void {
-  safeSetItem(STORAGE_KEYS.UI_TEXT_ZOOM, String(zoom));
+  const clamped = Math.min(1.5, Math.max(0.8, Math.round(zoom * 100) / 100));
+  safeSetItem(STORAGE_KEYS.UI_TEXT_ZOOM, String(clamped));
 }
 
 export const NOTE_ZOOM_EVENT = 'taigi_composer_note_zoom_change';
@@ -441,13 +442,13 @@ export function getStoredNoteZoom(defaultVal = 1.0): number {
   const val = safeGetItem(STORAGE_KEYS.NOTE_ZOOM);
   if (val !== null) {
     const num = parseFloat(val);
-    if (!isNaN(num) && num >= 0.6 && num <= 2.2) return Math.round(num * 10) / 10;
+    if (!isNaN(num) && num >= 0.6 && num <= 2.2) return Math.round(num * 100) / 100;
   }
   return defaultVal;
 }
 
 export function setStoredNoteZoom(zoom: number): void {
-  const clamped = Math.min(2.0, Math.max(0.6, Math.round(zoom * 10) / 10));
+  const clamped = Math.min(2.0, Math.max(0.7, Math.round(zoom * 100) / 100));
   safeSetItem(STORAGE_KEYS.NOTE_ZOOM, String(clamped));
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(NOTE_ZOOM_EVENT, { detail: { zoom: clamped } }));
@@ -458,13 +459,13 @@ export function getStoredLyricZoom(defaultVal = 1.0): number {
   const val = safeGetItem(STORAGE_KEYS.LYRIC_ZOOM);
   if (val !== null) {
     const num = parseFloat(val);
-    if (!isNaN(num) && num >= 0.6 && num <= 2.2) return Math.round(num * 10) / 10;
+    if (!isNaN(num) && num >= 0.5 && num <= 2.5) return Math.round(num * 100) / 100;
   }
   return defaultVal;
 }
 
 export function setStoredLyricZoom(zoom: number): void {
-  const clamped = Math.min(2.0, Math.max(0.6, Math.round(zoom * 10) / 10));
+  const clamped = Math.min(1.8, Math.max(0.7, Math.round(zoom * 100) / 100));
   safeSetItem(STORAGE_KEYS.LYRIC_ZOOM, String(clamped));
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent(LYRIC_ZOOM_EVENT, { detail: { zoom: clamped } }));
@@ -1050,7 +1051,7 @@ export function resetAllSettingsToDefault(): void {
     document.documentElement.setAttribute('data-ui-zoom', '100');
     document.documentElement.style.setProperty('--note-zoom', '1');
     document.documentElement.setAttribute('data-note-zoom', '100');
-    document.documentElement.style.setProperty('--lyric-zoom', '1');
+    document.documentElement.style.setProperty('--lyric-zoom', '1.2');
     document.documentElement.setAttribute('data-lyric-zoom', '100');
     document.documentElement.classList.remove('eco-mode');
   }

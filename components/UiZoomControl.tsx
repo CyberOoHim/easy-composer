@@ -54,7 +54,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
               ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25'
               : 'text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400'
           }`}
-          title={`UI Text Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'}) [Alt + 0]`}
+          title={`UI Text Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 105%'}) [Alt + 0]`}
           aria-label={`Current UI text zoom ${zoomPercent}%`}
         >
           <Type className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -102,7 +102,7 @@ export const UiZoomControl: React.FC<UiZoomControlProps> = ({
             ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25'
             : 'text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400'
         }`}
-        title={`UI Text Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'}) [Alt + 0]`}
+        title={`UI Text Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 105%'}) [Alt + 0]`}
         aria-label={`Current UI text zoom ${zoomPercent}%`}
       >
         <Type className="w-3.5 h-3.5 text-amber-500 shrink-0" />

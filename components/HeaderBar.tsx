@@ -27,7 +27,6 @@ import {
   Upload,
   Search,
   RotateCcw,
-  RotateCw,
   Languages,
   Sparkles,
   Type,
@@ -210,16 +209,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     currentLyricOption === 'both' ? 'both_poj_top' : (currentLyricOption || 'both_poj_top');
   const activeLyricIdx = Math.max(0, FORMAT_CYCLE.findIndex(item => item.id === activeLyricOpt));
   const activeLyricConfig = FORMAT_CYCLE[activeLyricIdx];
-  const nextLyricConfig = FORMAT_CYCLE[(activeLyricIdx + 1) % FORMAT_CYCLE.length];
-
-  const handleCycleLyricFormat = () => {
-    if (onUpdateSong) {
-      onUpdateSong({
-        ...song,
-        verseDisplayOption: nextLyricConfig.id,
-      });
-    }
-  };
 
   const handleSelectLyricFormat = (optId: VerseDisplayOption) => {
     if (onUpdateSong) {
@@ -653,24 +642,13 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             )}
           </div>
 
-          {/* Section 2: Lyric Display Format (4-Stage Rotational Toggle & Direct Selector) */}
+          {/* Section 2: Lyric Display Format */}
           <div className="flex flex-col gap-2 pt-1 border-t border-zinc-200 dark:border-zinc-800">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
                 <Languages className="w-3.5 h-3.5 text-amber-500" />
                 <span>Lyric Display Format</span>
               </span>
-              {/* Quick Cycle Rotational Button */}
-              <button
-                id="header-studio-rotational-cycle-btn"
-                type="button"
-                onClick={handleCycleLyricFormat}
-                className="group flex items-center gap-1 px-2 py-0.5 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-400 text-[10px] font-bold transition-all cursor-pointer border border-amber-500/30 touch-manipulation active:scale-95"
-                title={`Click to rotate format to: ${nextLyricConfig.label} (${nextLyricConfig.desc})`}
-              >
-                <span>Rotate</span>
-                <RotateCw className="w-2.5 h-2.5 group-hover:rotate-180 transition-all duration-300 shrink-0" />
-              </button>
             </div>
 
             <div className="p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750 flex flex-col gap-2">
@@ -720,30 +698,6 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                     </button>
                   );
                 })}
-              </div>
-
-              {/* Single 4-Stage Rotational Toggle Button (Moved from HUD) */}
-              <div className="flex items-center justify-between pt-1.5 border-t border-zinc-200 dark:border-zinc-750">
-                <span className="text-[10px] text-zinc-500 dark:text-zinc-400">
-                  Single Rotational Toggle:
-                </span>
-                <button
-                  id="studio-settings-rotational-toggle-btn"
-                  type="button"
-                  onClick={handleCycleLyricFormat}
-                  className="group flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-white dark:bg-zinc-800 hover:bg-amber-50 dark:hover:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-2xs border border-zinc-300 dark:border-zinc-650 text-xs font-bold transition-all cursor-pointer active:scale-95 touch-manipulation"
-                  title={`Lyric Format: ${activeLyricConfig.label} (${activeLyricConfig.desc}). Click to rotate to ${nextLyricConfig.label} (${nextLyricConfig.desc})`}
-                >
-                  <span className={activeLyricConfig.isSerif ? 'font-serif italic tracking-wide' : ''}>
-                    {activeLyricConfig.label}
-                  </span>
-                  {activeLyricConfig.badge && (
-                    <span className="text-[9px] font-medium px-1 py-0.5 rounded bg-amber-100 dark:bg-amber-950/60 text-amber-700 dark:text-amber-400 leading-none">
-                      {activeLyricConfig.badge}
-                    </span>
-                  )}
-                  <RotateCw className="w-3 h-3 text-zinc-400 group-hover:text-amber-600 dark:group-hover:text-amber-400 group-hover:rotate-180 transition-all duration-300 shrink-0" />
-                </button>
               </div>
             </div>
           </div>

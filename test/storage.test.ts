@@ -22,6 +22,12 @@ import {
   getStoredCurrentSong,
   getStoredCurrentSongOrNull,
   resetAllSettingsToDefault,
+  getStoredLyricZoom,
+  setStoredLyricZoom,
+  getStoredNoteZoom,
+  setStoredNoteZoom,
+  getStoredUiZoom,
+  setStoredUiZoom,
 } from '../lib/storage.ts';
 
 describe('Local Storage UI Selections Management', () => {
@@ -124,6 +130,9 @@ describe('Local Storage UI Selections Management', () => {
     setStoredMidiInstrument('synth');
     setStoredPianoDeckMode('transcribe');
     setStoredExportFormat('midi');
+    setStoredNoteZoom(1.45);
+    setStoredLyricZoom(1.85);
+    setStoredUiZoom(1.25);
     store[STORAGE_KEYS.POWER_SAVE_MODE] = 'true';
 
     resetAllSettingsToDefault();
@@ -134,7 +143,37 @@ describe('Local Storage UI Selections Management', () => {
     assert.strictEqual(getStoredMidiInstrument(), 'piano');
     assert.strictEqual(getStoredPianoDeckMode(), 'step');
     assert.strictEqual(getStoredExportFormat(), 'json');
+    assert.strictEqual(getStoredNoteZoom(), 1.0);
+    assert.strictEqual(getStoredLyricZoom(), 1.0);
+    assert.strictEqual(getStoredUiZoom(), 1.0);
     assert.strictEqual(store[STORAGE_KEYS.POWER_SAVE_MODE], 'false');
+  });
+
+  it('manages note, lyric, and ui zoom persistence with 5% increments and 100% defaults', () => {
+    // Defaults
+    assert.strictEqual(getStoredNoteZoom(), 1.0);
+    assert.strictEqual(getStoredLyricZoom(), 1.0);
+    assert.strictEqual(getStoredUiZoom(), 1.0);
+
+    // 5% step changes
+    setStoredNoteZoom(1.05);
+    assert.strictEqual(getStoredNoteZoom(), 1.05);
+
+    setStoredLyricZoom(1.05);
+    assert.strictEqual(getStoredLyricZoom(), 1.05);
+
+    setStoredUiZoom(1.15);
+    assert.strictEqual(getStoredUiZoom(), 1.15);
+
+    // Clamping boundaries
+    setStoredNoteZoom(2.5);
+    assert.strictEqual(getStoredNoteZoom(), 2.0);
+
+    setStoredLyricZoom(2.5);
+    assert.strictEqual(getStoredLyricZoom(), 1.8);
+
+    setStoredUiZoom(1.8);
+    assert.strictEqual(getStoredUiZoom(), 1.5);
   });
 
   it('handles save and delete from custom library with result', () => {

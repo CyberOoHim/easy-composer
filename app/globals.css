@@ -12,7 +12,7 @@
 :root {
   --ui-text-zoom: 1;
   --note-zoom: 1;
-  --lyric-zoom: 1;
+  --lyric-zoom: 1.2;
 }
 
 /* Dynamically scaled arbitrary pixel font-size utilities */

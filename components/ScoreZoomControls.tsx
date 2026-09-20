@@ -57,7 +57,7 @@ export const NoteZoomControl: React.FC<ZoomControlProps> = ({
               ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25'
               : 'text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400'
           }`}
-          title={`Note Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'})`}
+          title={`Note Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 105%'})`}
           aria-label={`Current Note Zoom ${zoomPercent}%`}
         >
           <Music className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -105,7 +105,7 @@ export const NoteZoomControl: React.FC<ZoomControlProps> = ({
             ? 'text-amber-700 dark:text-amber-300 bg-amber-500/15 hover:bg-amber-500/25'
             : 'text-zinc-700 dark:text-zinc-300 hover:text-amber-600 dark:hover:text-amber-400'
         }`}
-        title={`Note Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'})`}
+        title={`Note Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 105%'})`}
         aria-label={`Note zoom level ${zoomPercent}%`}
       >
         <Music className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -174,7 +174,7 @@ export const LyricZoomControl: React.FC<ZoomControlProps> = ({
               ? 'text-teal-700 dark:text-teal-300 bg-teal-500/15 hover:bg-teal-500/25'
               : 'text-zinc-700 dark:text-zinc-300 hover:text-teal-600 dark:hover:text-teal-400'
           }`}
-          title={`Lyric Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'})`}
+          title={`Lyric Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 105%'})`}
           aria-label={`Current Lyric Zoom ${zoomPercent}%`}
         >
           <Type className="w-3.5 h-3.5 text-teal-500 shrink-0" />
@@ -222,7 +222,7 @@ export const LyricZoomControl: React.FC<ZoomControlProps> = ({
             ? 'text-teal-700 dark:text-teal-300 bg-teal-500/15 hover:bg-teal-500/25'
             : 'text-zinc-700 dark:text-zinc-300 hover:text-teal-600 dark:hover:text-teal-400'
         }`}
-        title={`Lyric Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 110%'})`}
+        title={`Lyric Zoom: ${zoomPercent}% (Click to ${isCustom ? 'reset to 100%' : 'zoom in to 105%'})`}
         aria-label={`Lyric zoom level ${zoomPercent}%`}
       >
         <Type className="w-3.5 h-3.5 text-teal-500 shrink-0" />

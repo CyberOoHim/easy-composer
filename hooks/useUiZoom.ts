@@ -3,10 +3,11 @@
 import { useSyncExternalStore, useEffect, useCallback } from 'react';
 import { getStoredUiZoom, setStoredUiZoom } from '@/lib/storage';
 
-export const UI_ZOOM_LEVELS = [0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5] as const;
+export const UI_ZOOM_LEVELS = [0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.45, 1.5] as const;
 export const UI_ZOOM_MIN = 0.8;
 export const UI_ZOOM_MAX = 1.5;
 export const UI_ZOOM_DEFAULT = 1.0;
+export const UI_ZOOM_STEP = 0.05;
 
 let memoryZoom: number = UI_ZOOM_DEFAULT;
 let hasInitialized = false;
@@ -50,7 +51,7 @@ function initMemoryZoom() {
  * Global setter for UI Zoom that syncs DOM, localStorage, and all subscribed components.
  */
 export function setUiZoomGlobal(newZoom: number) {
-  const clamped = Math.min(UI_ZOOM_MAX, Math.max(UI_ZOOM_MIN, Math.round(newZoom * 10) / 10));
+  const clamped = Math.min(UI_ZOOM_MAX, Math.max(UI_ZOOM_MIN, Math.round(newZoom * 100) / 100));
   if (memoryZoom === clamped) return;
   memoryZoom = clamped;
   setStoredUiZoom(clamped);
@@ -67,7 +68,7 @@ function subscribe(callback: () => void) {
     if (e.key === 'taigi_composer_ui_text_zoom' && e.newValue) {
       const val = parseFloat(e.newValue);
       if (!isNaN(val) && val >= UI_ZOOM_MIN && val <= UI_ZOOM_MAX) {
-        const clamped = Math.round(val * 10) / 10;
+        const clamped = Math.round(val * 100) / 100;
         if (memoryZoom !== clamped) {
           memoryZoom = clamped;
           applyUiZoomToDOM(clamped);
@@ -97,14 +98,14 @@ export function useUiZoom() {
   const zoom = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const zoomIn = useCallback(() => {
-    const current = Math.round(zoom * 10) / 10;
-    const next = Math.min(UI_ZOOM_MAX, Math.round((current + 0.1) * 10) / 10);
+    const current = Math.round(zoom * 100) / 100;
+    const next = Math.min(UI_ZOOM_MAX, Math.round((current + UI_ZOOM_STEP) * 100) / 100);
     setUiZoomGlobal(next);
   }, [zoom]);
 
   const zoomOut = useCallback(() => {
-    const current = Math.round(zoom * 10) / 10;
-    const prev = Math.max(UI_ZOOM_MIN, Math.round((current - 0.1) * 10) / 10);
+    const current = Math.round(zoom * 100) / 100;
+    const prev = Math.max(UI_ZOOM_MIN, Math.round((current - UI_ZOOM_STEP) * 100) / 100);
     setUiZoomGlobal(prev);
   }, [zoom]);
 
@@ -145,7 +146,7 @@ export function useUiZoom() {
     zoomOut,
     resetZoom,
     setZoom,
-    canZoomIn: zoom < UI_ZOOM_MAX - 0.01,
-    canZoomOut: zoom > UI_ZOOM_MIN + 0.01,
+    canZoomIn: zoom < UI_ZOOM_MAX - 0.005,
+    canZoomOut: zoom > UI_ZOOM_MIN + 0.005,
   };
 }

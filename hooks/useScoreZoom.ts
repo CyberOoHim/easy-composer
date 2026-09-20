@@ -12,13 +12,24 @@ import {
   setStoredLyricZoom,
 } from '@/lib/storage';
 
-export const SCORE_ZOOM_LEVELS = [0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.3, 1.4, 1.5, 1.6, 1.7, 1.8] as const;
-export const SCORE_ZOOM_MIN = 0.7;
-export const SCORE_ZOOM_MAX = 1.8;
-export const SCORE_ZOOM_DEFAULT = 1.0;
+export const NOTE_ZOOM_MIN = 0.7;
+export const NOTE_ZOOM_MAX = 2.0;
+export const NOTE_ZOOM_DEFAULT = 1.0;
+export const NOTE_ZOOM_STEP = 0.05;
 
-let memoryNoteZoom: number = SCORE_ZOOM_DEFAULT;
-let memoryLyricZoom: number = SCORE_ZOOM_DEFAULT;
+export const LYRIC_ZOOM_MIN = 0.7;
+export const LYRIC_ZOOM_MAX = 1.8;
+export const LYRIC_ZOOM_DEFAULT = 1.0;
+export const LYRIC_ZOOM_STEP = 0.05;
+
+// Backward-compatible generic score zoom constants
+export const SCORE_ZOOM_MIN = 0.7;
+export const SCORE_ZOOM_MAX = 2.0;
+export const SCORE_ZOOM_DEFAULT = 1.0;
+export const SCORE_ZOOM_LEVELS = [0.7, 0.75, 0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2, 1.25, 1.3, 1.35, 1.4, 1.45, 1.5, 1.55, 1.6, 1.65, 1.7, 1.75, 1.8, 1.85, 1.9, 1.95, 2.0] as const;
+
+let memoryNoteZoom: number = NOTE_ZOOM_DEFAULT;
+let memoryLyricZoom: number = LYRIC_ZOOM_DEFAULT;
 let hasInitialized = false;
 
 const noteListeners = new Set<() => void>();
@@ -53,8 +64,9 @@ export function applyNoteZoomToDOM(zoom: number) {
 
 export function applyLyricZoomToDOM(zoom: number) {
   if (typeof document === 'undefined') return;
+  const effectiveScale = Number((zoom * 1.2).toFixed(4));
   const roundedPercent = Math.round(zoom * 100);
-  document.documentElement.style.setProperty('--lyric-zoom', String(zoom));
+  document.documentElement.style.setProperty('--lyric-zoom', String(effectiveScale));
   document.documentElement.setAttribute('data-lyric-zoom', String(roundedPercent));
 }
 
@@ -62,8 +74,8 @@ function initMemoryScoreZooms() {
   if (hasInitialized || typeof window === 'undefined') return;
   hasInitialized = true;
 
-  memoryNoteZoom = getStoredNoteZoom(SCORE_ZOOM_DEFAULT);
-  memoryLyricZoom = getStoredLyricZoom(SCORE_ZOOM_DEFAULT);
+  memoryNoteZoom = getStoredNoteZoom(NOTE_ZOOM_DEFAULT);
+  memoryLyricZoom = getStoredLyricZoom(LYRIC_ZOOM_DEFAULT);
 
   const apply = () => {
     applyNoteZoomToDOM(memoryNoteZoom);
@@ -80,8 +92,8 @@ function initMemoryScoreZooms() {
   window.addEventListener('storage', (e: StorageEvent) => {
     if (e.key === STORAGE_KEYS.NOTE_ZOOM && e.newValue) {
       const val = parseFloat(e.newValue);
-      if (!isNaN(val) && val >= SCORE_ZOOM_MIN && val <= SCORE_ZOOM_MAX) {
-        const clamped = Math.round(val * 10) / 10;
+      if (!isNaN(val) && val >= NOTE_ZOOM_MIN && val <= NOTE_ZOOM_MAX) {
+        const clamped = Math.round(val * 100) / 100;
         if (memoryNoteZoom !== clamped) {
           memoryNoteZoom = clamped;
           applyNoteZoomToDOM(clamped);
@@ -90,8 +102,8 @@ function initMemoryScoreZooms() {
       }
     } else if (e.key === STORAGE_KEYS.LYRIC_ZOOM && e.newValue) {
       const val = parseFloat(e.newValue);
-      if (!isNaN(val) && val >= SCORE_ZOOM_MIN && val <= SCORE_ZOOM_MAX) {
-        const clamped = Math.round(val * 10) / 10;
+      if (!isNaN(val) && val >= LYRIC_ZOOM_MIN && val <= LYRIC_ZOOM_MAX) {
+        const clamped = Math.round(val * 100) / 100;
         if (memoryLyricZoom !== clamped) {
           memoryLyricZoom = clamped;
           applyLyricZoomToDOM(clamped);
@@ -103,10 +115,10 @@ function initMemoryScoreZooms() {
 
   // Settings reset synchronization
   window.addEventListener(SETTINGS_RESET_EVENT, () => {
-    memoryNoteZoom = SCORE_ZOOM_DEFAULT;
-    memoryLyricZoom = SCORE_ZOOM_DEFAULT;
-    applyNoteZoomToDOM(SCORE_ZOOM_DEFAULT);
-    applyLyricZoomToDOM(SCORE_ZOOM_DEFAULT);
+    memoryNoteZoom = NOTE_ZOOM_DEFAULT;
+    memoryLyricZoom = LYRIC_ZOOM_DEFAULT;
+    applyNoteZoomToDOM(NOTE_ZOOM_DEFAULT);
+    applyLyricZoomToDOM(LYRIC_ZOOM_DEFAULT);
     notifyNote();
     notifyLyric();
   });
@@ -115,7 +127,7 @@ function initMemoryScoreZooms() {
   window.addEventListener(NOTE_ZOOM_EVENT, (e: Event) => {
     const ce = e as CustomEvent<{ zoom: number }>;
     if (ce.detail && typeof ce.detail.zoom === 'number') {
-      const next = Math.round(ce.detail.zoom * 10) / 10;
+      const next = Math.round(ce.detail.zoom * 100) / 100;
       if (memoryNoteZoom !== next) {
         memoryNoteZoom = next;
         applyNoteZoomToDOM(next);
@@ -127,7 +139,7 @@ function initMemoryScoreZooms() {
   window.addEventListener(LYRIC_ZOOM_EVENT, (e: Event) => {
     const ce = e as CustomEvent<{ zoom: number }>;
     if (ce.detail && typeof ce.detail.zoom === 'number') {
-      const next = Math.round(ce.detail.zoom * 10) / 10;
+      const next = Math.round(ce.detail.zoom * 100) / 100;
       if (memoryLyricZoom !== next) {
         memoryLyricZoom = next;
         applyLyricZoomToDOM(next);
@@ -138,7 +150,7 @@ function initMemoryScoreZooms() {
 }
 
 export function setNoteZoomGlobal(newZoom: number) {
-  const clamped = Math.min(SCORE_ZOOM_MAX, Math.max(SCORE_ZOOM_MIN, Math.round(newZoom * 10) / 10));
+  const clamped = Math.min(NOTE_ZOOM_MAX, Math.max(NOTE_ZOOM_MIN, Math.round(newZoom * 100) / 100));
   if (memoryNoteZoom === clamped) return;
   memoryNoteZoom = clamped;
   setStoredNoteZoom(clamped);
@@ -147,7 +159,7 @@ export function setNoteZoomGlobal(newZoom: number) {
 }
 
 export function setLyricZoomGlobal(newZoom: number) {
-  const clamped = Math.min(SCORE_ZOOM_MAX, Math.max(SCORE_ZOOM_MIN, Math.round(newZoom * 10) / 10));
+  const clamped = Math.min(LYRIC_ZOOM_MAX, Math.max(LYRIC_ZOOM_MIN, Math.round(newZoom * 100) / 100));
   if (memoryLyricZoom === clamped) return;
   memoryLyricZoom = clamped;
   setStoredLyricZoom(clamped);
@@ -168,8 +180,8 @@ function getSnapshotNote(): number {
   return memoryNoteZoom;
 }
 
-function getServerSnapshot(): number {
-  return SCORE_ZOOM_DEFAULT;
+function getServerSnapshotNote(): number {
+  return NOTE_ZOOM_DEFAULT;
 }
 
 function subscribeLyric(callback: () => void) {
@@ -185,26 +197,30 @@ function getSnapshotLyric(): number {
   return memoryLyricZoom;
 }
 
+function getServerSnapshotLyric(): number {
+  return LYRIC_ZOOM_DEFAULT;
+}
+
 /**
  * Hook for managing Note Zoom state independently
  */
 export function useNoteZoom() {
-  const zoom = useSyncExternalStore(subscribeNote, getSnapshotNote, getServerSnapshot);
+  const zoom = useSyncExternalStore(subscribeNote, getSnapshotNote, getServerSnapshotNote);
 
   const zoomIn = useCallback(() => {
-    const current = Math.round(zoom * 10) / 10;
-    const next = Math.min(SCORE_ZOOM_MAX, Math.round((current + 0.1) * 10) / 10);
+    const current = Math.round(zoom * 100) / 100;
+    const next = Math.min(NOTE_ZOOM_MAX, Math.round((current + NOTE_ZOOM_STEP) * 100) / 100);
     setNoteZoomGlobal(next);
   }, [zoom]);
 
   const zoomOut = useCallback(() => {
-    const current = Math.round(zoom * 10) / 10;
-    const prev = Math.max(SCORE_ZOOM_MIN, Math.round((current - 0.1) * 10) / 10);
+    const current = Math.round(zoom * 100) / 100;
+    const prev = Math.max(NOTE_ZOOM_MIN, Math.round((current - NOTE_ZOOM_STEP) * 100) / 100);
     setNoteZoomGlobal(prev);
   }, [zoom]);
 
   const resetZoom = useCallback(() => {
-    setNoteZoomGlobal(SCORE_ZOOM_DEFAULT);
+    setNoteZoomGlobal(NOTE_ZOOM_DEFAULT);
   }, []);
 
   const setZoom = useCallback((val: number) => {
@@ -212,8 +228,8 @@ export function useNoteZoom() {
   }, []);
 
   const zoomPercent = Math.round(zoom * 100);
-  const canZoomIn = zoom < SCORE_ZOOM_MAX;
-  const canZoomOut = zoom > SCORE_ZOOM_MIN;
+  const canZoomIn = zoom < NOTE_ZOOM_MAX - 0.005;
+  const canZoomOut = zoom > NOTE_ZOOM_MIN + 0.005;
 
   return {
     zoom,
@@ -231,22 +247,22 @@ export function useNoteZoom() {
  * Hook for managing Lyric Zoom state independently
  */
 export function useLyricZoom() {
-  const zoom = useSyncExternalStore(subscribeLyric, getSnapshotLyric, getServerSnapshot);
+  const zoom = useSyncExternalStore(subscribeLyric, getSnapshotLyric, getServerSnapshotLyric);
 
   const zoomIn = useCallback(() => {
-    const current = Math.round(zoom * 10) / 10;
-    const next = Math.min(SCORE_ZOOM_MAX, Math.round((current + 0.1) * 10) / 10);
+    const current = Math.round(zoom * 100) / 100;
+    const next = Math.min(LYRIC_ZOOM_MAX, Math.round((current + LYRIC_ZOOM_STEP) * 100) / 100);
     setLyricZoomGlobal(next);
   }, [zoom]);
 
   const zoomOut = useCallback(() => {
-    const current = Math.round(zoom * 10) / 10;
-    const prev = Math.max(SCORE_ZOOM_MIN, Math.round((current - 0.1) * 10) / 10);
+    const current = Math.round(zoom * 100) / 100;
+    const prev = Math.max(LYRIC_ZOOM_MIN, Math.round((current - LYRIC_ZOOM_STEP) * 100) / 100);
     setLyricZoomGlobal(prev);
   }, [zoom]);
 
   const resetZoom = useCallback(() => {
-    setLyricZoomGlobal(SCORE_ZOOM_DEFAULT);
+    setLyricZoomGlobal(LYRIC_ZOOM_DEFAULT);
   }, []);
 
   const setZoom = useCallback((val: number) => {
@@ -254,8 +270,8 @@ export function useLyricZoom() {
   }, []);
 
   const zoomPercent = Math.round(zoom * 100);
-  const canZoomIn = zoom < SCORE_ZOOM_MAX;
-  const canZoomOut = zoom > SCORE_ZOOM_MIN;
+  const canZoomIn = zoom < LYRIC_ZOOM_MAX - 0.005;
+  const canZoomOut = zoom > LYRIC_ZOOM_MIN + 0.005;
 
   return {
     zoom,
