@@ -47,7 +47,7 @@ export const GM_INSTRUMENT_MAP: Record<InstrumentType, number> = {
   accordion: 21,        // Accordion
   harmonica: 22,        // Harmonica
   epiano_fm: 4,         // Electric Piano 1 (Rhodes / FM)
-  saxophone: 64,        // Soprano Saxophone
+  saxophone: 65,        // Alto Saxophone (warm wood-and-brass sound)
   guitar_electric: 27,  // Electric Guitar (clean)
   kalimba: 108,         // Kalimba
   music_box: 10,        // Music Box

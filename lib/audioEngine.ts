@@ -1363,23 +1363,42 @@ export class AudioEngine {
         break;
       }
       case 'saxophone': {
-        // Conical bore brass instrument with dual horn acoustic formants (throat body + reed bite)
-        const mainOsc = this.createVoiceOsc('sawtooth', freq, startTime);
-        const hornFilter = this.createVoiceFilter('lowpass', Math.min(3600, freq * 3.6), 1.6, 0, startTime);
-        const hornPeaking = this.createVoiceFilter('peaking', 650, 1.6, 4.0, startTime);
-        mainOsc.connect(hornFilter);
-        hornFilter.connect(hornPeaking);
-        hornPeaking.connect(voiceGain);
-        oscs.push(mainOsc);
+        // Authentic "Wood mixing Brass" hybrid architecture:
+        // 1. Woodwind Cane Reed Core (Wood):
+        //    Warm rounded triangle reed body with strong 1st & 2nd harmonics and woody cavity resonance (420 Hz)
+        const reedOsc = this.createVoiceOsc('triangle', freq, startTime);
+        const woodFilter = this.createVoiceFilter('peaking', 420, 2.0, 5.0, startTime);
+        const woodGain = this.createVoiceGain(startTime, 0.58 * volMul);
+        reedOsc.connect(woodFilter);
+        woodFilter.connect(woodGain);
+        woodGain.connect(voiceGain);
+        oscs.push(reedOsc);
+        gains.push(woodGain);
+
+        // 2. Conical Brass Horn Body & Flared Bell (Brass):
+        //    Rich brass acoustic flare with horn throat formant (680 Hz) and warm bell cutoff (2600 Hz)
+        const hornOsc = this.createVoiceOsc('sawtooth', freq, startTime);
+        const hornLp = this.createVoiceFilter('lowpass', Math.min(2800, Math.max(1200, freq * 2.6)), 2.0, 0, startTime);
+        const hornThroat = this.createVoiceFilter('peaking', 680, 1.8, 4.5, startTime);
+        const hornGain = this.createVoiceGain(startTime, 0.42 * volMul);
+        hornOsc.connect(hornLp);
+        hornLp.connect(hornThroat);
+        hornThroat.connect(hornGain);
+        hornGain.connect(voiceGain);
+        oscs.push(hornOsc);
+        gains.push(hornGain);
 
         if (!isEco) {
-          // Smooth jazz saxophone vibrato (4.6 Hz, subtle ~6 cents depth: 0.0035, delayed by 0.22s)
-          const { lfo } = this.createVibratoLfo(4.6, freq * 0.0035, startTime, startTime + 25.0, [mainOsc.frequency], 0.22, 0.25);
+          // Smooth jazz saxophone vibrato (4.6 Hz, subtle ~5 cents depth: 0.003, delayed by 0.22s)
+          const { lfo } = this.createVibratoLfo(4.6, freq * 0.003, startTime, startTime + 25.0, [
+            reedOsc.frequency,
+            hornOsc.frequency,
+          ], 0.22, 0.25);
           oscs.push(lfo);
         }
 
         voiceGain.gain.setValueAtTime(0.0001, startTime);
-        voiceGain.gain.linearRampToValueAtTime(0.84 * volMul, startTime + 0.022);
+        voiceGain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + 0.026);
         break;
       }
       case 'guitar_electric': {
@@ -1906,9 +1925,11 @@ export class AudioEngine {
         osc.connect(f);
         voiceOutput = f;
       } else if (instrument === 'saxophone') {
-        const f = this.createVoiceFilter('lowpass', Math.min(3000, freq * 3.2), 1.6, 0, startTime);
+        const f = this.createVoiceFilter('lowpass', Math.min(2600, freq * 2.6), 1.8, 0, startTime);
+        const throat = this.createVoiceFilter('peaking', 650, 1.8, 4.0, startTime);
         osc.connect(f);
-        voiceOutput = f;
+        f.connect(throat);
+        voiceOutput = throat;
       } else if (instrument === 'epiano_fm') {
         const f = this.createVoiceFilter('lowpass', Math.min(4400, freq * 4.0), 1.2, 0, startTime);
         osc.connect(f);
@@ -2385,42 +2406,57 @@ export class AudioEngine {
       }
       case 'saxophone': {
         // Conical bore brass instrument with single cane reed:
-        // Rich brass harmonics with dual formants (throat resonance 650Hz + reed presence 2700Hz)
-        const osc = this.createVoiceOsc('sawtooth', options?.glideFromFreq || freq, startTime, stopTime);
+        // Authentic Wood-mixing-Brass architecture:
+        // 1. Cane Reed Core (Wood): warm woody body with round fundamental and 2nd harmonic
+        const reedOsc = this.createVoiceOsc('triangle', options?.glideFromFreq || freq, startTime, stopTime);
         if (options?.glideFromFreq) {
-          osc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
+          reedOsc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
         }
+        const woodFilter = this.createVoiceFilter('peaking', 420, 2.0, 5.0, startTime);
+        const woodGain = this.createVoiceGain(startTime, 0.56 * volMul);
+        woodGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        reedOsc.connect(woodFilter);
+        woodFilter.connect(woodGain);
+        woodGain.connect(gain);
 
-        const hornFilter = this.createVoiceFilter('lowpass', Math.min(3600, freq * 3.6), 1.6, 0, startTime);
-        const hornPeaking = this.createVoiceFilter('peaking', 650, 1.6, 4.5, startTime);
-        const reedPeaking = this.createVoiceFilter('peaking', 2700, 2.2, 3.0, startTime);
-        hornFilter.connect(hornPeaking);
-        hornPeaking.connect(reedPeaking);
-        osc.connect(hornFilter);
-        outputNode = reedPeaking;
+        // 2. Conical Brass Horn Body & Flared Bell (Brass):
+        const hornOsc = this.createVoiceOsc('sawtooth', options?.glideFromFreq || freq, startTime, stopTime);
+        if (options?.glideFromFreq) {
+          hornOsc.frequency.exponentialRampToValueAtTime(freq, startTime + Math.min(0.08, effectiveDuration * 0.5));
+        }
+        const hornLp = this.createVoiceFilter('lowpass', Math.min(2800, Math.max(1200, freq * 2.6)), 2.0, 0, startTime);
+        const hornThroat = this.createVoiceFilter('peaking', 680, 1.8, 4.5, startTime);
+        const hornGain = this.createVoiceGain(startTime, 0.44 * volMul);
+        hornGain.gain.exponentialRampToValueAtTime(0.0001, startTime + effectiveDuration);
+        hornOsc.connect(hornLp);
+        hornLp.connect(hornThroat);
+        hornThroat.connect(hornGain);
+        hornGain.connect(gain);
 
-        // Cane reed breath onset transient (< 25ms)
-        const breath = this.createVoiceOsc('triangle', freq * 2.8, startTime, startTime + 0.03);
-        const breathGain = this.createVoiceGain(startTime, 0.14 * volMul);
-        breathGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.025);
+        // 3. Cane reed breath onset transient (< 30ms) - warm woody breath chiff
+        const breath = this.createVoiceOsc('sine', freq * 1.5, startTime, startTime + 0.032);
+        const breathGain = this.createVoiceGain(startTime, 0.12 * volMul);
+        breathGain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.028);
         breath.connect(breathGain);
         breathGain.connect(gain);
 
-        // Expressive jazz saxophone vibrato (4.6 Hz, subtle ~6 cents depth: 0.0035, delayed on long notes)
+        outputNode = hornGain;
+
+        // 4. Smooth jazz vibrato (4.6 Hz, subtle ~5 cents, delayed on sustained notes)
         if (effectiveDuration > 0.25) {
           this.createVibratoLfo(
             4.6,
-            freq * 0.0035,
+            freq * 0.003,
             startTime,
             stopTime,
-            [osc.frequency],
+            [reedOsc.frequency, hornOsc.frequency],
             Math.min(0.2, effectiveDuration * 0.35),
             0.2
           );
         }
 
-        const attack = isLegato ? 0.012 : 0.022;
-        gain.gain.linearRampToValueAtTime(0.84 * volMul, startTime + attack);
+        const attack = isLegato ? 0.014 : 0.026;
+        gain.gain.linearRampToValueAtTime(0.85 * volMul, startTime + attack);
         const sustainT = Math.max(startTime + attack + 0.005, startTime + effectiveDuration * 0.88);
         gain.gain.setValueAtTime(0.76 * volMul, sustainT);
         gain.gain.exponentialRampToValueAtTime(0.0001, Math.max(sustainT + 0.015, startTime + effectiveDuration));

@@ -71,10 +71,10 @@ export const SOUNDFONT_CATALOG: Record<string, SoundFontMeta> = {
   },
   saxophone: {
     instrument: 'saxophone',
-    gmName: 'soprano_sax',
-    gmProgram: 64,
+    gmName: 'alto_sax',
+    gmProgram: 65,
     category: 'pop',
-    labelEn: 'Saxophone',
+    labelEn: 'Alto Saxophone',
     labelZh: '薩克斯風',
     anchorPitches: [46, 53, 58, 65, 70, 77, 82], // Bb3 to Bb6
   },
@@ -128,7 +128,7 @@ export const SOUNDFONT_CATALOG: Record<string, SoundFontMeta> = {
 export class SoundFontEngine {
   private static instance: SoundFontEngine | null = null;
   private static readonly MAX_POLYPHONY = 16;
-  private static readonly CACHE_NAME = 'taigi-soundfont-cache-v2';
+  private static readonly CACHE_NAME = 'taigi-soundfont-cache-v3';
 
   // In-memory decoded PCM buffer cache: instrument -> (midiPitch -> AudioBuffer)
   private bufferBank: Map<string, Map<number, AudioBuffer>> = new Map();
@@ -281,29 +281,47 @@ export class SoundFontEngine {
       }
 
       case 'saxophone': {
-        // Conical bore brass instrument with single cane reed:
-        // Full harmonic series (even & odd) with dual formants (horn throat 600Hz + reed bite 2600Hz)
+        // Conical bore brass horn with single cane reed:
+        // Authentic "Wood mixing Brass" hybrid acoustic synthesis:
+        // 1. Cane Reed Core (Wood): Rich, woody lower body (fundamental + 2nd & 3rd harmonics)
+        // 2. Brass Horn Throat & Bell (Brass): Warm conical throat formant (~660 Hz) and bell bloom (~1800 Hz)
+        // 3. Acoustic horn roll-off: Natural suppression of harsh high sizzle (> 2.8 kHz), eliminating harmonica buzz
         let saxPhase = 0;
         for (let n = 0; n < numSamples; n++) {
           const t = n / sampleRate;
-          // Smooth phase accumulation with subtle 4.6 Hz vibrato on sustained notes (> 0.22s, ~4.5 cents)
-          const vib = t > 0.22 ? 0.003 * Math.sin(2 * Math.PI * 4.6 * (t - 0.22)) : 0;
+          // Smooth phase accumulation with gentle jazz jaw vibrato on sustained notes (> 0.22s, ~4.5 cents)
+          const vib = t > 0.22 ? 0.0028 * Math.sin(2 * Math.PI * 4.6 * (t - 0.22)) : 0;
           saxPhase += (2 * Math.PI * baseFreq * (1 + vib)) / sampleRate;
 
-          // Full conical bore spectrum with brass body warmth
-          const wave =
-            Math.sin(saxPhase) * 0.44 +
-            Math.sin(saxPhase * 2) * 0.30 +
-            Math.sin(saxPhase * 3) * 0.20 +
-            Math.sin(saxPhase * 4) * 0.12 +
-            Math.sin(saxPhase * 5) * 0.07 +
-            Math.sin(saxPhase * 6) * 0.04;
-          // Mouthpiece reed buzz formant (2.6 kHz peak)
-          const reedBite = Math.sin(2 * Math.PI * 2600 * t) * 0.12 * Math.exp(-t / 0.07);
-          // Cane reed attack chiff (< 25ms)
-          const chiff = (Math.random() * 2 - 1) * 0.07 * Math.exp(-t / 0.02);
-          const env = t < 0.028 ? t / 0.028 : Math.exp(-t / (durationSec * 1.65));
-          data[n] = (wave * 0.84 + reedBite + chiff) * env;
+          // Wood cane reed body: strong rounded fundamental and warm woodwind 2nd/3rd harmonics
+          const woodReed =
+            Math.sin(saxPhase) * 0.58 +
+            Math.sin(saxPhase * 2) * 0.28 +
+            Math.sin(saxPhase * 3) * 0.12;
+
+          // Conical brass horn overtones: warm brass bell flare
+          const brassHorn =
+            Math.sin(saxPhase * 2) * 0.22 +
+            Math.sin(saxPhase * 3) * 0.16 +
+            Math.sin(saxPhase * 4) * 0.10 +
+            Math.sin(saxPhase * 5) * 0.05;
+
+          // Soft non-linear cane reed saturation (bridges wood reed to brass horn)
+          const rawVoice = woodReed * 0.62 + brassHorn * 0.38;
+          const saturated = Math.tanh(rawVoice * 1.35);
+
+          // Woody mouthpiece & neck chamber warmth (~420 Hz body resonance)
+          const woodBodyRes = Math.sin(2 * Math.PI * 420 * t) * 0.12 * Math.exp(-t / 0.2);
+
+          // Brass horn throat resonance (~660 Hz)
+          const brassThroatRes = Math.sin(2 * Math.PI * 660 * t) * 0.10 * Math.exp(-t / 0.3);
+
+          // Cane reed embouchure breath chiff (< 30ms) - soft warm breath, not metallic click
+          const breathChiff = (Math.random() * 2 - 1) * 0.05 * Math.exp(-t / 0.025);
+
+          // Natural embouchure breath attack (28ms) and sustained horn decay
+          const env = t < 0.028 ? t / 0.028 : Math.exp(-t / (durationSec * 1.6));
+          data[n] = (saturated * 0.82 + woodBodyRes + brassThroatRes + breathChiff) * env;
         }
         break;
       }

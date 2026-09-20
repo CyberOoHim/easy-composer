@@ -128,10 +128,12 @@ describe('New Instruments Integration (Flute, Kalimba, Music Box)', () => {
     assert.ok(harmonicaMeta, 'Harmonica metadata must exist');
     assert.ok(saxMeta, 'Saxophone metadata must exist');
 
-    // Each must have unique GM programs
+    // Each must have unique GM programs (Alto Sax = 65, Harmonica = 22, Flute = 73)
     assert.equal(fluteMeta.gmProgram, 73);
     assert.equal(harmonicaMeta.gmProgram, 22);
-    assert.equal(saxMeta.gmProgram, 64);
+    assert.equal(saxMeta.gmProgram, 65);
+    assert.equal(saxMeta.gmName, 'alto_sax');
+    assert.equal(GM_INSTRUMENT_MAP['saxophone'], 65);
     assert.notEqual(fluteMeta.gmProgram, harmonicaMeta.gmProgram);
     assert.notEqual(harmonicaMeta.gmProgram, saxMeta.gmProgram);
     assert.notEqual(fluteMeta.gmProgram, saxMeta.gmProgram);
