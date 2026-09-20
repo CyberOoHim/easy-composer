@@ -35,6 +35,7 @@ import {
   STANDARD_TIME_SIGNATURES,
   TEMPO_PRESETS,
   INSTRUMENT_OPTIONS,
+  CATEGORIZED_INSTRUMENT_OPTIONS,
   transposeSongChords,
   autoFillSongMeasureRests,
   smartRebarSong,
@@ -1124,7 +1125,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
 
             {/* Section 3: Melody Instrument Timbre Selector */}
             {onSetInstrument && (
-              <div className="flex flex-col gap-2 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
+              <div className="flex flex-col gap-2.5 pt-2 border-t border-zinc-200/80 dark:border-zinc-800">
                 <div className="flex items-center justify-between">
                   <label className="block text-[11px] font-bold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider">
                     Melody Instrument Tone
@@ -1133,25 +1134,43 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                     {INSTRUMENT_OPTIONS.find(o => o.value === instrument)?.labelEn}
                   </span>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                  {INSTRUMENT_OPTIONS.map(opt => {
-                    const isSelected = instrument === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => onSetInstrument(opt.value)}
-                        className={`px-2.5 py-1.5 rounded-xl text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-amber-500 text-zinc-950 shadow-xs ring-1 ring-amber-400'
-                            : 'bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-200/70 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
-                        }`}
-                      >
-                        <span className="truncate">{opt.labelEn}</span>
-                        {isSelected && <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] shrink-0" />}
-                      </button>
-                    );
-                  })}
+                <div className="flex flex-col gap-2">
+                  {CATEGORIZED_INSTRUMENT_OPTIONS.map(group => (
+                    <div key={group.category} className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider px-0.5">
+                        {group.labelEn} · {group.labelZh}
+                      </span>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                        {group.options.map(opt => {
+                          const isSelected = instrument === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => onSetInstrument(opt.value)}
+                              className={`px-2.5 py-1.5 rounded-xl text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-amber-500 text-zinc-950 shadow-xs ring-1 ring-amber-400'
+                                  : 'bg-zinc-50 dark:bg-zinc-800/80 hover:bg-zinc-200/70 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 border border-zinc-200 dark:border-zinc-700'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1 min-w-0">
+                                <span className="truncate">{opt.labelEn}</span>
+                                {opt.badge && (
+                                  <span className={`text-[8px] px-1 py-0.2 rounded font-mono font-bold shrink-0 ${
+                                    isSelected ? 'bg-zinc-950/20 text-zinc-950' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'
+                                  }`}>
+                                    {opt.badge}
+                                  </span>
+                                )}
+                              </div>
+                              {isSelected && <Check className="w-3.5 h-3.5 text-zinc-950 stroke-[3] shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}

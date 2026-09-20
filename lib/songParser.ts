@@ -20,6 +20,7 @@ const VALID_ARTICULATIONS = new Set<ArticulationType>([
 ]);
 const VALID_INSTRUMENTS = new Set<InstrumentType>([
   'piano', 'flute', 'whistle', 'guitar', 'synth', 'bell', 'cello',
+  'guitar_acoustic', 'accordion', 'harmonica', 'epiano_fm', 'saxophone', 'guitar_electric',
 ]);
 const VALID_BARLINES = new Set<BarlineType>([
   'single', 'double', 'end', 'repeat_start', 'repeat_end',

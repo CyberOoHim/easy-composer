@@ -13,7 +13,9 @@ import {
   downloadMidiFile,
   getSongMidiLyricsSummary,
   MidiLyricMode,
+  GM_INSTRUMENT_MAP,
 } from '@/lib/midiExport';
+import { CATEGORIZED_INSTRUMENT_OPTIONS } from '@/lib/taigiUtils';
 import {
   getStoredCustomLibrary,
   saveSongToCustomLibrary,
@@ -1025,15 +1027,21 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                         id="midi-instrument-select"
                         value={midiInstrument}
                         onChange={e => setMidiInstrument(e.target.value as InstrumentType)}
-                        className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-800 dark:text-zinc-200 focus:outline-hidden focus:ring-1 focus:ring-amber-500"
+                        className="w-full px-2.5 py-1.5 text-xs bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-md text-zinc-800 dark:text-zinc-200 focus:outline-hidden focus:ring-1 focus:ring-amber-500 cursor-pointer"
                       >
-                        <option value="piano">Acoustic Grand Piano (GM #1)</option>
-                        <option value="flute">Bamboo Flute / Flute (GM #74)</option>
-                        <option value="whistle">Whistle (GM #79)</option>
-                        <option value="guitar">Acoustic Guitar Nylon (GM #25)</option>
-                        <option value="synth">Lead 1 Square Synth (GM #81)</option>
-                        <option value="bell">Glockenspiel / Bell (GM #10)</option>
-                        <option value="cello">Cello (GM #43)</option>
+                        {CATEGORIZED_INSTRUMENT_OPTIONS.map(group => (
+                          <optgroup key={group.category} label={`${group.labelEn} (${group.labelZh})`}>
+                            {group.options.map(opt => {
+                              const gmProgram = GM_INSTRUMENT_MAP[opt.value];
+                              const gmLabel = typeof gmProgram === 'number' ? `(GM #${gmProgram + 1})` : '';
+                              return (
+                                <option key={opt.value} value={opt.value}>
+                                  {opt.labelEn} {gmLabel}
+                                </option>
+                              );
+                            })}
+                          </optgroup>
+                        ))}
                       </select>
                       <p className="text-[11px] text-zinc-500 dark:text-zinc-400 leading-tight">
                         General MIDI program change assigned to Melody / Vocal track.

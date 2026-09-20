@@ -36,13 +36,19 @@ export const TICKS_PER_BEAT = 480;
 
 /** General MIDI 1 program numbers */
 export const GM_INSTRUMENT_MAP: Record<InstrumentType, number> = {
-  piano: 0,   // Acoustic Grand Piano
-  guitar: 24, // Acoustic Guitar (nylon)
-  flute: 73,  // Flute
-  whistle: 78, // Whistle
-  synth: 80,  // Lead 1 (square)
-  bell: 9,    // Glockenspiel
-  cello: 42,  // Cello
+  piano: 0,             // Acoustic Grand Piano
+  guitar: 24,           // Acoustic Guitar (nylon)
+  flute: 73,            // Flute
+  whistle: 78,          // Whistle
+  synth: 80,            // Lead 1 (square)
+  bell: 9,              // Glockenspiel
+  cello: 42,            // Cello
+  guitar_acoustic: 25,  // Acoustic Guitar (steel)
+  accordion: 21,        // Accordion
+  harmonica: 22,        // Harmonica
+  epiano_fm: 4,         // Electric Piano 1 (Rhodes / FM)
+  saxophone: 64,        // Soprano Saxophone
+  guitar_electric: 27,  // Electric Guitar (clean)
 };
 
 /** Key signature sharp/flat count (-7 to +7) */

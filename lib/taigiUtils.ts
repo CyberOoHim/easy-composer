@@ -1524,21 +1524,78 @@ export const INSTRUMENT_LABELS: Record<InstrumentType, { en: string; zh: string 
   piano: { en: 'Grand Piano', zh: 'Piano' },
   flute: { en: 'Bamboo Flute', zh: 'Flute' },
   whistle: { en: 'Whistle', zh: 'Whistle' },
-  guitar: { en: 'Acoustic Guitar', zh: 'Guitar' },
+  guitar: { en: 'Classic Guitar', zh: 'Guitar' },
   synth: { en: '80s Synth', zh: 'Synth' },
   bell: { en: 'Glockenspiel', zh: 'Bell' },
   cello: { en: 'Cello', zh: 'Cello' },
+  guitar_acoustic: { en: 'Acoustic Guitar', zh: 'Folk Guitar' },
+  accordion: { en: 'Accordion', zh: 'Accordion' },
+  harmonica: { en: 'Harmonica', zh: 'Harmonica' },
+  epiano_fm: { en: 'FM E-Piano', zh: 'E-Piano' },
+  saxophone: { en: 'Saxophone', zh: 'Saxophone' },
+  guitar_electric: { en: 'Clean E-Guitar', zh: 'E-Guitar' },
 };
 
-export const INSTRUMENT_OPTIONS: { value: InstrumentType; labelZh: string; labelEn: string }[] = [
-  { value: 'piano', labelZh: 'Piano', labelEn: 'Grand Piano' },
-  { value: 'flute', labelZh: 'Flute', labelEn: 'Traditional Flute' },
-  { value: 'whistle', labelZh: 'Whistle', labelEn: 'Whistle' },
-  { value: 'guitar', labelZh: 'Guitar', labelEn: 'Acoustic Guitar' },
-  { value: 'synth', labelZh: 'Synth', labelEn: '80s Synth' },
-  { value: 'bell', labelZh: 'Bell', labelEn: 'Glockenspiel' },
-  { value: 'cello', labelZh: 'Cello', labelEn: 'Cello' },
+export interface InstrumentOption {
+  value: InstrumentType;
+  labelZh: string;
+  labelEn: string;
+  category: 'standard' | 'folk' | 'pop';
+  badge?: string;
+}
+
+export const CATEGORIZED_INSTRUMENT_OPTIONS: {
+  category: 'standard' | 'folk' | 'pop';
+  labelEn: string;
+  labelZh: string;
+  options: InstrumentOption[];
+}[] = [
+  {
+    category: 'standard',
+    labelEn: 'Standard & Classical',
+    labelZh: '經典與古典',
+    options: [
+      { value: 'piano', labelZh: '鋼琴 (Piano)', labelEn: 'Grand Piano', category: 'standard' },
+      { value: 'flute', labelZh: '竹笛 (Flute)', labelEn: 'Bamboo Flute', category: 'standard' },
+      { value: 'cello', labelZh: '大提琴 (Cello)', labelEn: 'Cello', category: 'standard' },
+      { value: 'whistle', labelZh: '哨笛 (Whistle)', labelEn: 'Whistle', category: 'standard' },
+      { value: 'bell', labelZh: '鐘琴 (Glockenspiel)', labelEn: 'Glockenspiel', category: 'standard' },
+      { value: 'synth', labelZh: '合成器 (80s Synth)', labelEn: '80s Synth', category: 'standard' },
+    ],
+  },
+  {
+    category: 'folk',
+    labelEn: 'Folk & Ballad',
+    labelZh: '民謠與老歌',
+    options: [
+      { value: 'guitar_acoustic', labelZh: '民謠吉他 (Acoustic Guitar)', labelEn: 'Acoustic Guitar (Folk)', category: 'folk', badge: 'SoundFont' },
+      { value: 'accordion', labelZh: '手風琴 (Accordion)', labelEn: 'Accordion (Musette)', category: 'folk', badge: 'SoundFont' },
+      { value: 'harmonica', labelZh: '口琴 (Harmonica)', labelEn: 'Harmonica', category: 'folk', badge: 'SoundFont' },
+      { value: 'guitar', labelZh: '古典吉他 (Classic Guitar)', labelEn: 'Classic Guitar', category: 'folk' },
+    ],
+  },
+  {
+    category: 'pop',
+    labelEn: 'Modern Pop',
+    labelZh: '當代流行',
+    options: [
+      { value: 'epiano_fm', labelZh: '流行電鋼琴 (FM E-Piano)', labelEn: 'FM E-Piano (DX7 Rhodes)', category: 'pop', badge: 'FM Synth' },
+      { value: 'guitar_electric', labelZh: '電吉他 (Clean E-Guitar)', labelEn: 'Clean Electric Guitar', category: 'pop', badge: 'SoundFont' },
+      { value: 'saxophone', labelZh: '薩克斯風 (Saxophone)', labelEn: 'Saxophone', category: 'pop', badge: 'SoundFont' },
+    ],
+  },
 ];
+
+export const INSTRUMENT_OPTIONS: InstrumentOption[] = CATEGORIZED_INSTRUMENT_OPTIONS.flatMap(g => g.options);
+
+export function getInstrumentCategory(inst: InstrumentType): 'standard' | 'folk' | 'pop' {
+  for (const group of CATEGORIZED_INSTRUMENT_OPTIONS) {
+    if (group.options.some(opt => opt.value === inst)) {
+      return group.category;
+    }
+  }
+  return 'standard';
+}
 
 /**
  * Extract all chords from a measure, supporting both measure.chords array and measure.chord string

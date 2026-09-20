@@ -115,7 +115,20 @@ export interface VerseSettings {
   displayOption?: VerseDisplayOption; // 'hanlo' | 'poj' | 'both_poj_top' | 'both_hanlo_top'
 }
 
-export type InstrumentType = 'piano' | 'flute' | 'whistle' | 'guitar' | 'synth' | 'bell' | 'cello';
+export type InstrumentType =
+  | 'piano'
+  | 'flute'
+  | 'whistle'
+  | 'guitar'
+  | 'synth'
+  | 'bell'
+  | 'cello'
+  | 'guitar_acoustic'
+  | 'accordion'
+  | 'harmonica'
+  | 'epiano_fm'
+  | 'saxophone'
+  | 'guitar_electric';
 
 export type EditorEditMode = 'note' | 'sheet' | 'verse' | 'measure';
 export type NoteEditSubMode = 'verse' | 'measure';

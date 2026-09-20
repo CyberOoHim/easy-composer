@@ -277,10 +277,26 @@ export function deleteSongFromCustomLibrary(songId: string): Song[] {
 // ============================================================================
 // 5. AUDIO / KARAOKE CONTROLS
 // ============================================================================
+const ALL_VALID_INSTRUMENTS = new Set<string>([
+  'piano',
+  'flute',
+  'whistle',
+  'guitar',
+  'synth',
+  'bell',
+  'cello',
+  'guitar_acoustic',
+  'accordion',
+  'harmonica',
+  'epiano_fm',
+  'saxophone',
+  'guitar_electric',
+]);
+
 export function getStoredInstrument(): InstrumentType {
   const val = safeGetItem(STORAGE_KEYS.INSTRUMENT);
-  if (val === 'piano' || val === 'flute' || val === 'whistle' || val === 'guitar' || val === 'synth' || val === 'bell' || val === 'cello') {
-    return val;
+  if (val && ALL_VALID_INSTRUMENTS.has(val)) {
+    return val as InstrumentType;
   }
   return 'piano';
 }
@@ -954,16 +970,8 @@ export function setStoredQuickAlignTarget(target: QuickAlignTarget): void {
 // ============================================================================
 export function getStoredMidiInstrument(defaultVal?: InstrumentType): InstrumentType {
   const val = safeGetItem(STORAGE_KEYS.MIDI_INSTRUMENT);
-  if (
-    val === 'piano' ||
-    val === 'flute' ||
-    val === 'whistle' ||
-    val === 'guitar' ||
-    val === 'synth' ||
-    val === 'bell' ||
-    val === 'cello'
-  ) {
-    return val;
+  if (val && ALL_VALID_INSTRUMENTS.has(val)) {
+    return val as InstrumentType;
   }
   return defaultVal ?? getStoredInstrument();
 }

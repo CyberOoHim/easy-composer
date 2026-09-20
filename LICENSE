@@ -19,3 +19,19 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+### Third-Party Sound Sources & SoundFonts Attribution
+
+1. **Fluid (R3) General MIDI SoundFont**
+   - Author: Frank Wen
+   - License: MIT License
+   - Repository / Distribution: gleitz/midi-js-soundfonts
+   - Usage: General MIDI acoustic sample tables (Acoustic Guitar, Accordion, Harmonica, Saxophone, Electric Guitar).
+
+2. **FatBoy General MIDI SoundFont**
+   - Author: Claudio (FatBoy)
+   - License: CC0 1.0 Universal (Public Domain Dedication)
+   - Usage: Complementary General MIDI sample reference.
+

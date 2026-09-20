@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { NumberedNotationNote, KeySignature, PitchNumber, InstrumentType, NoteDuration } from '@/types/song';
 import { AudioEngine } from '@/lib/audioEngine';
-import { KEY_SEMITONES, SCALE_DEGREE_SEMITONES, INSTRUMENT_OPTIONS } from '@/lib/taigiUtils';
+import { KEY_SEMITONES, SCALE_DEGREE_SEMITONES, INSTRUMENT_OPTIONS, CATEGORIZED_INSTRUMENT_OPTIONS } from '@/lib/taigiUtils';
 import {
   getStoredInstrument,
   setStoredInstrument,
@@ -857,6 +857,31 @@ export const PianoKeyboard: React.FC<PianoKeyboardProps> = React.memo(({
             >
               1-7
             </button>
+          </div>
+
+          {/* 5. Instrument Selector */}
+          <div
+            id="piano-instrument-selector"
+            className="hidden sm:flex items-center gap-1 bg-zinc-900 px-2 py-0.5 sm:py-1 rounded-lg border border-zinc-800 text-[10px] sm:text-[11px] shrink-0"
+            title="Select Melody Instrument"
+          >
+            <Music className="w-3 h-3 text-amber-500 shrink-0" />
+            <select
+              id="piano-instrument-select"
+              value={activeInstrument}
+              onChange={e => handleInstrumentChange(e.target.value as InstrumentType)}
+              className="bg-transparent font-bold text-zinc-200 focus:outline-hidden cursor-pointer"
+            >
+              {CATEGORIZED_INSTRUMENT_OPTIONS.map(group => (
+                <optgroup key={group.category} label={`${group.labelEn} (${group.labelZh})`}>
+                  {group.options.map(opt => (
+                    <option key={opt.value} value={opt.value} className="bg-zinc-900 text-zinc-100">
+                      {opt.labelEn} {opt.badge ? `[${opt.badge}]` : ''}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </select>
           </div>
         </div>
 

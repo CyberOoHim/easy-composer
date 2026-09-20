@@ -3,7 +3,8 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Song, InstrumentType, VerseDisplayOption } from '@/types/song';
 import { PRESET_SONGS } from '@/lib/presets';
-import { INSTRUMENT_OPTIONS, getVerseDisplayOption } from '@/lib/taigiUtils';
+import { INSTRUMENT_OPTIONS, CATEGORIZED_INSTRUMENT_OPTIONS, getVerseDisplayOption } from '@/lib/taigiUtils';
+import { soundFontEngine, type SoundFontStatus } from '@/lib/soundFontEngine';
 import {
   Music,
   Library,
@@ -157,6 +158,21 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   const scoreBtnRef = useRef<HTMLButtonElement | null>(null);
   const [defaultRestoreNotice, setDefaultRestoreNotice] = useState<string | null>(null);
   const noticeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const soundStatus = React.useSyncExternalStore(
+    useCallback(
+      (onStoreChange: () => void) => {
+        return soundFontEngine.subscribeStatus(inst => {
+          if (inst === instrument) {
+            onStoreChange();
+          }
+        });
+      },
+      [instrument]
+    ),
+    () => soundFontEngine.getStatus(instrument || 'piano'),
+    () => 'ready' as SoundFontStatus
+  );
+
   const isStudioOpen = isStudioMenuOpen && !isAnyModalOpen;
   const isScoreMenuOpen = isScoreActionMenuOpen && !isAnyModalOpen;
 
@@ -350,17 +366,26 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
               className="hidden md:flex items-center gap-1 bg-zinc-100 dark:bg-[#151822] px-2 py-0.5 rounded-lg border border-zinc-200/90 dark:border-zinc-750 text-xs h-7.5 sm:h-8 shrink-0 shadow-2xs"
             >
               <Music className="w-3 h-3 text-amber-500 shrink-0" />
+              {soundStatus === 'loading' ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse shrink-0" title="Loading SoundFont sample..." />
+              ) : soundStatus === 'cached' || soundStatus === 'ready' ? (
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" title="SoundFont Active & Offline Cached" />
+              ) : null}
               <select
                 id="header-instrument-select"
                 value={instrument}
                 onChange={e => onSetInstrument(e.target.value as InstrumentType)}
                 className="bg-transparent font-bold text-xs text-zinc-800 dark:text-zinc-200 focus:outline-hidden cursor-pointer touch-manipulation"
-                title="Select Melody Instrument (Piano, Flute, Whistle, Guitar, Synth, Bell, Cello)"
+                title="Select Melody Instrument"
               >
-                {INSTRUMENT_OPTIONS.map(opt => (
-                  <option key={opt.value} value={opt.value} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
-                    {opt.labelEn}
-                  </option>
+                {CATEGORIZED_INSTRUMENT_OPTIONS.map(group => (
+                  <optgroup key={group.category} label={`${group.labelEn} (${group.labelZh})`}>
+                    {group.options.map(opt => (
+                      <option key={opt.value} value={opt.value} className="bg-white dark:bg-zinc-900 text-zinc-900 dark:text-zinc-100">
+                        {opt.labelEn} {opt.badge ? `[${opt.badge}]` : ''}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </select>
             </div>
@@ -550,7 +575,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
             {/* Instrument Timbre Selector */}
             {onSetInstrument && (
-              <div className="p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750 flex flex-col gap-1.5">
+              <div className="p-2.5 rounded-xl bg-zinc-100/80 dark:bg-zinc-850 border border-zinc-200 dark:border-zinc-750 flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <Music className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -558,29 +583,55 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                       Melody Instrument
                     </span>
                   </div>
-                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono font-bold">
-                    {INSTRUMENT_OPTIONS.find(o => o.value === instrument)?.labelEn}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    {soundStatus === 'loading' ? (
+                      <span className="text-[10px] text-amber-500 font-mono animate-pulse">Loading...</span>
+                    ) : soundStatus === 'cached' || soundStatus === 'ready' ? (
+                      <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-mono">Offline Ready</span>
+                    ) : null}
+                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono font-bold">
+                      {INSTRUMENT_OPTIONS.find(o => o.value === instrument)?.labelEn}
+                    </span>
+                  </div>
                 </div>
-                <div className="grid grid-cols-2 gap-1.5 pt-0.5">
-                  {INSTRUMENT_OPTIONS.map(opt => {
-                    const isSelected = instrument === opt.value;
-                    return (
-                      <button
-                        key={opt.value}
-                        type="button"
-                        onClick={() => onSetInstrument(opt.value)}
-                        className={`px-2 py-1.5 rounded-lg text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer ${
-                          isSelected
-                            ? 'bg-amber-500 text-zinc-950 shadow-xs'
-                            : 'bg-white/80 dark:bg-zinc-800/80 hover:bg-zinc-200/60 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200'
-                        }`}
-                      >
-                        <span className="truncate">{opt.labelEn}</span>
-                        {isSelected && <Check className="w-3 h-3 text-zinc-950 stroke-[3] shrink-0" />}
-                      </button>
-                    );
-                  })}
+
+                <div className="flex flex-col gap-2 pt-0.5">
+                  {CATEGORIZED_INSTRUMENT_OPTIONS.map(group => (
+                    <div key={group.category} className="flex flex-col gap-1">
+                      <span className="text-[10px] font-semibold text-zinc-500 dark:text-zinc-400 uppercase tracking-wider px-0.5">
+                        {group.labelEn} · {group.labelZh}
+                      </span>
+                      <div className="grid grid-cols-2 gap-1.5">
+                        {group.options.map(opt => {
+                          const isSelected = instrument === opt.value;
+                          return (
+                            <button
+                              key={opt.value}
+                              type="button"
+                              onClick={() => onSetInstrument(opt.value)}
+                              className={`px-2 py-1.5 rounded-lg text-xs font-bold text-left flex items-center justify-between transition-all cursor-pointer ${
+                                isSelected
+                                  ? 'bg-amber-500 text-zinc-950 shadow-xs'
+                                  : 'bg-white/80 dark:bg-zinc-800/80 hover:bg-zinc-200/60 dark:hover:bg-zinc-750 text-zinc-700 dark:text-zinc-200'
+                              }`}
+                            >
+                              <div className="flex items-center gap-1 min-w-0">
+                                <span className="truncate">{opt.labelEn}</span>
+                                {opt.badge && (
+                                  <span className={`text-[8px] px-1 py-0.2 rounded font-mono font-bold shrink-0 ${
+                                    isSelected ? 'bg-zinc-950/20 text-zinc-950' : 'bg-zinc-200 dark:bg-zinc-700 text-zinc-600 dark:text-zinc-300'
+                                  }`}>
+                                    {opt.badge}
+                                  </span>
+                                )}
+                              </div>
+                              {isSelected && <Check className="w-3 h-3 text-zinc-950 stroke-[3] shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
