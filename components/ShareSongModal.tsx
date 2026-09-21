@@ -1,19 +1,22 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { Song } from '@/types/song';
 import { createShareableSongUrl, copySongUrlToClipboard, ShareUrlResult } from '@/lib/songUrl';
+import { generateScoreQrCode } from '@/lib/qrCode';
 import {
   Share2,
   Copy,
   Check,
   X,
   ExternalLink,
-  Music,
   Sparkles,
   Link as LinkIcon,
   CheckCircle2,
   AlertTriangle,
+  QrCode,
+  Smartphone,
 } from 'lucide-react';
 
 interface ShareSongModalProps {
@@ -31,11 +34,25 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [retryTrigger, setRetryTrigger] = useState(0);
   const [copied, setCopied] = useState(false);
+  const [showQrCode, setShowQrCode] = useState(false);
+  const [qrState, setQrState] = useState<{
+    url: string;
+    dataUrl: string | null;
+    error: string | null;
+    isTooLarge: boolean;
+  }>({
+    url: '',
+    dataUrl: null,
+    error: null,
+    isTooLarge: false,
+  });
+
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const shareResult = shareData && shareData.song === song ? shareData.result : null;
   const isGenerating = !shareResult && !error;
+  const isQrLoading = showQrCode && Boolean(shareResult?.url) && qrState.url !== shareResult?.url;
 
   const handleRetry = useCallback(() => {
     setError(null);
@@ -74,8 +91,43 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
     };
   }, [isOpen, song, retryTrigger, shareData, error]);
 
+  // Generate QR code when showQrCode is activated and URL is available
+  useEffect(() => {
+    if (!showQrCode || !shareResult?.url) return;
+    if (qrState.url === shareResult.url) return;
+
+    let isCancelled = false;
+
+    generateScoreQrCode(shareResult.url)
+      .then(result => {
+        if (!isCancelled) {
+          setQrState({
+            url: shareResult.url,
+            dataUrl: result.dataUrl,
+            error: result.error,
+            isTooLarge: result.isTooLarge,
+          });
+        }
+      })
+      .catch(err => {
+        if (!isCancelled) {
+          setQrState({
+            url: shareResult.url,
+            dataUrl: null,
+            error: err instanceof Error ? err.message : 'Failed to generate QR code',
+            isTooLarge: false,
+          });
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [showQrCode, shareResult?.url, qrState.url]);
+
   const handleClose = useCallback(() => {
     setCopied(false);
+    setShowQrCode(false);
     onClose();
   }, [onClose]);
 
@@ -89,6 +141,26 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
         setCopied(false);
       }, 2500);
     }
+  };
+
+  const handleNativeShare = async () => {
+    if (!shareResult?.url) return;
+    if (typeof navigator !== 'undefined' && typeof navigator.share === 'function') {
+      try {
+        await navigator.share({
+          title: song.title ? `${song.title} - Easy Composer` : 'Musical Score - Easy Composer',
+          text: `Open and play "${song.title || 'Musical Score'}" in Easy Composer:`,
+          url: shareResult.url,
+        });
+        return;
+      } catch (err) {
+        if ((err as Error).name === 'AbortError') {
+          return;
+        }
+      }
+    }
+    // Fallback to copy if Web Share API is unavailable or rejected
+    handleCopy();
   };
 
   const handleSelectAll = () => {
@@ -132,10 +204,10 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
         aria-modal="true"
         aria-label="Share Song Link"
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-lg bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col"
+        className="w-full max-w-lg max-h-[92vh] bg-white dark:bg-[#141720] border border-zinc-200 dark:border-zinc-750 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-150 flex flex-col"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40">
+        <div className="flex items-center justify-between px-4 sm:px-5 py-3.5 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/40 shrink-0">
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
               <Share2 className="w-4 h-4" />
@@ -161,7 +233,7 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="p-4 sm:p-5 flex flex-col gap-4">
+        <div className="p-4 sm:p-5 flex flex-col gap-4 overflow-y-auto max-h-[calc(92vh-120px)]">
           {/* Song Overview Card */}
           <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-850/70 border border-zinc-200/80 dark:border-zinc-750 flex flex-col gap-2">
             <div className="flex items-start justify-between gap-2">
@@ -210,22 +282,25 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
             </div>
           </div>
 
-          {/* Share URL Input & Copy Group */}
-          <div className="flex flex-col gap-1.5">
-            <label
-              htmlFor="share-url-input"
-              className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center justify-between"
-            >
-              <span>Shareable Score URL</span>
+          {/* Share URL Input & Action Buttons Group */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="share-url-input"
+                className="text-[11px] font-bold tracking-wider text-stone-600 dark:text-stone-400 uppercase"
+              >
+                DIRECT SCORE URL
+              </label>
               {copied && (
                 <span className="text-[11px] font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 animate-in fade-in">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   <span>Copied to Clipboard!</span>
                 </span>
               )}
-            </label>
+            </div>
 
-            <div className="relative flex items-center">
+            {/* URL Input with adjacent Copy Button */}
+            <div className="flex items-stretch gap-2">
               <input
                 ref={inputRef}
                 id="share-url-input"
@@ -239,23 +314,120 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
                     : shareResult?.url || ''
                 }
                 onClick={handleSelectAll}
-                className="w-full px-3 py-2 pr-12 text-xs font-mono bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer h-11 transition-colors"
+                className="flex-1 min-w-0 px-3.5 py-2 text-xs font-mono bg-[#f5ede3]/70 dark:bg-zinc-900 border border-[#dfd5c7] dark:border-zinc-700 rounded-xl text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden focus:ring-2 focus:ring-amber-500 cursor-pointer h-11 transition-colors"
                 placeholder="https://..."
               />
               <button
+                id="share-modal-copy-btn"
                 type="button"
                 onClick={handleCopy}
                 disabled={isGenerating || !shareResult?.url}
-                className="absolute right-1 p-2 text-zinc-500 hover:text-amber-600 dark:hover:text-amber-400 transition-colors cursor-pointer touch-manipulation min-w-[44px] min-h-[44px] flex items-center justify-center rounded-lg"
-                title="Copy Link"
+                className="px-4 py-2 rounded-xl font-bold text-xs bg-[#7a5833] hover:bg-[#684728] active:scale-95 text-white flex items-center justify-center gap-1.5 shadow-xs transition-all cursor-pointer touch-manipulation shrink-0 min-h-[44px]"
+                title="Copy Link to Clipboard"
               >
                 {copied ? (
-                  <Check className="w-4 h-4 text-emerald-500 stroke-[3]" />
+                  <>
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>Copied</span>
+                  </>
                 ) : (
-                  <Copy className="w-4 h-4" />
+                  <>
+                    <Copy className="w-4 h-4" />
+                    <span>Copy</span>
+                  </>
                 )}
               </button>
             </div>
+
+            {/* Quick Action Buttons Row: Show/Hide QR Code, Share via App, Test Link */}
+            <div className="flex items-center justify-between gap-2 pt-0.5">
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  id="share-modal-toggle-qr-btn"
+                  type="button"
+                  onClick={() => setShowQrCode(prev => !prev)}
+                  disabled={isGenerating || !shareResult?.url}
+                  className={`px-3 py-2 rounded-xl border text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px] ${
+                    showQrCode
+                      ? 'border-[#7a5833] bg-[#7a5833]/10 text-[#5c3e20] dark:text-amber-300 dark:border-amber-600/50'
+                      : 'border-[#d8cdbd] dark:border-zinc-700 bg-[#f7f2ea] hover:bg-[#eee6da] dark:bg-zinc-850 dark:hover:bg-zinc-800 text-[#3e2b1d] dark:text-zinc-200'
+                  }`}
+                  title={showQrCode ? 'Hide QR Code' : 'Show QR Code'}
+                >
+                  <QrCode className="w-4 h-4 text-[#7a5833] dark:text-amber-400" />
+                  <span>{showQrCode ? 'Hide QR Code' : 'Show QR Code'}</span>
+                </button>
+
+                <button
+                  id="share-modal-app-share-btn"
+                  type="button"
+                  onClick={handleNativeShare}
+                  disabled={isGenerating || !shareResult?.url}
+                  className="px-3 py-2 rounded-xl border border-[#d8cdbd] dark:border-zinc-700 bg-[#f7f2ea] hover:bg-[#eee6da] dark:bg-zinc-850 dark:hover:bg-zinc-800 text-[#3e2b1d] dark:text-zinc-200 font-semibold text-xs flex items-center gap-1.5 transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[38px]"
+                  title="Share using your device's native sharing menu"
+                >
+                  <Smartphone className="w-4 h-4 text-[#7a5833] dark:text-amber-400" />
+                  <span>Share via App</span>
+                </button>
+              </div>
+
+              <button
+                id="share-modal-test-link-btn"
+                type="button"
+                onClick={handleOpenTest}
+                disabled={isGenerating || !shareResult?.url}
+                className="text-xs font-semibold text-stone-700 hover:text-stone-900 dark:text-stone-300 dark:hover:text-stone-100 flex items-center gap-1 py-1.5 px-2 hover:underline transition-colors cursor-pointer touch-manipulation shrink-0"
+                title="Open the generated share link in a new browser tab"
+              >
+                <span>Test Link</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* QR Code Presentation Card (shown when showQrCode is true) */}
+            {showQrCode && (
+              <div
+                id="share-modal-qr-container"
+                className="mt-2 p-5 sm:p-6 rounded-2xl bg-[#faf5ee] dark:bg-[#181a22] border border-[#ebd8c4] dark:border-zinc-750 flex flex-col items-center justify-center text-center animate-in fade-in zoom-in-95 duration-200"
+              >
+                {isQrLoading ? (
+                  <div className="w-52 h-52 sm:w-60 sm:h-60 rounded-2xl bg-white/70 dark:bg-zinc-800/50 flex flex-col items-center justify-center gap-3 border border-[#e4dcd0] dark:border-zinc-700">
+                    <div className="w-7 h-7 border-2 border-[#7a5833] border-t-transparent rounded-full animate-spin" />
+                    <span className="text-xs text-stone-600 dark:text-stone-400 font-medium">
+                      Generating QR Code...
+                    </span>
+                  </div>
+                ) : qrState.error ? (
+                  <div className="p-4 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-300 dark:border-amber-700/50 max-w-sm text-xs text-amber-900 dark:text-amber-200 leading-relaxed">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 dark:text-amber-400 mx-auto mb-2" />
+                    <p className="font-bold mb-1">QR Code Unavailable</p>
+                    <p>{qrState.error}</p>
+                  </div>
+                ) : qrState.dataUrl ? (
+                  <>
+                    <div className="p-3 sm:p-4 rounded-2xl bg-white shadow-xs border border-[#e4dcd0] dark:border-zinc-650 inline-flex items-center justify-center">
+                      <Image
+                        id="share-modal-qr-image"
+                        src={qrState.dataUrl}
+                        alt={`QR Code for ${song.title || 'Musical Score'}`}
+                        width={240}
+                        height={240}
+                        unoptimized
+                        referrerPolicy="no-referrer"
+                        className="w-48 h-48 sm:w-56 sm:h-56 object-contain rounded-lg"
+                      />
+                    </div>
+
+                    <h4 className="font-bold text-sm sm:text-base text-[#2e1f13] dark:text-zinc-100 mt-3.5">
+                      Scan with your mobile camera
+                    </h4>
+                    <p className="text-xs text-[#705a46] dark:text-zinc-400 mt-1 max-w-xs sm:max-w-sm leading-normal">
+                      Instantly opens this score on your smartphone with numbered notation!
+                    </p>
+                  </>
+                ) : null}
+              </div>
+            )}
 
             {error && (
               <div
@@ -294,45 +466,6 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
             )}
           </div>
 
-          {/* Primary Action Buttons */}
-          <div className="flex flex-col sm:flex-row gap-2 pt-1">
-            <button
-              id="share-modal-copy-btn"
-              type="button"
-              onClick={handleCopy}
-              disabled={isGenerating || !shareResult?.url}
-              className={`flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px] ${
-                copied
-                  ? 'bg-emerald-500 hover:bg-emerald-400 text-white shadow-emerald-500/20'
-                  : 'bg-amber-500 hover:bg-amber-400 text-zinc-950 shadow-amber-500/20'
-              }`}
-            >
-              {copied ? (
-                <>
-                  <Check className="w-4 h-4 stroke-[3]" />
-                  <span>Link Copied!</span>
-                </>
-              ) : (
-                <>
-                  <Copy className="w-4 h-4" />
-                  <span>Copy Share Link</span>
-                </>
-              )}
-            </button>
-
-            <button
-              id="share-modal-test-link-btn"
-              type="button"
-              onClick={handleOpenTest}
-              disabled={isGenerating || !shareResult?.url}
-              className="flex items-center justify-center gap-1.5 py-2.5 px-4 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[44px]"
-              title="Open the generated share link in a new browser tab"
-            >
-              <ExternalLink className="w-3.5 h-3.5" />
-              <span>Test Link</span>
-            </button>
-          </div>
-
           {/* Explanation Tip Box */}
           <div className="p-3 rounded-xl bg-amber-500/5 dark:bg-amber-500/10 border border-amber-500/20 text-zinc-600 dark:text-zinc-400 text-xs flex items-start gap-2.5">
             <LinkIcon className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
@@ -349,7 +482,7 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
         </div>
 
         {/* Footer */}
-        <div className="flex justify-end px-4 sm:px-5 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30">
+        <div className="flex justify-end px-4 sm:px-5 py-3 border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/30 shrink-0">
           <button
             id="share-modal-done-btn"
             type="button"
@@ -363,3 +496,4 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
     </div>
   );
 };
+
