@@ -2463,6 +2463,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         {/* WYSIWYG REALISTIC NUMBERED NOTATION SCORE CANVAS */}
         <RealSheetCanvas
           song={song}
+          onOpenAligner={onOpenAligner}
           onUpdateSong={handleUpdateSong}
           selectedMeasureIndex={selectedMeasureIndex}
           selectedNoteIndex={selectedNoteIndex}

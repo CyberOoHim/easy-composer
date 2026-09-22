@@ -75,6 +75,8 @@ import {
   Send,
   RectangleHorizontal,
   RectangleVertical,
+  ArrowRightLeft,
+  ExternalLink,
 } from 'lucide-react';
 import {
   getStoredRealSheetTheme,
@@ -121,6 +123,7 @@ import {
   fillMeasureDeficitWithRests,
   distributeLyricsAcrossNotes,
   splitTaigiLyricSyllables,
+  applyLyricTokensToSong,
   autoRearrangeSongMeasures,
   autoWrapSongMeasures,
   getSongVerseCount,
@@ -130,10 +133,15 @@ import {
   checkZeroBeatTrigger,
   isPunctuationDelimiterOrBreak,
 } from '@/lib/taigiUtils';
+import {
+  separateDualLineLyrics,
+  parseAndPairBilingualLyrics,
+} from '@/lib/multilingualUtils';
 
 export interface RealSheetCanvasProps {
   song: Song;
   onUpdateSong: (updatedSong: Song, options?: { coalesce?: boolean; coalesceKey?: string }) => void;
+  onOpenAligner?: () => void;
 
   // Selected coordinate [measureIndex, noteIndex]
   selectedMeasureIndex?: number | null;
@@ -323,6 +331,7 @@ function scrollMeasureIntoHorizontalView(wrapper: HTMLElement, targetEl: HTMLEle
 export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   song,
   onUpdateSong,
+  onOpenAligner,
   selectedMeasureIndex = 0,
   selectedNoteIndex = 0,
   onSelectNote,
@@ -845,9 +854,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Inline Lyric Spreader Popover State (MOD-5 / MOD-3)
   const [isLyricSpreaderOpen, setIsLyricSpreaderOpen] = useState(false);
+  const [lyricSpreaderMode, setLyricSpreaderMode] = useState<'dual' | 'single'>('dual');
+  const [lyricSpreaderHanlo, setLyricSpreaderHanlo] = useState('');
+  const [lyricSpreaderPoj, setLyricSpreaderPoj] = useState('');
   const [lyricSpreaderInput, setLyricSpreaderInput] = useState('');
   const [lyricSpreaderField, setLyricSpreaderField] = useState<'auto' | 'roman' | 'hanlo'>('auto');
   const [lyricSpreaderVerse, setLyricSpreaderVerse] = useState<number>(1);
+
+  const handleSwapSpreaderLines = useCallback(() => {
+    setLyricSpreaderHanlo((prevHanlo) => {
+      const curPoj = lyricSpreaderPoj;
+      setLyricSpreaderPoj(prevHanlo);
+      return curPoj;
+    });
+  }, [lyricSpreaderPoj]);
 
   // Pad measure deficit rests (MOD-5 / MOD-3)
   const handlePadMeasureRest = useCallback((mIdx: number) => {
@@ -861,7 +881,50 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Apply inline lyric spread (MOD-5 / MOD-3)
   const handleApplyInlineLyricSpread = useCallback(() => {
+    if (lyricSpreaderMode === 'dual') {
+      if (!lyricSpreaderHanlo.trim() && !lyricSpreaderPoj.trim()) return;
+      const tokens = parseAndPairBilingualLyrics(
+        lyricSpreaderHanlo,
+        lyricSpreaderPoj,
+        song.language || 'taigi'
+      );
+      const updated = applyLyricTokensToSong(song, tokens, {
+        startMeasureIdx: currentMIdx,
+        startNoteIdx: currentNIdx,
+        verseIndex: lyricSpreaderVerse,
+      });
+      onUpdateSong(updated);
+      setIsLyricSpreaderOpen(false);
+      setLyricSpreaderHanlo('');
+      setLyricSpreaderPoj('');
+      setLyricSpreaderInput('');
+      return;
+    }
+
     if (!lyricSpreaderInput.trim()) return;
+    const lines = lyricSpreaderInput.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+    if (lines.length >= 2) {
+      const sep = separateDualLineLyrics(lyricSpreaderInput);
+      if (sep.hanloText && sep.romanText) {
+        const tokens = parseAndPairBilingualLyrics(
+          sep.hanloText,
+          sep.romanText,
+          song.language || 'taigi'
+        );
+        const updated = applyLyricTokensToSong(song, tokens, {
+          startMeasureIdx: currentMIdx,
+          startNoteIdx: currentNIdx,
+          verseIndex: lyricSpreaderVerse,
+        });
+        onUpdateSong(updated);
+        setIsLyricSpreaderOpen(false);
+        setLyricSpreaderInput('');
+        setLyricSpreaderHanlo('');
+        setLyricSpreaderPoj('');
+        return;
+      }
+    }
+
     const updated = distributeLyricsAcrossNotes(
       lyricSpreaderInput,
       song,
@@ -873,7 +936,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     onUpdateSong(updated);
     setIsLyricSpreaderOpen(false);
     setLyricSpreaderInput('');
-  }, [lyricSpreaderInput, song, currentMIdx, currentNIdx, lyricSpreaderVerse, lyricSpreaderField, onUpdateSong]);
+    setLyricSpreaderHanlo('');
+    setLyricSpreaderPoj('');
+  }, [
+    lyricSpreaderMode,
+    lyricSpreaderHanlo,
+    lyricSpreaderPoj,
+    lyricSpreaderInput,
+    song,
+    currentMIdx,
+    currentNIdx,
+    lyricSpreaderVerse,
+    lyricSpreaderField,
+    onUpdateSong,
+  ]);
 
   // Dynamic real-time height tracking of the floating score HUD stack
   const [hudStackHeight, setHudStackHeight] = useState<number>(180);
@@ -4846,129 +4922,324 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       )}
 
       {/* Inline Lyric Spreader Modal / Popover (MOD-5 / MOD-3) */}
-      {isLyricSpreaderOpen && (
-        <div
-          id="lyric-spreader-backdrop"
-          className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4 print:hidden"
-          onClick={() => setIsLyricSpreaderOpen(false)}
-        >
+      {isLyricSpreaderOpen && (() => {
+        const dualTokens = parseAndPairBilingualLyrics(
+          lyricSpreaderHanlo,
+          lyricSpreaderPoj,
+          song.language || 'taigi'
+        );
+        const singleLines = lyricSpreaderInput.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+        const autoSeparated = singleLines.length >= 2 ? separateDualLineLyrics(lyricSpreaderInput) : null;
+        const isAutoDual = Boolean(autoSeparated && autoSeparated.hanloText && autoSeparated.romanText);
+        const autoTokens = isAutoDual && autoSeparated
+          ? parseAndPairBilingualLyrics(autoSeparated.hanloText, autoSeparated.romanText, song.language || 'taigi')
+          : null;
+        const singleSyllables = splitTaigiLyricSyllables(lyricSpreaderInput);
+
+        const canDistribute = lyricSpreaderMode === 'dual'
+          ? Boolean(lyricSpreaderHanlo.trim() || lyricSpreaderPoj.trim())
+          : Boolean(lyricSpreaderInput.trim());
+
+        return (
           <div
-            id="lyric-spreader-card"
-            onClick={(e) => e.stopPropagation()}
-            className="bg-white dark:bg-[#181b24] border border-amber-500/80 rounded-2xl shadow-2xl p-5 max-w-lg w-full text-left animate-in fade-in zoom-in-95 duration-150 select-none z-50"
+            id="lyric-spreader-backdrop"
+            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 print:hidden"
+            onClick={() => setIsLyricSpreaderOpen(false)}
           >
-            <div className="flex items-center justify-between mb-3 pb-2 border-b border-zinc-200 dark:border-zinc-800">
-              <div className="flex items-center gap-2">
-                <AlignLeft className="w-5 h-5 text-amber-500 shrink-0" />
-                <div>
-                  <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100">
-                    Paste Line & Spread Lyrics
-                  </h3>
-                  <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    Starting from Measure {currentMIdx + 1}, Note {currentNIdx + 1}
-                  </p>
+            <div
+              id="lyric-spreader-card"
+              onClick={(e) => e.stopPropagation()}
+              className="bg-white dark:bg-[#181b24] border border-amber-500/80 rounded-2xl shadow-2xl p-5 max-w-xl w-full text-left animate-in fade-in zoom-in-95 duration-150 select-none z-50"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between mb-3 pb-2.5 border-b border-zinc-200 dark:border-zinc-800">
+                <div className="flex items-center gap-2">
+                  <AlignLeft className="w-5 h-5 text-amber-500 shrink-0" />
+                  <div>
+                    <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
+                      <span>Paste Line & Spread Lyrics</span>
+                      <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px] font-mono font-bold">
+                        Bilingual
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                      Starting from Measure {currentMIdx + 1}, Note {currentNIdx + 1}
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsLyricSpreaderOpen(false)}
-                className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md cursor-pointer transition-colors"
-                title="Close (Esc)"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
 
-            {/* Target Settings */}
-            <div className="flex items-center gap-3 mb-3 text-xs">
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-zinc-600 dark:text-zinc-400">Target Verse:</span>
-                <select
-                  value={lyricSpreaderVerse}
-                  onChange={(e) => setLyricSpreaderVerse(Number(e.target.value))}
-                  className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold"
-                >
-                  {Array.from({ length: Math.max(verseCount, 5) }, (_, i) => i + 1).map((v) => (
-                    <option key={v} value={v}>
-                      Verse {v}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="flex items-center gap-1.5">
-                <span className="font-bold text-zinc-600 dark:text-zinc-400">Target Field:</span>
-                <select
-                  value={lyricSpreaderField}
-                  onChange={(e) => setLyricSpreaderField(e.target.value as 'auto' | 'roman' | 'hanlo')}
-                  className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold"
-                >
-                  <option value="auto">Auto-detect</option>
-                  <option value="roman">Romanization (POJ)</option>
-                  <option value="hanlo">Han-Lo</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Input Textarea */}
-            <div className="mb-3">
-              <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
-                Paste or type full phrase / verse line:
-              </label>
-              <textarea
-                autoFocus
-                rows={3}
-                value={lyricSpreaderInput}
-                onChange={(e) => setLyricSpreaderInput(e.target.value)}
-                placeholder="e.g. To̍k-iā bô-phōaⁿ siú teng-ē, chheng-hong tùi bīn chhoe... or 獨夜無伴守燈下 清風對面吹"
-                className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-serif text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
-              />
-            </div>
-
-            {/* Syllable Tokens Preview */}
-            {lyricSpreaderInput.trim() && (
-              <div className="mb-4 p-2.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
-                <div className="flex items-center justify-between text-xs mb-1.5 text-zinc-500 dark:text-zinc-400">
-                  <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                    Parsed Syllables ({splitTaigiLyricSyllables(lyricSpreaderInput).length})
-                  </span>
-                  <span className="font-mono text-[10px]">Each syllable assigns to one note</span>
-                </div>
-                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                  {splitTaigiLyricSyllables(lyricSpreaderInput).map((syl, sIdx) => (
-                    <span
-                      key={sIdx}
-                      className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-amber-700 dark:text-amber-300 shadow-2xs"
+                <div className="flex items-center gap-2">
+                  {onOpenAligner && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsLyricSpreaderOpen(false);
+                        onOpenAligner();
+                      }}
+                      className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-500/30 transition-all cursor-pointer"
+                      title="Open full Lyric Aligner with Note-by-Note Review Plan matrix"
                     >
-                      {syl}
-                    </span>
-                  ))}
+                      <Sparkles className="w-3.5 h-3.5" />
+                      <span>Review Plan</span>
+                      <ExternalLink className="w-3 h-3 opacity-70" />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setIsLyricSpreaderOpen(false)}
+                    className="p-1 text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 rounded-md cursor-pointer transition-colors"
+                    title="Close (Esc)"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
                 </div>
               </div>
-            )}
 
-            {/* Footer Actions */}
-            <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-800 text-xs">
-              <button
-                type="button"
-                onClick={() => setIsLyricSpreaderOpen(false)}
-                className="px-3 py-1.5 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!lyricSpreaderInput.trim()}
-                onClick={handleApplyInlineLyricSpread}
-                className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs shadow-md transition-all disabled:opacity-50 cursor-pointer active:scale-95"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Distribute Across Notes</span>
-              </button>
+              {/* Mode Tabs */}
+              <div className="flex items-center gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl mb-3 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold">
+                <button
+                  type="button"
+                  onClick={() => setLyricSpreaderMode('dual')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 ${
+                    lyricSpreaderMode === 'dual'
+                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold shadow-xs'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  <span>Two Lines: Hàn-lô + POJ</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLyricSpreaderMode('single')}
+                  className={`flex-1 py-1.5 px-3 rounded-lg transition-all cursor-pointer text-center flex items-center justify-center gap-1.5 ${
+                    lyricSpreaderMode === 'single'
+                      ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 font-bold shadow-xs'
+                      : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
+                  }`}
+                >
+                  <span>Single Line / Quick Text</span>
+                </button>
+              </div>
+
+              {/* Target Settings */}
+              <div className="flex items-center gap-3 mb-3 text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-bold text-zinc-600 dark:text-zinc-400">Target Verse:</span>
+                  <select
+                    value={lyricSpreaderVerse}
+                    onChange={(e) => setLyricSpreaderVerse(Number(e.target.value))}
+                    className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold"
+                  >
+                    {Array.from({ length: Math.max(verseCount, 5) }, (_, i) => i + 1).map((v) => (
+                      <option key={v} value={v}>
+                        Verse {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {lyricSpreaderMode === 'single' && (
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-bold text-zinc-600 dark:text-zinc-400">Target Field:</span>
+                    <select
+                      value={lyricSpreaderField}
+                      onChange={(e) => setLyricSpreaderField(e.target.value as 'auto' | 'roman' | 'hanlo')}
+                      className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold"
+                    >
+                      <option value="auto">Auto-detect</option>
+                      <option value="roman">Romanization (POJ)</option>
+                      <option value="hanlo">Han-Lo</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
+              {/* Inputs */}
+              {lyricSpreaderMode === 'dual' ? (
+                <div className="space-y-2.5 mb-3">
+                  {/* Line 1: Hàn-lô */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1 text-xs">
+                      <label className="font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 text-[10px] font-mono">Line 1</span>
+                        <span>Hàn-lô (漢字 / 漢羅)</span>
+                      </label>
+                      <span className="text-[10px] text-zinc-400">Chinese / Han characters</span>
+                    </div>
+                    <textarea
+                      rows={2}
+                      value={lyricSpreaderHanlo}
+                      onChange={(e) => setLyricSpreaderHanlo(e.target.value)}
+                      placeholder="e.g. 獨夜無伴守燈下 or 孤"
+                      className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-serif text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+
+                  {/* Swap Lines Button */}
+                  <div className="flex items-center justify-end -my-1">
+                    <button
+                      type="button"
+                      onClick={handleSwapSpreaderLines}
+                      className="flex items-center gap-1 px-2.5 py-1 text-xs text-amber-700 dark:text-amber-400 hover:text-amber-800 dark:hover:text-amber-300 hover:bg-amber-500/10 rounded-md transition-colors cursor-pointer"
+                      title="Swap Line 1 and Line 2"
+                    >
+                      <ArrowRightLeft className="w-3.5 h-3.5" />
+                      <span>Swap Lines</span>
+                    </button>
+                  </div>
+
+                  {/* Line 2: POJ */}
+                  <div>
+                    <div className="flex items-center justify-between mb-1 text-xs">
+                      <label className="font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
+                        <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-mono">Line 2</span>
+                        <span>POJ (白話字 / 羅馬字)</span>
+                      </label>
+                      <span className="text-[10px] text-zinc-400">Romanization with tone marks</span>
+                    </div>
+                    <textarea
+                      rows={2}
+                      value={lyricSpreaderPoj}
+                      onChange={(e) => setLyricSpreaderPoj(e.target.value)}
+                      placeholder="e.g. To̍k-iā bô-phōaⁿ siú teng-ē or ko͘"
+                      className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-serif text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="mb-3">
+                  <label className="block text-xs font-bold text-zinc-700 dark:text-zinc-300 mb-1">
+                    Paste or type full phrase / verse line:
+                  </label>
+                  <textarea
+                    autoFocus
+                    rows={3}
+                    value={lyricSpreaderInput}
+                    onChange={(e) => setLyricSpreaderInput(e.target.value)}
+                    placeholder="e.g. 獨夜無伴守燈下 or To̍k-iā bô-phōaⁿ siú teng-ē (or two lines to auto-pair!)"
+                    className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-serif text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  {isAutoDual && (
+                    <div className="mt-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
+                      <span>💡 <strong>Auto-detected 2 lines:</strong> Hàn-lô + POJ will pair onto the same notes!</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (autoSeparated) {
+                            setLyricSpreaderHanlo(autoSeparated.hanloText);
+                            setLyricSpreaderPoj(autoSeparated.romanText);
+                            setLyricSpreaderMode('dual');
+                          }
+                        }}
+                        className="underline font-bold text-amber-800 dark:text-amber-200 cursor-pointer ml-2"
+                      >
+                        Edit in Two Lines ➔
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Syllable Tokens Preview */}
+              {lyricSpreaderMode === 'dual' ? (
+                dualTokens.length > 0 && (
+                  <div className="mb-4 p-2.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                    <div className="flex items-center justify-between text-xs mb-1.5 text-zinc-500 dark:text-zinc-400">
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                        Paired Syllables ({dualTokens.length} notes)
+                      </span>
+                      <span className="font-mono text-[10px]">Both tiers assign to the same note</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
+                      {dualTokens.map((tok, idx) => (
+                        <div
+                          key={idx}
+                          className="flex flex-col items-center justify-center px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs shadow-2xs min-w-[36px]"
+                        >
+                          <span className="font-serif font-bold text-zinc-900 dark:text-zinc-100">
+                            {tok.hanlo || '—'}
+                          </span>
+                          <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">
+                            {tok.poj || '—'}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
+              ) : isAutoDual && autoTokens ? (
+                <div className="mb-4 p-2.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                  <div className="flex items-center justify-between text-xs mb-1.5 text-zinc-500 dark:text-zinc-400">
+                    <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                      Auto-Paired Syllables ({autoTokens.length} notes)
+                    </span>
+                    <span className="font-mono text-[10px]">Both tiers assign to the same note</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
+                    {autoTokens.map((tok, idx) => (
+                      <div
+                        key={idx}
+                        className="flex flex-col items-center justify-center px-2 py-1 rounded-lg bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs shadow-2xs min-w-[36px]"
+                      >
+                        <span className="font-serif font-bold text-zinc-900 dark:text-zinc-100">
+                          {tok.hanlo || '—'}
+                        </span>
+                        <span className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">
+                          {tok.poj || '—'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                lyricSpreaderInput.trim() && (
+                  <div className="mb-4 p-2.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
+                    <div className="flex items-center justify-between text-xs mb-1.5 text-zinc-500 dark:text-zinc-400">
+                      <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                        Parsed Syllables ({singleSyllables.length})
+                      </span>
+                      <span className="font-mono text-[10px]">Each syllable assigns to one note</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                      {singleSyllables.map((syl, sIdx) => (
+                        <span
+                          key={sIdx}
+                          className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-700 text-xs font-medium text-amber-700 dark:text-amber-300 shadow-2xs"
+                        >
+                          {syl}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )
+              )}
+
+              {/* Footer Actions */}
+              <div className="flex items-center justify-between pt-2 border-t border-zinc-200 dark:border-zinc-800 text-xs">
+                <button
+                  type="button"
+                  onClick={() => setIsLyricSpreaderOpen(false)}
+                  className="px-3 py-1.5 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={!canDistribute}
+                    onClick={handleApplyInlineLyricSpread}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-xs shadow-md transition-all disabled:opacity-50 cursor-pointer active:scale-95"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>Distribute Across Notes</span>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
     </div>
   );
 };
