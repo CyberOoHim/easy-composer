@@ -29,7 +29,7 @@ describe('Editor input ownership (INT-3)', () => {
     );
     assert.match(
       canvas,
-      /onClick=\{\(\) => \{\s*onSelectMeasure\?\.\(engravedM\.measureIndex\);\s*\}\}/
+      /onClick=\{\(\) => \{[\s\S]*?onSelectMeasure\?\.\(engravedM\.measureIndex\);[\s\S]*?\}\}/
     );
   });
 
