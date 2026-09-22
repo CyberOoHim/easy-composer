@@ -258,9 +258,14 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
                   <Sparkles className="w-3 h-3" />
                   <span>Preset Link</span>
                 </span>
+              ) : shareResult?.format === 'delta' ? (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold shrink-0">
+                  <Sparkles className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                  <span>Delta Link ({urlLengthKb} KB)</span>
+                </span>
               ) : shareResult ? (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-700 dark:text-emerald-300 border border-emerald-500/30 text-[10px] font-mono font-bold shrink-0">
-                  <span>Compressed ({urlLengthKb} KB)</span>
+                  <span>Compact ({urlLengthKb} KB)</span>
                 </span>
               ) : null}
             </div>

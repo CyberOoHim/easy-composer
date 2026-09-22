@@ -284,7 +284,9 @@ describe('Song URL Compression & Sharing Engine (songUrl)', () => {
     const modifiedRes = await createShareableSongUrl(modifiedSuKiHong, 'https://composer.app/');
     assert.equal(modifiedRes.isPreset, false);
     assert.ok(modifiedRes.url.startsWith('https://composer.app/#song='));
-    assert.ok(modifiedRes.payloadSize > 1000);
+    // Delta encoding ensures ultra-compact payload (< 500 bytes) rather than multi-KB standard JSON
+    assert.ok(modifiedRes.payloadSize > 0);
+    assert.ok(modifiedRes.payloadSize < 500);
 
     const decoded = await parseSongFromUrl(modifiedRes.url);
     assert.ok(decoded);
@@ -483,4 +485,49 @@ describe('Song URL Compression & Sharing Engine (songUrl)', () => {
       (globalThis as any).window = originalWindow;
     }
   });
+
+  it('serializes 20-measure score (taiwan-the-green) to fit within standard QR code limits', async () => {
+    const twg = PRESET_SONGS.find(p => p.id === 'taiwan-the-green');
+    assert.ok(twg, 'taiwan-the-green preset must exist');
+
+    // Test 1: User-edited Taiwan the Green (e.g. modified tempo and note)
+    const modifiedTwg: Song = JSON.parse(JSON.stringify(twg));
+    modifiedTwg.bpm = 76;
+    modifiedTwg.measures[0].notes[0].pitch = 2;
+
+    const modifiedShare = await createShareableSongUrl(modifiedTwg, 'https://cyberpraise.github.io/easy-composer/');
+    assert.equal(modifiedShare.isPreset, false);
+    assert.ok(modifiedShare.url.includes('#song='));
+    // Delta compression should result in a tiny URL (under 300 characters)
+    assert.ok(modifiedShare.url.length < 300, `Expected URL length < 300, got ${modifiedShare.url.length}`);
+
+    // Verify roundtrip decoding
+    const decodedModified = await parseSongFromUrl(modifiedShare.url);
+    assert.equal(decodedModified.type, 'song');
+    assert.equal(decodedModified.song.title, twg.title);
+    assert.equal(decodedModified.song.bpm, 76);
+    assert.equal(decodedModified.song.measures[0].notes[0].pitch, 2);
+    assert.equal(decodedModified.song.measures.length, 20);
+
+    // Test 2: Completely custom 20-measure standalone song (Compact V2 schema)
+    const customTwg: Song = JSON.parse(JSON.stringify(twg));
+    customTwg.id = 'custom-user-anthem';
+    customTwg.title = 'Custom 20-Measure Anthem';
+    delete customTwg.originalPresetId;
+
+    const customShare = await createShareableSongUrl(customTwg, 'https://cyberpraise.github.io/easy-composer/');
+    assert.equal(customShare.isPreset, false);
+    // Must fit well within QR Code version 40 limit (~2,953 bytes)
+    assert.ok(
+      customShare.url.length < 2400,
+      `Expected custom 20-measure score URL < 2400 chars, got ${customShare.url.length}`
+    );
+
+    const decodedCustom = await parseSongFromUrl(customShare.url);
+    assert.equal(decodedCustom.type, 'song');
+    assert.equal(decodedCustom.song.title, 'Custom 20-Measure Anthem');
+    assert.equal(decodedCustom.song.measures.length, 20);
+    assert.equal(decodedCustom.song.measures[0].notes.length, twg.measures[0].notes.length);
+  });
 });
+
