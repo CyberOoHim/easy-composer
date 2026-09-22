@@ -503,11 +503,14 @@ describe('Song URL Compression & Sharing Engine (songUrl)', () => {
 
     // Verify roundtrip decoding
     const decodedModified = await parseSongFromUrl(modifiedShare.url);
-    assert.equal(decodedModified.type, 'song');
-    assert.equal(decodedModified.song.title, twg.title);
-    assert.equal(decodedModified.song.bpm, 76);
-    assert.equal(decodedModified.song.measures[0].notes[0].pitch, 2);
-    assert.equal(decodedModified.song.measures.length, 20);
+    assert.ok(decodedModified, 'decodedModified should not be null');
+    assert.equal(decodedModified?.type, 'song');
+    if (decodedModified && decodedModified.type === 'song') {
+      assert.equal(decodedModified.song.title, twg.title);
+      assert.equal(decodedModified.song.bpm, 76);
+      assert.equal(decodedModified.song.measures[0].notes[0].pitch, 2);
+      assert.equal(decodedModified.song.measures.length, 20);
+    }
 
     // Test 2: Completely custom 20-measure standalone song (Compact V2 schema)
     const customTwg: Song = JSON.parse(JSON.stringify(twg));
@@ -524,10 +527,13 @@ describe('Song URL Compression & Sharing Engine (songUrl)', () => {
     );
 
     const decodedCustom = await parseSongFromUrl(customShare.url);
-    assert.equal(decodedCustom.type, 'song');
-    assert.equal(decodedCustom.song.title, 'Custom 20-Measure Anthem');
-    assert.equal(decodedCustom.song.measures.length, 20);
-    assert.equal(decodedCustom.song.measures[0].notes.length, twg.measures[0].notes.length);
+    assert.ok(decodedCustom, 'decodedCustom should not be null');
+    assert.equal(decodedCustom?.type, 'song');
+    if (decodedCustom && decodedCustom.type === 'song') {
+      assert.equal(decodedCustom.song.title, 'Custom 20-Measure Anthem');
+      assert.equal(decodedCustom.song.measures.length, 20);
+      assert.equal(decodedCustom.song.measures[0].notes.length, twg.measures[0].notes.length);
+    }
   });
 });
 
