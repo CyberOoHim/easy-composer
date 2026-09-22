@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NumberedNotationNote, LyricDisplayMode, SongLanguage } from '@/types/song';
 import {
   isNonNotationItem,
@@ -12,6 +12,7 @@ import {
   INSTRUMENT_LABELS,
 } from '@/lib/taigiUtils';
 import { Volume2, FileText } from 'lucide-react';
+import { getStoredVirtualKeyboardEnabled, VIRTUAL_KEYBOARD_EVENT } from '@/lib/storage';
 
 interface NoteCellProps {
   note: NumberedNotationNote;
@@ -47,6 +48,23 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
   keyPrefix = '',
 }) => {
   const [focusedField, setFocusedField] = useState<'roman' | 'hanlo' | null>(null);
+  const [isVirtualKeyboardEnabled, setIsVirtualKeyboardEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return getStoredVirtualKeyboardEnabled(false);
+    }
+    return false;
+  });
+
+  useEffect(() => {
+    const handleVkEvent = (e: Event) => {
+      const ce = e as CustomEvent<{ enabled: boolean }>;
+      if (ce.detail && typeof ce.detail.enabled === 'boolean') {
+        setIsVirtualKeyboardEnabled(ce.detail.enabled);
+      }
+    };
+    window.addEventListener(VIRTUAL_KEYBOARD_EVENT, handleVkEvent);
+    return () => window.removeEventListener(VIRTUAL_KEYBOARD_EVENT, handleVkEvent);
+  }, []);
 
   const isNonNotation = isNonNotationItem(note);
   const isPitched = !isNonNotation && typeof note.pitch === 'number' && note.pitch > 0;
@@ -485,6 +503,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             <input
               id={`lyric-input-${mIdx}-${nIdx}-roman`}
               type="text"
+              inputMode={isVirtualKeyboardEnabled ? 'text' : 'none'}
               value={note.lyric.phonetic || note.lyric.poj || note.lyric.tl || ''}
               onClick={e => e.stopPropagation()}
               onFocus={() => {
@@ -540,6 +559,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             <input
               id={`lyric-input-${mIdx}-${nIdx}-hanlo`}
               type="text"
+              inputMode={isVirtualKeyboardEnabled ? 'text' : 'none'}
               value={note.lyric.text || note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || ''}
               onClick={e => e.stopPropagation()}
               onFocus={() => {

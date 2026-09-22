@@ -74,6 +74,8 @@ export const STORAGE_KEYS = {
   ACCOMPANIMENT_STYLE: 'taigi_composer_accompaniment_style',
   SHOW_TACTILE_QUICK_PAD: 'taigi_composer_show_tactile_quick_pad',
   PENTATONIC_MODE: 'taigi_composer_pentatonic_mode',
+  // iPad / Touch Soft Keyboard
+  VIRTUAL_KEYBOARD_ENABLED: 'taigi_composer_virtual_keyboard_enabled',
 } as const;
 
 export type ActiveTabMode = 'karaoke' | 'editor' | 'split';
@@ -1046,7 +1048,28 @@ export function setStoredPwaDismissed(dismissed: boolean): void {
 }
 
 // ============================================================================
-// 20. RESTORE TO DEFAULT (Reset All User Settings to Factory Defaults)
+// 20. IPAD / TOUCH VIRTUAL SOFTWARE KEYBOARD SETTINGS
+// ============================================================================
+export const VIRTUAL_KEYBOARD_EVENT = 'taigi_composer_virtual_keyboard_change';
+
+export function getStoredVirtualKeyboardEnabled(defaultVal = false): boolean {
+  if (typeof window === 'undefined') return defaultVal;
+  const stored = safeGetItem(STORAGE_KEYS.VIRTUAL_KEYBOARD_ENABLED);
+  if (stored !== null) {
+    return stored === 'true';
+  }
+  return defaultVal;
+}
+
+export function setStoredVirtualKeyboardEnabled(enabled: boolean): void {
+  safeSetItem(STORAGE_KEYS.VIRTUAL_KEYBOARD_ENABLED, String(enabled));
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent(VIRTUAL_KEYBOARD_EVENT, { detail: { enabled } }));
+  }
+}
+
+// ============================================================================
+// 21. RESTORE TO DEFAULT (Reset All User Settings to Factory Defaults)
 // ============================================================================
 export const SETTINGS_RESET_EVENT = 'taigi_composer_settings_reset';
 export const ECO_MODE_EVENT = 'taigi_composer_eco_mode_change';
@@ -1088,6 +1111,7 @@ export function resetAllSettingsToDefault(): void {
   setStoredAccompanimentStyle('block');
   setStoredTactileQuickPad(false);
   setStoredPentatonicMode(false);
+  setStoredVirtualKeyboardEnabled(false);
   setStoredAutoTransposeChords(true);
   setStoredSyncAllMeasures(true);
   setStoredQuickAlignTarget('roman');

@@ -28,6 +28,8 @@ import {
   setStoredNoteZoom,
   getStoredUiZoom,
   setStoredUiZoom,
+  getStoredVirtualKeyboardEnabled,
+  setStoredVirtualKeyboardEnabled,
 } from '../lib/storage.ts';
 
 describe('Local Storage UI Selections Management', () => {
@@ -114,6 +116,15 @@ describe('Local Storage UI Selections Management', () => {
     setStoredPwaDismissed(true);
     assert.strictEqual(getStoredPwaDismissed(), true);
     assert.strictEqual(store[STORAGE_KEYS.PWA_PROMPT_DISMISSED], 'true');
+  });
+
+  it('manages virtualKeyboardEnabled with persistence and default false', () => {
+    assert.strictEqual(getStoredVirtualKeyboardEnabled(), false);
+    setStoredVirtualKeyboardEnabled(true);
+    assert.strictEqual(getStoredVirtualKeyboardEnabled(), true);
+    assert.strictEqual(store[STORAGE_KEYS.VIRTUAL_KEYBOARD_ENABLED], 'true');
+    setStoredVirtualKeyboardEnabled(false);
+    assert.strictEqual(getStoredVirtualKeyboardEnabled(), false);
   });
 
   it('manages pianoDeckMode correctly', () => {

@@ -64,6 +64,7 @@ import {
   Sun,
   Moon,
   Keyboard,
+  KeyboardOff,
   Sliders,
   Shuffle,
   AlertCircle,
@@ -100,6 +101,9 @@ import {
   getStoredAccompanimentStyle,
   setStoredAccompanimentStyle,
   AccompanimentStyle,
+  getStoredVirtualKeyboardEnabled,
+  setStoredVirtualKeyboardEnabled,
+  VIRTUAL_KEYBOARD_EVENT,
   SETTINGS_RESET_EVENT,
   SHEET_ZOOM_EVENT,
 } from '@/lib/storage';
@@ -512,6 +516,24 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   const [activeVerseRowState, setActiveVerseRow] = useState<number>(1);
   const [activeLyricSubfield, setActiveLyricSubfield] = useState<'hanlo' | 'poj'>('hanlo');
 
+  // Virtual / On-screen Soft Keyboard mode (iPad / Touch optimization)
+  const [isVirtualKeyboardEnabled, setIsVirtualKeyboardEnabled] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return getStoredVirtualKeyboardEnabled(false);
+    }
+    return false;
+  });
+  // Explicit on-demand edit mode for current selection when soft keyboard is globally OFF
+  const [isSoftKeyboardExplicitlyActive, setIsSoftKeyboardExplicitlyActive] = useState<boolean>(false);
+
+  const handleToggleVirtualKeyboard = useCallback(() => {
+    setIsVirtualKeyboardEnabled(prev => {
+      const next = !prev;
+      setStoredVirtualKeyboardEnabled(next);
+      return next;
+    });
+  }, []);
+
   // Verse count & available verses (1 to 5)
   const verseCount = useMemo(() => getSongVerseCount(song), [song]);
   const hasMultipleVerses = verseCount > 1;
@@ -651,7 +673,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [editingSectionMeasureIdx]);
 
-  // Listen for global settings reset and sheet zoom change events
+  // Listen for global settings reset, sheet zoom change, and virtual keyboard events
   useEffect(() => {
     const handleReset = () => {
       setZoomScaleState(getStoredSheetZoom(1.0));
@@ -662,6 +684,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       setInternalWrapMode(getStoredSheetWrapMode('no_wrap'));
       setInternalOrientation(getStoredSheetOrientation('portrait'));
       setPianoDeckMode(getStoredPianoDeckMode('step'));
+      setIsVirtualKeyboardEnabled(getStoredVirtualKeyboardEnabled(false));
+      setIsSoftKeyboardExplicitlyActive(false);
     };
     const handleZoomChange = (e: Event) => {
       const ce = e as CustomEvent<{ zoom: number }>;
@@ -669,11 +693,19 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         setZoomScaleState(ce.detail.zoom);
       }
     };
+    const handleVirtualKeyboardChange = (e: Event) => {
+      const ce = e as CustomEvent<{ enabled: boolean }>;
+      if (ce.detail && typeof ce.detail.enabled === 'boolean') {
+        setIsVirtualKeyboardEnabled(ce.detail.enabled);
+      }
+    };
     window.addEventListener(SETTINGS_RESET_EVENT, handleReset);
     window.addEventListener(SHEET_ZOOM_EVENT, handleZoomChange);
+    window.addEventListener(VIRTUAL_KEYBOARD_EVENT, handleVirtualKeyboardChange);
     return () => {
       window.removeEventListener(SETTINGS_RESET_EVENT, handleReset);
       window.removeEventListener(SHEET_ZOOM_EVENT, handleZoomChange);
+      window.removeEventListener(VIRTUAL_KEYBOARD_EVENT, handleVirtualKeyboardChange);
     };
   }, []);
 
@@ -715,6 +747,26 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     Math.min((currentMeasure?.notes.length ?? 1) - 1, selectedNoteIndex ?? 0)
   );
   const currentNote = currentMeasure?.notes[currentNIdx];
+
+  // Explicitly activate software keyboard for the currently selected lyric
+  const handleActivateSoftKeyboardForSelectedLyric = useCallback((verseNum?: number) => {
+    setIsSoftKeyboardExplicitlyActive(true);
+    if (verseNum !== undefined) {
+      setActiveVerseRow(verseNum);
+    }
+    setTimeout(() => {
+      const activeId = activeLyricSubfield === 'hanlo'
+        ? `lyric-input-${currentMIdx}-${currentNIdx}-hanlo`
+        : `lyric-input-${currentMIdx}-${currentNIdx}-roman`;
+      const el = (document.getElementById(activeId) ||
+        document.getElementById(`lyric-input-${currentMIdx}-${currentNIdx}-roman`) ||
+        document.getElementById(`lyric-input-${currentMIdx}-${currentNIdx}-hanlo`)) as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.select();
+      }
+    }, 40);
+  }, [activeLyricSubfield, currentMIdx, currentNIdx]);
 
   // Contextual Edit Suite State
   const [isContextualEditActive, setIsContextualEditActive] = useState<boolean>(true);
@@ -1135,6 +1187,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       subField?: 'hanlo' | 'poj'
     ) => {
       onSelectNote?.(mIdx, nIdx, previewAudio);
+      setIsSoftKeyboardExplicitlyActive(false);
       setActiveField(targetField);
       setContextualEditTarget(targetField === 'lyric' ? 'syllable' : 'note');
       setIsContextualEditActive(true);
@@ -4075,6 +4128,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                       e.stopPropagation();
                                       handleNoteClick(engravedM.measureIndex, nIdx, 'lyric', vNum);
                                     }}
+                                    onDoubleClick={e => {
+                                      e.stopPropagation();
+                                      handleActivateSoftKeyboardForSelectedLyric(vNum);
+                                    }}
                                     style={{
                                       zoom: 'var(--lyric-zoom, 1)',
                                       flex: `${Math.max(1, Math.round((engNote.requiredWidth || 16) / 10))} 1 auto`,
@@ -4102,26 +4159,45 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     }`}
                                   >
                                     {isSelectedLyric && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setLyricSpreaderVerse(vNum);
-                                          setIsLyricSpreaderOpen(true);
-                                        }}
-                                        className="print:hidden absolute -top-5 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 text-[9px] font-extrabold flex items-center gap-1 shadow-md whitespace-nowrap z-40 transition-all cursor-pointer active:scale-95"
-                                        title="Paste Line / Spread Lyrics across notes (MOD-3/MOD-5)"
-                                      >
-                                        <AlignLeft className="w-2.5 h-2.5" />
-                                        <span>Spread</span>
-                                      </button>
+                                      <div className="print:hidden absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-zinc-900/90 dark:bg-zinc-800/95 p-0.5 rounded-md shadow-lg border border-amber-500/40 z-40 whitespace-nowrap transition-all">
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleActivateSoftKeyboardForSelectedLyric(vNum);
+                                          }}
+                                          className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'bg-emerald-500 text-zinc-950 font-black' : 'bg-zinc-700 hover:bg-amber-500 hover:text-zinc-950 text-zinc-200'}`}
+                                          title={
+                                            isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive
+                                              ? 'Virtual Keyboard Active (Ready to type)'
+                                              : 'Tap to open iPad on-screen keyboard for this lyric'
+                                          }
+                                        >
+                                          <Keyboard className="w-2.5 h-2.5" />
+                                          <span>{isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'Typing' : 'Type'}</span>
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            setLyricSpreaderVerse(vNum);
+                                            setIsLyricSpreaderOpen(true);
+                                          }}
+                                          className="px-1.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 text-[9px] font-extrabold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
+                                          title="Paste Line / Spread Lyrics across notes (MOD-3/MOD-5)"
+                                        >
+                                          <AlignLeft className="w-2.5 h-2.5" />
+                                          <span>Spread</span>
+                                        </button>
+                                      </div>
                                     )}
                                     {/* Option 1: Hàn-lô only */}
                                     {vDisplayOption === 'hanlo' &&
                                       (isSelectedLyric ? (
                                         <input
                                           type="text"
-                                          autoFocus
+                                          inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
+                                          autoFocus={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive}
                                           size={1}
                                           value={hanloText}
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
@@ -4145,7 +4221,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                       (isSelectedLyric ? (
                                         <input
                                           type="text"
-                                          autoFocus
+                                          inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
+                                          autoFocus={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive}
                                           size={1}
                                           value={effectivePojText}
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
@@ -4177,7 +4254,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           {/* Top: POJ */}
                                           <input
                                             type="text"
-                                            autoFocus={activeLyricSubfield === 'poj'}
+                                            inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
+                                            autoFocus={(isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive) && activeLyricSubfield === 'poj'}
                                             size={1}
                                             value={effectivePojText}
                                             onFocus={() => setActiveLyricSubfield('poj')}
@@ -4205,7 +4283,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           {/* Bottom: Hàn-lô */}
                                           <input
                                             type="text"
-                                            autoFocus={activeLyricSubfield === 'hanlo'}
+                                            inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
+                                            autoFocus={(isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive) && activeLyricSubfield === 'hanlo'}
                                             size={1}
                                             value={hanloText}
                                             onFocus={() => setActiveLyricSubfield('hanlo')}
@@ -4245,7 +4324,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           {/* Top: Hàn-lô */}
                                           <input
                                             type="text"
-                                            autoFocus={activeLyricSubfield === 'hanlo'}
+                                            inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
+                                            autoFocus={(isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive) && activeLyricSubfield === 'hanlo'}
                                             size={1}
                                             value={hanloText}
                                             onFocus={() => setActiveLyricSubfield('hanlo')}
@@ -4267,7 +4347,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           {/* Bottom: POJ */}
                                           <input
                                             type="text"
-                                            autoFocus={activeLyricSubfield === 'poj'}
+                                            inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
+                                            autoFocus={(isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive) && activeLyricSubfield === 'poj'}
                                             size={1}
                                             value={effectivePojText}
                                             onFocus={() => setActiveLyricSubfield('poj')}
@@ -4402,6 +4483,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
       {/* Floating HUD / Score Ribbon with Docked Piano Bed Slot */}
       <FloatingScoreHud
+        isVirtualKeyboardEnabled={isVirtualKeyboardEnabled}
+        onToggleVirtualKeyboard={handleToggleVirtualKeyboard}
         abRibbonSlot={
           abRange ? (
             <AbTouchRibbon

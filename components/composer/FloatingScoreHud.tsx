@@ -36,6 +36,7 @@ import {
   Disc,
   Command,
   Keyboard,
+  KeyboardOff,
   RotateCw,
   WrapText,
   AlignJustify,
@@ -211,6 +212,10 @@ export interface FloatingScoreHudProps {
   canRedo?: boolean;
   pastCount?: number;
   futureCount?: number;
+
+  // iPad / Touch Virtual Software Keyboard
+  isVirtualKeyboardEnabled?: boolean;
+  onToggleVirtualKeyboard?: () => void;
 }
 
 export { COMMON_PUNCTUATIONS, COMMON_ANNOTATIONS };
@@ -326,6 +331,8 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   canRedo,
   pastCount = 0,
   futureCount = 0,
+  isVirtualKeyboardEnabled = false,
+  onToggleVirtualKeyboard,
 }) => {
   const [internalDrawer, setInternalDrawer] = React.useState<HudDrawerType>('none');
   const [showShortcutsModal, setShowShortcutsModal] = React.useState<boolean>(false);
@@ -1997,6 +2004,37 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
           {/* Popovers, Piano Bed, Recorder & Tools (Mutually Exclusive) */}
           <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 shrink-0">
+            {/* iPad / Virtual Soft Keyboard Toggle */}
+            {onToggleVirtualKeyboard && (
+              <button
+                id="floating-hud-virtual-keyboard-btn"
+                type="button"
+                onClick={onToggleVirtualKeyboard}
+                className={`flex items-center gap-1.5 px-2 sm:px-2.5 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  isVirtualKeyboardEnabled
+                    ? 'bg-emerald-600 text-white font-black shadow-2xs'
+                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                }`}
+                title={
+                  isVirtualKeyboardEnabled
+                    ? 'iPad Virtual Keyboard: ON (Clicking lyrics summons iPad keyboard. Click to turn OFF)'
+                    : 'iPad Virtual Keyboard: OFF (Clicking lyrics selects without popup keyboard. Click to turn ON)'
+                }
+              >
+                {isVirtualKeyboardEnabled ? (
+                  <Keyboard className="w-4 h-4 shrink-0 text-white" />
+                ) : (
+                  <KeyboardOff className="w-4 h-4 shrink-0 text-zinc-400" />
+                )}
+                <span className="hidden xl:inline">
+                  {isVirtualKeyboardEnabled ? 'iPad Kbd: ON' : 'iPad Kbd: OFF'}
+                </span>
+                <span className="xl:hidden inline text-[10px] font-mono font-bold">
+                  {isVirtualKeyboardEnabled ? 'KBD' : 'NO KBD'}
+                </span>
+              </button>
+            )}
+
             {/* Virtual Piano Bed Toggle */}
             <button
               id="floating-hud-piano-bed-btn"
