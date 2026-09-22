@@ -311,3 +311,38 @@ describe('Apply lyric tokens without flattening (INT-3)', () => {
     assert.equal(updated.measures[1].notes[0].lyric.poj, undefined);
   });
 });
+
+describe('Multilingual Two-Line Input & Auto-Detection', () => {
+  it('detects script types correctly', async () => {
+    const { detectScriptType } = await import('../lib/multilingualUtils.ts');
+    assert.equal(detectScriptType('獨夜無伴守燈下'), 'hanlo');
+    assert.equal(detectScriptType('To̍k-iā bô-phōaⁿ siú teng-ē'), 'roman');
+    assert.equal(detectScriptType('Amazing grace how sweet'), 'roman');
+  });
+
+  it('separates two-line input into Hanlo and POJ and auto-swaps if inverted', async () => {
+    const { separateDualLineLyrics } = await import('../lib/multilingualUtils.ts');
+    // Normal order: line 1 Hanlo, line 2 POJ
+    const res1 = separateDualLineLyrics('獨夜無伴守燈下\nTo̍k-iā bô-phōaⁿ siú teng-ē');
+    assert.equal(res1.hanloText, '獨夜無伴守燈下');
+    assert.equal(res1.romanText, 'To̍k-iā bô-phōaⁿ siú teng-ē');
+    assert.equal(res1.detectedLang, 'taigi');
+    assert.equal(res1.swapped, false);
+
+    // Inverted order: line 1 POJ, line 2 Hanlo
+    const res2 = separateDualLineLyrics('To̍k-iā bô-phōaⁿ siú teng-ē\n獨夜無伴守燈下');
+    assert.equal(res2.hanloText, '獨夜無伴守燈下');
+    assert.equal(res2.romanText, 'To̍k-iā bô-phōaⁿ siú teng-ē');
+    assert.equal(res2.swapped, true);
+  });
+
+  it('pairs bilingual syllables accurately into LyricSyllable tokens', async () => {
+    const { parseAndPairBilingualLyrics } = await import('../lib/multilingualUtils.ts');
+    const tokens = parseAndPairBilingualLyrics('獨夜無伴', 'To̍k-iā bô-phōaⁿ', 'taigi');
+    assert.equal(tokens.length, 4);
+    assert.equal(tokens[0].hanlo, '獨');
+    assert.equal(tokens[0].poj, 'To̍k');
+    assert.equal(tokens[1].hanlo, '夜');
+    assert.equal(tokens[1].poj, 'iā');
+  });
+});

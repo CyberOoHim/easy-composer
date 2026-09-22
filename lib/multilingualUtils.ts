@@ -535,3 +535,223 @@ export function getNormalizedLyricDisplay(
     isHyphenated,
   };
 }
+
+/**
+ * Script categorization for lyric texts:
+ * - 'hanlo': Dominantly CJK characters (Hanzi / Kanji / Han-lô)
+ * - 'roman': Dominantly Latin / Romanization characters with or without tone diacritics
+ * - 'mixed': Substantial mix or symbols
+ */
+export function detectScriptType(text: string): 'hanlo' | 'roman' | 'mixed' {
+  if (!text || !text.trim()) return 'mixed';
+  const clean = text.replace(/[\s\d.,!?;:()[\]{}'"`~_—\-/↵\n\r]/g, '');
+  if (!clean) return 'mixed';
+
+  let cjkCount = 0;
+  let latinCount = 0;
+
+  for (let i = 0; i < clean.length; i++) {
+    const code = clean.charCodeAt(i);
+    // CJK Unified Ideographs & extensions
+    const isCJK =
+      (code >= 0x4e00 && code <= 0x9fff) ||
+      (code >= 0x3400 && code <= 0x4dbf) ||
+      (code >= 0x20000 && code <= 0x2a6df) ||
+      (code >= 0x3040 && code <= 0x30ff); // Kana
+
+    if (isCJK) {
+      cjkCount++;
+    } else if (/[a-zA-Z\u00C0-\u024F\u1E00-\u1EFF]/.test(clean[i])) {
+      latinCount++;
+    }
+  }
+
+  const total = cjkCount + latinCount;
+  if (total === 0) return 'mixed';
+  if (cjkCount / total >= 0.5) return 'hanlo';
+  if (latinCount / total >= 0.5) return 'roman';
+  return 'mixed';
+}
+
+/**
+ * Auto-detect SongLanguage from lyric strings based on specific linguistic markers:
+ * - Taigi: POJ tone marks (ā, á, à, â, a̍, o͘, ⁿ), double hyphens (--), ph/th/kh/chh, or Taiwanese keywords
+ * - Japanese: Hiragana / Katakana ranges
+ * - Mandarin: Pinyin tone marks (ā, á, ǎ, à, ē, é, ě, è, ō, ó, ǒ, ò, etc.), or Hanzi without POJ phonemes
+ * - English: English alphabet and common word patterns without tone diacritics
+ */
+export function detectSongLanguageFromLyrics(primary: string, secondary: string = ''): SongLanguage {
+  const combined = `${primary} ${secondary}`.trim();
+  if (!combined) return 'taigi';
+
+  // Japanese check: Hiragana / Katakana
+  if (/[\u3040-\u309f\u30a0-\u30ff]/.test(combined)) {
+    return 'japanese';
+  }
+
+  // Taigi specific phonemes and POJ diacritics
+  const taigiDiacritics = /[o͘O͘ⁿāáàâa̍ēéèêe̍īíìîi̍ōóòôo̍ūúùûu̍]/i;
+  const taigiEnclitic = /--[a-z]+/i;
+  const taigiConsonants = /\b(chh|kh|ph|th|ng|siú|chhoe|bô|teng|lâng|bāng|chhun)\b/i;
+
+  if (taigiDiacritics.test(combined) || taigiEnclitic.test(combined) || taigiConsonants.test(combined)) {
+    return 'taigi';
+  }
+
+  // Mandarin Pinyin 3rd tone caron diacritics (ǎ, ě, ǐ, ǒ, ǔ, ǚ) or Mandarin specific syllables
+  if (/[ǎǐǒǔǚ]/.test(combined) || /\b(de|le|ma|ne|ba|shi|wo|ni|ta|men)\b/i.test(combined)) {
+    return 'mandarin';
+  }
+
+  // If mostly Latin without any tone diacritics or Asian characters, likely English
+  const hasCJK = /[\u4e00-\u9fa5\u3400-\u4dbf]/.test(combined);
+  const hasTones = /[\u0300-\u036f\u0100-\u017f\u1e00-\u1eff]/.test(combined);
+  if (!hasCJK && !hasTones && /[a-zA-Z]/.test(combined)) {
+    return 'english';
+  }
+
+  // Default to Taigi
+  return 'taigi';
+}
+
+/**
+ * Smart separation of multi-line or dual-line input into Han-Lo and POJ lines.
+ * Automatically classifies which line is Han-Lo and which is Roman/POJ.
+ * Also handles alternating stanzas (Line 1 Hanlo, Line 2 POJ, Line 3 Hanlo, Line 4 POJ).
+ */
+export function separateDualLineLyrics(input: string): {
+  hanloText: string;
+  romanText: string;
+  detectedLang: SongLanguage;
+  swapped: boolean;
+} {
+  const rawLines = input
+    .split(/\r?\n/)
+    .map(l => l.trim())
+    .filter(Boolean);
+
+  if (rawLines.length === 0) {
+    return { hanloText: '', romanText: '', detectedLang: 'taigi', swapped: false };
+  }
+
+  if (rawLines.length === 1) {
+    const single = rawLines[0];
+    const script = detectScriptType(single);
+    const detectedLang = detectSongLanguageFromLyrics(single);
+    if (script === 'roman') {
+      return { hanloText: '', romanText: single, detectedLang, swapped: false };
+    }
+    return { hanloText: single, romanText: '', detectedLang, swapped: false };
+  }
+
+  // Check if exactly 2 lines
+  if (rawLines.length === 2) {
+    const script0 = detectScriptType(rawLines[0]);
+    const script1 = detectScriptType(rawLines[1]);
+
+    let hanloText = '';
+    let romanText = '';
+    let swapped = false;
+
+    if (script0 === 'hanlo' && script1 === 'roman') {
+      hanloText = rawLines[0];
+      romanText = rawLines[1];
+    } else if (script0 === 'roman' && script1 === 'hanlo') {
+      hanloText = rawLines[1];
+      romanText = rawLines[0];
+      swapped = true;
+    } else if (script0 === 'hanlo') {
+      hanloText = rawLines[0];
+      romanText = rawLines[1];
+    } else {
+      hanloText = rawLines[1];
+      romanText = rawLines[0];
+      swapped = true;
+    }
+
+    const detectedLang = detectSongLanguageFromLyrics(hanloText, romanText);
+    return { hanloText, romanText, detectedLang, swapped };
+  }
+
+  // More than 2 lines: check if alternating (Line 0 Hanlo, Line 1 Roman, Line 2 Hanlo, etc.)
+  const hanloLines: string[] = [];
+  const romanLines: string[] = [];
+  let isAlternating = true;
+
+  for (let i = 0; i < rawLines.length; i++) {
+    const script = detectScriptType(rawLines[i]);
+    const expectedScript = i % 2 === 0 ? 'hanlo' : 'roman';
+    if (script !== expectedScript && script !== 'mixed') {
+      isAlternating = false;
+      break;
+    }
+  }
+
+  if (isAlternating && rawLines.length >= 2) {
+    for (let i = 0; i < rawLines.length; i++) {
+      if (i % 2 === 0) hanloLines.push(rawLines[i]);
+      else romanLines.push(rawLines[i]);
+    }
+    const hanloText = hanloLines.join('\n');
+    const romanText = romanLines.join('\n');
+    return {
+      hanloText,
+      romanText,
+      detectedLang: detectSongLanguageFromLyrics(hanloText, romanText),
+      swapped: false,
+    };
+  }
+
+  // Otherwise, group by script
+  for (const line of rawLines) {
+    const script = detectScriptType(line);
+    if (script === 'roman') {
+      romanLines.push(line);
+    } else {
+      hanloLines.push(line);
+    }
+  }
+
+  const hanloText = hanloLines.join('\n');
+  const romanText = romanLines.join('\n');
+  return {
+    hanloText,
+    romanText,
+    detectedLang: detectSongLanguageFromLyrics(hanloText, romanText),
+    swapped: false,
+  };
+}
+
+/**
+ * Parses and pairs two lines (Hanlo and POJ/Romanization) into unified LyricSyllables
+ * ensuring each syllable index carries both Hanlo text and POJ phonetic data.
+ */
+export function parseAndPairBilingualLyrics(
+  hanloLine: string,
+  romanLine: string,
+  language: SongLanguage = 'taigi'
+): LyricSyllable[] {
+  const hSyllables = splitMultilingualLyrics(hanloLine, language);
+  const rSyllables = splitMultilingualLyrics(romanLine, language);
+
+  const maxLen = Math.max(hSyllables.length, rSyllables.length);
+  const tokens: LyricSyllable[] = [];
+
+  for (let sIdx = 0; sIdx < maxLen; sIdx++) {
+    const r = rSyllables[sIdx];
+    const h = hSyllables[sIdx];
+    const rText = r ? r.text.replace(/-+$/, '') : '';
+    const hText = h ? h.text : '';
+
+    tokens.push({
+      text: hText || rText,
+      phonetic: rText || (h ? h.phonetic : undefined),
+      isHyphenated: h?.isHyphenated ?? r?.isHyphenated,
+      isWordEnd: h?.isWordEnd ?? r?.isWordEnd,
+      poj: rText,
+      hanlo: hText,
+    });
+  }
+
+  return tokens;
+}
