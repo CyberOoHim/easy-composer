@@ -4,7 +4,11 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { Song } from '@/types/song';
 import { createShareableSongUrl, copySongUrlToClipboard, ShareUrlResult } from '@/lib/songUrl';
-import { generateScoreQrCode } from '@/lib/qrCode';
+import {
+  generateScoreQrCodeWithTitle,
+  downloadQrCodeImage,
+  FormattedSongTitle,
+} from '@/lib/qrCode';
 import {
   Share2,
   Copy,
@@ -17,6 +21,7 @@ import {
   AlertTriangle,
   QrCode,
   Smartphone,
+  Download,
 } from 'lucide-react';
 
 interface ShareSongModalProps {
@@ -35,19 +40,25 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
   const [retryTrigger, setRetryTrigger] = useState(0);
   const [copied, setCopied] = useState(false);
   const [showQrCode, setShowQrCode] = useState(false);
+  const [downloadedQr, setDownloadedQr] = useState(false);
   const [qrState, setQrState] = useState<{
     url: string;
     dataUrl: string | null;
+    combinedDataUrl: string | null;
+    titleInfo: FormattedSongTitle | null;
     error: string | null;
     isTooLarge: boolean;
   }>({
     url: '',
     dataUrl: null,
+    combinedDataUrl: null,
+    titleInfo: null,
     error: null,
     isTooLarge: false,
   });
 
   const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const downloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const shareResult = shareData && shareData.song === song ? shareData.result : null;
@@ -88,22 +99,27 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
       if (copyTimerRef.current) {
         clearTimeout(copyTimerRef.current);
       }
+      if (downloadTimerRef.current) {
+        clearTimeout(downloadTimerRef.current);
+      }
     };
   }, [isOpen, song, retryTrigger, shareData, error]);
 
-  // Generate QR code when showQrCode is activated and URL is available
+  // Generate QR code with song title on top when showQrCode is activated and URL is available
   useEffect(() => {
     if (!showQrCode || !shareResult?.url) return;
     if (qrState.url === shareResult.url) return;
 
     let isCancelled = false;
 
-    generateScoreQrCode(shareResult.url)
+    generateScoreQrCodeWithTitle(shareResult.url, song)
       .then(result => {
         if (!isCancelled) {
           setQrState({
             url: shareResult.url,
             dataUrl: result.dataUrl,
+            combinedDataUrl: result.combinedDataUrl,
+            titleInfo: result.titleInfo,
             error: result.error,
             isTooLarge: result.isTooLarge,
           });
@@ -114,6 +130,8 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
           setQrState({
             url: shareResult.url,
             dataUrl: null,
+            combinedDataUrl: null,
+            titleInfo: null,
             error: err instanceof Error ? err.message : 'Failed to generate QR code',
             isTooLarge: false,
           });
@@ -123,10 +141,30 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
     return () => {
       isCancelled = true;
     };
-  }, [showQrCode, shareResult?.url, qrState.url]);
+  }, [showQrCode, shareResult?.url, qrState.url, song]);
+
+  const handleDownloadQr = useCallback(() => {
+    const targetUrl = qrState.combinedDataUrl || qrState.dataUrl;
+    if (!targetUrl) return;
+
+    const baseName = (qrState.titleInfo?.primaryTitle || song.title || 'musical-score')
+      .replace(/[\\/:*?"<>|]/g, '_')
+      .trim();
+    const fileName = `${baseName}-qrcode.png`;
+
+    const success = downloadQrCodeImage(targetUrl, fileName);
+    if (success) {
+      setDownloadedQr(true);
+      if (downloadTimerRef.current) clearTimeout(downloadTimerRef.current);
+      downloadTimerRef.current = setTimeout(() => {
+        setDownloadedQr(false);
+      }, 2500);
+    }
+  }, [qrState.combinedDataUrl, qrState.dataUrl, qrState.titleInfo?.primaryTitle, song.title]);
 
   const handleClose = useCallback(() => {
     setCopied(false);
+    setDownloadedQr(false);
     setShowQrCode(false);
     onClose();
   }, [onClose]);
@@ -410,25 +448,70 @@ export const ShareSongModal: React.FC<ShareSongModalProps> = ({
                   </div>
                 ) : qrState.dataUrl ? (
                   <>
+                    {/* Song Title Text (per language setting) above QR code */}
+                    {qrState.titleInfo && (
+                      <div className="mb-3 text-center max-w-sm px-2">
+                        <h4
+                          id="share-modal-qr-title"
+                          className="font-serif font-black text-lg sm:text-xl text-[#2e1f13] dark:text-zinc-100 tracking-wide leading-tight"
+                        >
+                          {qrState.titleInfo.primaryTitle}
+                        </h4>
+                        {qrState.titleInfo.secondaryTitle && (
+                          <p
+                            id="share-modal-qr-subtitle"
+                            className="font-serif text-xs sm:text-sm text-[#705a46] dark:text-zinc-400 mt-1 leading-snug"
+                          >
+                            {qrState.titleInfo.secondaryTitle}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* QR Code and Title Composite Image Display */}
                     <div className="p-3 sm:p-4 rounded-2xl bg-white shadow-xs border border-[#e4dcd0] dark:border-zinc-650 inline-flex items-center justify-center">
                       <Image
                         id="share-modal-qr-image"
-                        src={qrState.dataUrl}
-                        alt={`QR Code for ${song.title || 'Musical Score'}`}
-                        width={240}
-                        height={240}
+                        src={qrState.combinedDataUrl || qrState.dataUrl}
+                        alt={`QR Code for ${qrState.titleInfo?.fullTitle || song.title || 'Musical Score'}`}
+                        width={280}
+                        height={320}
                         unoptimized
                         referrerPolicy="no-referrer"
-                        className="w-48 h-48 sm:w-56 sm:h-56 object-contain rounded-lg"
+                        className="w-52 h-auto sm:w-64 max-h-80 object-contain rounded-lg"
                       />
                     </div>
 
-                    <h4 className="font-bold text-sm sm:text-base text-[#2e1f13] dark:text-zinc-100 mt-3.5">
-                      Scan with your mobile camera
-                    </h4>
-                    <p className="text-xs text-[#705a46] dark:text-zinc-400 mt-1 max-w-xs sm:max-w-sm leading-normal">
-                      Instantly opens this score on your smartphone with numbered notation!
-                    </p>
+                    {/* Download Image Button and Instructions */}
+                    <div className="mt-3.5 flex flex-col items-center gap-2">
+                      <button
+                        id="share-modal-download-qr-btn"
+                        type="button"
+                        onClick={handleDownloadQr}
+                        className={`px-4 py-2 rounded-xl text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs active:scale-95 ${
+                          downloadedQr
+                            ? 'bg-emerald-600 text-white border border-emerald-600'
+                            : 'bg-[#3b2818] hover:bg-[#2e1f13] text-amber-50 dark:bg-amber-600 dark:hover:bg-amber-500 dark:text-zinc-950 border border-transparent'
+                        }`}
+                        title="Download QR code and song title image"
+                      >
+                        {downloadedQr ? (
+                          <>
+                            <Check className="w-4 h-4 text-white" />
+                            <span>Image Downloaded!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Download className="w-4 h-4 shrink-0" />
+                            <span>Download QR Code Image</span>
+                          </>
+                        )}
+                      </button>
+
+                      <p className="text-[11px] sm:text-xs text-[#705a46] dark:text-zinc-400 max-w-xs sm:max-w-sm leading-normal">
+                        Includes song title and numbered notation QR code ready for sharing or printing.
+                      </p>
+                    </div>
                   </>
                 ) : null}
               </div>
