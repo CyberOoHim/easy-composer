@@ -22,7 +22,7 @@ interface NoteCellProps {
   isPlaybackActive: boolean;
   displayMode: LyricDisplayMode;
   language?: SongLanguage;
-  onSelectNote: (mIdx: number, nIdx: number) => void;
+  onSelectNote: (mIdx: number, nIdx: number, targetField?: 'pitch' | 'lyric') => void;
   onUpdateLyric: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo', val: string) => void;
   onUpdateAnnotation?: (mIdx: number, nIdx: number, val: string) => void;
   onGoToNextNote: (mIdx: number, nIdx: number, type: 'roman' | 'hanlo') => void;
@@ -90,12 +90,12 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
         tabIndex={0}
         onClick={(e) => {
           e.stopPropagation();
-          onSelectNote(mIdx, nIdx);
+          onSelectNote(mIdx, nIdx, 'pitch');
         }}
         onKeyDown={(e) => {
           if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
             e.preventDefault();
-            onSelectNote(mIdx, nIdx);
+            onSelectNote(mIdx, nIdx, 'pitch');
           }
         }}
         className={`group relative flex flex-col items-center justify-between p-2 rounded-2xl border transition-all duration-150 min-w-[72px] max-w-[160px] shrink-0 self-stretch cursor-pointer select-none touch-manipulation ${
@@ -123,7 +123,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             value={note.annotation || ''}
             onClick={e => e.stopPropagation()}
             onFocus={() => {
-              onSelectNote(mIdx, nIdx);
+              onSelectNote(mIdx, nIdx, 'lyric');
               setFocusedField('hanlo');
             }}
             onChange={e => {
@@ -166,12 +166,12 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
         tabIndex={0}
         onClick={(e) => {
           e.stopPropagation();
-          onSelectNote(mIdx, nIdx);
+          onSelectNote(mIdx, nIdx, 'lyric');
         }}
         onKeyDown={(e) => {
           if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
             e.preventDefault();
-            onSelectNote(mIdx, nIdx);
+            onSelectNote(mIdx, nIdx, 'lyric');
           }
         }}
         className={`group relative flex flex-col items-center justify-between p-1 rounded-xl border border-dashed transition-all duration-150 w-9 sm:w-10 min-w-[36px] max-w-[44px] shrink-0 self-stretch cursor-pointer select-none touch-manipulation ${
@@ -200,7 +200,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             placeholder={displayChar === '␣' ? '␣' : ''}
             onClick={e => e.stopPropagation()}
             onFocus={() => {
-              onSelectNote(mIdx, nIdx);
+              onSelectNote(mIdx, nIdx, 'lyric');
               setFocusedField('hanlo');
             }}
             onChange={e => {
@@ -238,12 +238,12 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
       tabIndex={0}
       onClick={(e) => {
         e.stopPropagation();
-        onSelectNote(mIdx, nIdx);
+        onSelectNote(mIdx, nIdx, 'pitch');
       }}
       onKeyDown={(e) => {
         if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
           e.preventDefault();
-          onSelectNote(mIdx, nIdx);
+          onSelectNote(mIdx, nIdx, 'pitch');
         }
       }}
       className={`group relative flex flex-col items-center justify-between p-2.5 rounded-2xl border transition-all duration-150 min-w-[88px] sm:min-w-[104px] flex-1 self-stretch select-none cursor-pointer touch-manipulation ${
@@ -265,7 +265,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
       <div
         onClick={(e) => {
           e.stopPropagation();
-          onSelectNote(mIdx, nIdx);
+          onSelectNote(mIdx, nIdx, 'pitch');
         }}
         style={{
           zoom: 'var(--note-zoom, 1)',
@@ -461,7 +461,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                onSelectNote(mIdx, nIdx);
+                onSelectNote(mIdx, nIdx, 'pitch');
               }}
               className="absolute -top-1.5 -right-3.5 p-1 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 opacity-0 group-hover:opacity-100 hover:scale-110 transition-all cursor-pointer touch-manipulation z-10"
               title="Preview pitch"
@@ -488,7 +488,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
               value={note.lyric.phonetic || note.lyric.poj || note.lyric.tl || ''}
               onClick={e => e.stopPropagation()}
               onFocus={() => {
-                onSelectNote(mIdx, nIdx);
+                onSelectNote(mIdx, nIdx, 'lyric');
                 setFocusedField('roman');
               }}
               onBlur={() => setFocusedField(null)}
@@ -543,7 +543,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
               value={note.lyric.text || note.lyric.hanlo || note.lyric.hanji || note.lyric.custom || ''}
               onClick={e => e.stopPropagation()}
               onFocus={() => {
-                onSelectNote(mIdx, nIdx);
+                onSelectNote(mIdx, nIdx, 'lyric');
                 setFocusedField('hanlo');
               }}
               onBlur={() => setFocusedField(null)}

@@ -199,6 +199,11 @@ export interface FloatingScoreHudProps {
   isAbActive?: boolean;
   onToggleAbMode?: () => void;
 
+  // Contextual Edit Suite Deck Slot
+  contextualEditSlot?: React.ReactNode;
+  isContextualEditActive?: boolean;
+  onToggleContextualEdit?: () => void;
+
   // Undo / Redo
   onUndo?: () => boolean;
   onRedo?: () => boolean;
@@ -312,6 +317,9 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   abRibbonSlot,
   isAbActive = false,
   onToggleAbMode,
+  contextualEditSlot,
+  isContextualEditActive = false,
+  onToggleContextualEdit,
   onUndo,
   onRedo,
   canUndo,
@@ -1591,6 +1599,9 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           </div>
         )}
 
+        {/* Contextual Edit Suite Deck Slot */}
+        {contextualEditSlot}
+
         {/* A-B Section Suite Ribbon Slot */}
         {abRibbonSlot}
 
@@ -2002,15 +2013,21 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             <button
               id="floating-hud-edit-suite-btn"
               type="button"
-              onClick={() => handleToggleDrawer('edit')}
+              onClick={() => {
+                if (onToggleContextualEdit) {
+                  onToggleContextualEdit();
+                } else {
+                  handleToggleDrawer('edit');
+                }
+              }}
               className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                currentDrawer === 'edit'
+                isContextualEditActive || currentDrawer === 'edit'
                   ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
                   : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
               }`}
-              title="Comprehensive Edit Suite: Note/Measure Insertion & Deletion, Input Modes, Auto-Rearrange"
+              title="Comprehensive Edit Suite: Note/Measure Insertion, Deletion, Shift & Batch Ops"
             >
-              <Sliders className={`w-4 h-4 ${currentDrawer === 'edit' ? 'text-zinc-950' : 'text-amber-500'}`} />
+              <Sliders className={`w-4 h-4 ${isContextualEditActive || currentDrawer === 'edit' ? 'text-zinc-950' : 'text-amber-500'}`} />
               <span className="hidden sm:inline">Edit Suite</span>
             </button>
 

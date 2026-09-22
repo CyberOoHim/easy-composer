@@ -27,6 +27,7 @@ import {
 } from '@/lib/numberedNotationEngraver';
 import { FloatingScoreHud } from './FloatingScoreHud';
 import { AbTouchRibbon } from './AbTouchRibbon';
+import { ContextualEditDeck, EditTarget, BatchMeasureRange, BatchNoteRange } from './ContextualEditDeck';
 import {
   smartFindSectionRange,
   smartFindSystemRange,
@@ -715,6 +716,38 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   );
   const currentNote = currentMeasure?.notes[currentNIdx];
 
+  // Contextual Edit Suite State
+  const [isContextualEditActive, setIsContextualEditActive] = useState<boolean>(true);
+  const [contextualEditTarget, setContextualEditTarget] = useState<EditTarget>('measure');
+  const [isBatchMode, setIsBatchMode] = useState<boolean>(false);
+  const [customBatchMeasureRange, setCustomBatchMeasureRange] = useState<BatchMeasureRange | null>(null);
+  const [customBatchNoteRange, setCustomBatchNoteRange] = useState<BatchNoteRange | null>(null);
+
+  const batchMeasureRange: BatchMeasureRange = useMemo(() => {
+    if (isBatchMode && customBatchMeasureRange) {
+      return customBatchMeasureRange;
+    }
+    return { start: currentMIdx, end: currentMIdx };
+  }, [isBatchMode, customBatchMeasureRange, currentMIdx]);
+
+  const batchNoteRange: BatchNoteRange = useMemo(() => {
+    if (isBatchMode && customBatchNoteRange) {
+      return customBatchNoteRange;
+    }
+    return { start: currentNIdx, end: currentNIdx };
+  }, [isBatchMode, customBatchNoteRange, currentNIdx]);
+
+  const handleToggleBatchMode = useCallback((val: boolean) => {
+    setIsBatchMode(val);
+    if (val) {
+      setCustomBatchMeasureRange({ start: currentMIdx, end: currentMIdx });
+      setCustomBatchNoteRange({ start: currentNIdx, end: currentNIdx });
+    } else {
+      setCustomBatchMeasureRange(null);
+      setCustomBatchNoteRange(null);
+    }
+  }, [currentMIdx, currentNIdx]);
+
   // A-B Section Suite state and smart snapping
   const [internalAbRange, setInternalAbRange] = useState<AbRange | null>(null);
   const abRange = propAbRange !== undefined ? propAbRange : internalAbRange;
@@ -1103,6 +1136,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     ) => {
       onSelectNote?.(mIdx, nIdx, previewAudio);
       setActiveField(targetField);
+      setContextualEditTarget(targetField === 'lyric' ? 'syllable' : 'note');
+      setIsContextualEditActive(true);
       if (targetField === 'lyric') {
         setActiveVerseRow(verseRow);
         if (subField) {
@@ -3402,6 +3437,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     id={`sheet-measure-${engravedM.measureNumber}`}
                     onClick={() => {
                       onSelectMeasure?.(engravedM.measureIndex);
+                      setContextualEditTarget('measure');
+                      setIsContextualEditActive(true);
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();
@@ -3430,6 +3467,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                         ? sheetTheme === 'dark'
                           ? 'bg-amber-500/15 ring-2 ring-amber-400/80 rounded-md'
                           : 'bg-amber-500/10 ring-2 ring-amber-500/90 rounded-md'
+                        : isBatchMode &&
+                          (contextualEditTarget === 'measure' || contextualEditTarget === 'syllable') &&
+                          engravedM.measureIndex >= batchMeasureRange.start &&
+                          engravedM.measureIndex <= batchMeasureRange.end
+                        ? sheetTheme === 'dark'
+                          ? 'bg-indigo-950/40 ring-2 ring-indigo-500/80 rounded-md'
+                          : 'bg-indigo-50/70 ring-2 ring-indigo-500/80 rounded-md'
                         : isSelectedMeasure
                         ? sheetTheme === 'dark' ? 'bg-amber-950/30' : 'bg-amber-50/40'
                         : sheetTheme === 'dark' ? 'hover:bg-zinc-800/60' : 'hover:bg-zinc-50/80'
@@ -3718,6 +3762,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                   ? sheetTheme === 'dark'
                                     ? 'ring-2 ring-amber-400 bg-amber-950/60'
                                     : 'ring-2 ring-amber-500 bg-amber-100/50'
+                                  : isBatchMode &&
+                                    contextualEditTarget === 'note' &&
+                                    engravedM.measureIndex === currentMIdx &&
+                                    nIdx >= batchNoteRange.start &&
+                                    nIdx <= batchNoteRange.end
+                                  ? sheetTheme === 'dark'
+                                    ? 'ring-2 ring-indigo-500 bg-indigo-950/70'
+                                    : 'ring-2 ring-indigo-500 bg-indigo-100/70'
                                   : isPlayingNote
                                   ? 'ring-2 ring-emerald-500 bg-emerald-50/20 animate-pulse'
                                   : sheetTheme === 'dark'
@@ -4427,6 +4479,44 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         onToggleDrawer={drawer => setActiveHudDrawer(prev => (prev === drawer ? 'none' : drawer))}
         onCloseDrawer={() => setActiveHudDrawer('none')}
         onTogglePianoBed={() => setActiveHudDrawer(prev => (prev === 'piano' ? 'none' : 'piano'))}
+        contextualEditSlot={
+          isContextualEditActive ? (
+            <div className="w-full max-w-5xl px-0 animate-in fade-in slide-in-from-bottom-2 duration-150">
+              <ContextualEditDeck
+                song={song}
+                selectedMeasureIndex={currentMIdx}
+                selectedNoteIndex={currentNIdx}
+                selectedVerseRow={activeVerseRow}
+                editTarget={contextualEditTarget}
+                onChangeEditTarget={setContextualEditTarget}
+                isBatchMode={isBatchMode}
+                onToggleBatchMode={handleToggleBatchMode}
+                batchMeasureRange={batchMeasureRange}
+                onChangeBatchMeasureRange={setCustomBatchMeasureRange}
+                batchNoteRange={batchNoteRange}
+                onChangeBatchNoteRange={setCustomBatchNoteRange}
+                sheetTheme={sheetTheme}
+                onUpdateSong={onUpdateSong}
+                onSelectMeasure={onSelectMeasure}
+                onSelectNote={(m, n) =>
+                  handleNoteClick(
+                    m,
+                    n,
+                    contextualEditTarget === 'syllable' ? 'lyric' : 'pitch',
+                    activeVerseRow
+                  )
+                }
+                onOpenLyricSpreader={() => {
+                  setLyricSpreaderVerse(activeVerseRow);
+                  setIsLyricSpreaderOpen(true);
+                }}
+                onClose={() => setIsContextualEditActive(false)}
+              />
+            </div>
+          ) : null
+        }
+        isContextualEditActive={isContextualEditActive}
+        onToggleContextualEdit={() => setIsContextualEditActive(prev => !prev)}
         showPianoBed={activeHudDrawer === 'piano'}
         pianoBedSlot={
           activeHudDrawer === 'piano' ? (
