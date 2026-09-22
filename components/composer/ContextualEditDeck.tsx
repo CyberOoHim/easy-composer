@@ -385,24 +385,24 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
   return (
     <div
       id="contextual-edit-deck"
-      className="pointer-events-auto w-full max-w-5xl mx-auto bg-white/95 dark:bg-[#141820]/95 backdrop-blur-md rounded-2xl border border-zinc-250 dark:border-zinc-750 shadow-2xl overflow-hidden transition-all duration-200"
+      className="pointer-events-auto w-full max-w-full mx-auto bg-white/95 dark:bg-[#141820]/95 backdrop-blur-md rounded-2xl border border-zinc-250 dark:border-zinc-750 shadow-2xl overflow-hidden transition-all duration-200"
     >
       {/* Top Header / Mode & Target Selector */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 gap-2 flex-wrap">
+      <div className="flex items-center justify-between px-2.5 sm:px-3 py-2 border-b border-zinc-200 dark:border-zinc-800 gap-2 min-w-0">
         {/* Left: Target Switch Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+        <div className="flex-1 min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar touch-momentum touch-pan-x py-0.5 pr-2">
           <button
             id="context-tab-measure"
             type="button"
             onClick={() => onChangeEditTarget('measure')}
-            className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation ${
+            className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shrink-0 ${
               editTarget === 'measure'
                 ? 'bg-amber-500 text-zinc-950 shadow-xs'
                 : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-750'
             }`}
             title="Edit Measure / Bar Structure"
           >
-            <Layers className="w-4 h-4" />
+            <Layers className="w-4 h-4 shrink-0" />
             <span>Bar #{currentMeasureNumber}</span>
           </button>
 
@@ -410,14 +410,14 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
             id="context-tab-note"
             type="button"
             onClick={() => onChangeEditTarget('note')}
-            className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation ${
+            className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shrink-0 ${
               editTarget === 'note'
                 ? 'bg-amber-500 text-zinc-950 shadow-xs'
                 : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-750'
             }`}
             title="Edit Note Pitch, Duration, Phrasing"
           >
-            <Music className="w-4 h-4" />
+            <Music className="w-4 h-4 shrink-0" />
             <span>Note #{selectedNoteIndex + 1} ({pitchLabel})</span>
           </button>
 
@@ -425,20 +425,21 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
             id="context-tab-syllable"
             type="button"
             onClick={() => onChangeEditTarget('syllable')}
-            className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation ${
+            className={`min-h-[40px] px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shrink-0 ${
               editTarget === 'syllable'
                 ? 'bg-amber-500 text-zinc-950 shadow-xs'
                 : 'bg-zinc-100 dark:bg-zinc-800/80 text-zinc-600 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-750'
             }`}
             title="Edit Character / Syllable Alignment & Flow"
           >
-            <Type className="w-4 h-4" />
+            <Type className="w-4 h-4 shrink-0" />
             <span>Lyric (v{selectedVerseRow})</span>
           </button>
+          <div className="w-2 shrink-0" aria-hidden="true" />
         </div>
 
         {/* Right: Single vs Batch Switch & Minimize/Close */}
-        <div className="flex items-center gap-1.5 ml-auto">
+        <div className="flex items-center gap-1 sm:gap-1.5 ml-auto shrink-0">
           {/* Single vs Batch Toggle */}
           <div className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
             <button
@@ -494,7 +495,7 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
 
       {/* Main Controls Panel (Collapsible) */}
       {!isMinimized && (
-        <div className="p-2.5 sm:p-3 space-y-2 text-sm overflow-x-auto whitespace-nowrap scrollbar-none">
+        <div className="p-2 sm:p-3 space-y-2 text-sm w-full max-w-full min-w-0 overflow-hidden">
           {/* ========================================================================= */}
           {/* MEASURE EDIT MODE */}
           {/* ========================================================================= */}
@@ -584,7 +585,7 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
               )}
 
               {/* Action Buttons Row */}
-              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+              <div className="w-full max-w-full min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar touch-momentum touch-pan-x py-1 px-1">
                 {!isBatchMode ? (
                   <>
                     {/* Add Bars */}
@@ -848,6 +849,7 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                     </button>
                   </>
                 )}
+                <div className="w-3 shrink-0" aria-hidden="true" />
               </div>
             </div>
           )}
@@ -943,7 +945,7 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
               )}
 
               {/* Action Buttons Row */}
-              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+              <div className="w-full max-w-full min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar touch-momentum touch-pan-x py-1 px-1">
                 {!isBatchMode ? (
                   <>
                     {/* Add / Delete Note */}
@@ -1200,6 +1202,7 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                     </button>
                   </>
                 )}
+                <div className="w-3 shrink-0" aria-hidden="true" />
               </div>
             </div>
           )}
@@ -1292,7 +1295,7 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
               )}
 
               {/* Action Buttons Row */}
-              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none py-1">
+              <div className="w-full max-w-full min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar touch-momentum touch-pan-x py-1 px-1">
                 {!isBatchMode ? (
                   <>
                     {/* Shift Syllable Left / Right */}
@@ -1457,6 +1460,7 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                     )}
                   </>
                 )}
+                <div className="w-3 shrink-0" aria-hidden="true" />
               </div>
             </div>
           )}

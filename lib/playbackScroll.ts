@@ -255,11 +255,13 @@ export function smoothScrollWindowTo(
 
   const duration = options?.duration ?? 280;
   const tolerance = options?.tolerance ?? 2;
-  const currentY = window.scrollY || document.documentElement.scrollTop;
+  const currentY = window.scrollY || (typeof document !== 'undefined' ? document.documentElement?.scrollTop : 0) || 0;
   const distance = targetY - currentY;
 
   if (Math.abs(distance) <= tolerance || duration <= 0) {
-    window.scrollTo({ top: targetY, behavior: 'auto' });
+    if (typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: targetY, behavior: 'auto' });
+    }
     return { cancel: () => {}, target: targetY };
   }
 
@@ -267,7 +269,9 @@ export function smoothScrollWindowTo(
     typeof window.matchMedia === 'function' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches
   ) {
-    window.scrollTo({ top: targetY, behavior: 'auto' });
+    if (typeof window.scrollTo === 'function') {
+      window.scrollTo({ top: targetY, behavior: 'auto' });
+    }
     return { cancel: () => {}, target: targetY };
   }
 

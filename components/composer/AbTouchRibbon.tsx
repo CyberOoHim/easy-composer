@@ -134,7 +134,7 @@ export const AbTouchRibbon: React.FC<AbTouchRibbonProps> = ({
       )}
 
       <div
-        className={`relative z-40 flex flex-wrap items-center justify-between gap-1.5 p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border shadow-xl ${
+        className={`relative z-40 w-full max-w-full min-w-0 flex flex-wrap items-center justify-between gap-1.5 p-1.5 sm:p-2 rounded-xl sm:rounded-2xl border shadow-xl ${
           sheetTheme === 'dark'
             ? 'bg-[#161a23]/95 border-amber-500/40 text-zinc-100'
             : 'bg-white/95 border-amber-400 text-zinc-900'

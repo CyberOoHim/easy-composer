@@ -4481,7 +4481,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         onTogglePianoBed={() => setActiveHudDrawer(prev => (prev === 'piano' ? 'none' : 'piano'))}
         contextualEditSlot={
           isContextualEditActive ? (
-            <div className="w-full max-w-5xl px-0 animate-in fade-in slide-in-from-bottom-2 duration-150">
+            <div className="w-full max-w-full min-w-0 px-0 animate-in fade-in slide-in-from-bottom-2 duration-150">
               <ContextualEditDeck
                 song={song}
                 selectedMeasureIndex={currentMIdx}
@@ -4520,7 +4520,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         showPianoBed={activeHudDrawer === 'piano'}
         pianoBedSlot={
           activeHudDrawer === 'piano' ? (
-            <div className="w-full max-w-5xl px-0 animate-in fade-in slide-in-from-bottom-1 duration-150">
+            <div className="w-full max-w-full min-w-0 px-0 animate-in fade-in slide-in-from-bottom-1 duration-150">
               <PianoKeyboard
                 keySignature={song.key}
                 currentNote={currentNote || null}
