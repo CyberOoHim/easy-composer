@@ -936,7 +936,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>🇹🇼 台語 (Taigi)</span>
+                    <span>台語 (Taigi)</span>
                     {(song.language === 'taigi' || !song.language) && (
                       <span className="text-[9px] bg-zinc-900 text-amber-300 px-1 rounded-sm">Default</span>
                     )}
@@ -950,7 +950,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>🇬🇧 English</span>
+                    <span>English</span>
                   </button>
                   <button
                     type="button"
@@ -961,7 +961,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>🇨🇳 華語 (Mandarin)</span>
+                    <span>華語 (Mandarin)</span>
                   </button>
                   <button
                     type="button"
@@ -972,7 +972,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>🇯🇵 日本語 (Japanese)</span>
+                    <span>日本語 (Japanese)</span>
                   </button>
                 </div>
               </div>

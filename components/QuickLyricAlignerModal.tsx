@@ -674,7 +674,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>🇹🇼 台語 (Taigi)</span>
+                    <span>台語 (Taigi)</span>
                     {alignLanguage === 'taigi' && <span className="text-[10px] bg-zinc-900 text-amber-300 px-1 rounded-sm">Active</span>}
                   </button>
 
@@ -688,7 +688,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>🇬🇧 English</span>
+                    <span>English</span>
                   </button>
 
                   <button
@@ -701,7 +701,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>🇨🇳 華語 (Mandarin)</span>
+                    <span>華語 (Mandarin)</span>
                   </button>
 
                   <button
@@ -714,7 +714,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>🇯🇵 日本語 (Japanese)</span>
+                    <span>日本語 (Japanese)</span>
                   </button>
                 </div>
 

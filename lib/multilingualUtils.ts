@@ -101,11 +101,11 @@ export const LANGUAGE_CONFIGS: Record<SongLanguage, LanguageConfig> = {
 };
 
 export const LANGUAGE_OPTIONS: { id: SongLanguage; label: string; isDefault?: boolean }[] = [
-  { id: 'taigi', label: '🇹🇼 台語 (Taigi / Taiwanese)', isDefault: true },
-  { id: 'mandarin', label: '🇨🇳/🇹🇼 華語 (Mandarin Chinese)' },
-  { id: 'english', label: '🇬🇧 English' },
-  { id: 'japanese', label: '🇯🇵 日本語 (Japanese)' },
-  { id: 'multilingual', label: '🌐 Multilingual (多語言)' },
+  { id: 'taigi', label: '台語 (Taigi / Taiwanese)', isDefault: true },
+  { id: 'mandarin', label: '華語 (Mandarin Chinese)' },
+  { id: 'english', label: 'English' },
+  { id: 'japanese', label: '日本語 (Japanese)' },
+  { id: 'multilingual', label: 'Multilingual (多語言)' },
 ];
 
 /**

@@ -2010,27 +2010,27 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-virtual-keyboard-btn"
                 type="button"
                 onClick={onToggleVirtualKeyboard}
-                className={`flex items-center gap-1.5 px-2 sm:px-2.5 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer active:scale-95 select-none ${
                   isVirtualKeyboardEnabled
-                    ? 'bg-emerald-600 text-white font-black shadow-2xs'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    ? 'bg-emerald-600 dark:bg-emerald-500 text-white font-black shadow-xs ring-2 ring-emerald-400/40 dark:ring-emerald-400/60'
+                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 hover:text-zinc-950 dark:hover:text-zinc-50'
                 }`}
                 title={
                   isVirtualKeyboardEnabled
-                    ? 'iPad Virtual Keyboard: ON (Clicking lyrics summons iPad keyboard. Click to turn OFF)'
-                    : 'iPad Virtual Keyboard: OFF (Clicking lyrics selects without popup keyboard. Click to turn ON)'
+                    ? 'Soft Keyboard: AUTO-OPEN ON TOUCH (Clicking any lyric summons virtual keyboard. Tap to turn OFF)'
+                    : 'Soft Keyboard: TOUCH NAVIGATION MODE (Tap lyrics to select/inspect without screen displacement. Tap to turn ON)'
                 }
               >
                 {isVirtualKeyboardEnabled ? (
                   <Keyboard className="w-4 h-4 shrink-0 text-white" />
                 ) : (
-                  <KeyboardOff className="w-4 h-4 shrink-0 text-zinc-400" />
+                  <KeyboardOff className="w-4 h-4 shrink-0 text-zinc-400 dark:text-zinc-500" />
                 )}
-                <span className="hidden xl:inline">
-                  {isVirtualKeyboardEnabled ? 'iPad Kbd: ON' : 'iPad Kbd: OFF'}
+                <span className="hidden xl:inline tracking-tight font-bold">
+                  {isVirtualKeyboardEnabled ? 'Soft Kbd: ON' : 'Soft Kbd: OFF'}
                 </span>
-                <span className="xl:hidden inline text-[10px] font-mono font-bold">
-                  {isVirtualKeyboardEnabled ? 'KBD' : 'NO KBD'}
+                <span className="xl:hidden inline text-[10px] font-mono font-bold tracking-tight">
+                  {isVirtualKeyboardEnabled ? 'KBD ON' : 'KBD OFF'}
                 </span>
               </button>
             )}

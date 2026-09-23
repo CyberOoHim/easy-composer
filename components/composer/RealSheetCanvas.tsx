@@ -757,25 +757,45 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   );
   const currentNote = currentMeasure?.notes[currentNIdx];
 
-  // Explicitly activate software keyboard for the currently selected lyric
+  // Explicitly activate or dismiss software keyboard for the currently selected lyric
   const handleActivateSoftKeyboardForSelectedLyric = useCallback((verseNum?: number) => {
+    const activeId = activeLyricSubfield === 'hanlo'
+      ? `lyric-input-${currentMIdx}-${currentNIdx}-hanlo`
+      : `lyric-input-${currentMIdx}-${currentNIdx}-roman`;
+    const el = (document.getElementById(activeId) ||
+      document.getElementById(`lyric-input-${currentMIdx}-${currentNIdx}-roman`) ||
+      document.getElementById(`lyric-input-${currentMIdx}-${currentNIdx}-hanlo`)) as HTMLInputElement | null;
+
+    const isCurrentlyFocused = el ? document.activeElement === el : false;
+    const isTypingActive = isSoftKeyboardExplicitlyActive || isCurrentlyFocused;
+
+    if (isTypingActive) {
+      // Toggle OFF: deactivate explicit mode and blur input to hide soft keyboard
+      setIsSoftKeyboardExplicitlyActive(false);
+      if (el) {
+        el.blur();
+      }
+      if (typeof document !== 'undefined' && document.activeElement instanceof HTMLElement) {
+        document.activeElement.blur();
+      }
+      return;
+    }
+
+    // Toggle ON: activate and focus input to summon soft keyboard
     setIsSoftKeyboardExplicitlyActive(true);
     if (verseNum !== undefined) {
       setActiveVerseRow(verseNum);
     }
     setTimeout(() => {
-      const activeId = activeLyricSubfield === 'hanlo'
-        ? `lyric-input-${currentMIdx}-${currentNIdx}-hanlo`
-        : `lyric-input-${currentMIdx}-${currentNIdx}-roman`;
-      const el = (document.getElementById(activeId) ||
+      const targetEl = (document.getElementById(activeId) ||
         document.getElementById(`lyric-input-${currentMIdx}-${currentNIdx}-roman`) ||
         document.getElementById(`lyric-input-${currentMIdx}-${currentNIdx}-hanlo`)) as HTMLInputElement | null;
-      if (el) {
-        el.focus();
-        el.select();
+      if (targetEl) {
+        targetEl.focus();
+        targetEl.select();
       }
     }, 40);
-  }, [activeLyricSubfield, currentMIdx, currentNIdx]);
+  }, [isSoftKeyboardExplicitlyActive, activeLyricSubfield, currentMIdx, currentNIdx]);
 
   // Contextual Edit Suite State
   const [isContextualEditActive, setIsContextualEditActive] = useState<boolean>(true);
@@ -4235,22 +4255,35 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     }`}
                                   >
                                     {isSelectedLyric && (
-                                      <div className="print:hidden absolute -top-6 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-zinc-900/90 dark:bg-zinc-800/95 p-0.5 rounded-md shadow-lg border border-amber-500/40 z-40 whitespace-nowrap transition-all">
+                                      <div className="print:hidden absolute -top-7 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-zinc-900/95 dark:bg-zinc-800/95 p-0.5 rounded-md shadow-lg border border-amber-500/40 z-40 whitespace-nowrap transition-all backdrop-blur-xs">
                                         <button
                                           type="button"
+                                          onMouseDown={(e) => {
+                                            // Prevent input blur before click handler processes toggle state
+                                            e.preventDefault();
+                                          }}
+                                          onPointerDown={(e) => {
+                                            e.preventDefault();
+                                          }}
                                           onClick={(e) => {
                                             e.stopPropagation();
                                             handleActivateSoftKeyboardForSelectedLyric(vNum);
                                           }}
-                                          className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold flex items-center gap-1 transition-all cursor-pointer active:scale-95 ${isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'bg-emerald-500 text-zinc-950 font-black' : 'bg-zinc-700 hover:bg-amber-500 hover:text-zinc-950 text-zinc-200'}`}
+                                          className={`px-1.5 py-0.5 rounded text-[9px] font-extrabold flex items-center gap-1 transition-all cursor-pointer active:scale-95 shadow-xs select-none ${
+                                            isSoftKeyboardExplicitlyActive
+                                              ? 'bg-emerald-500 text-zinc-950 font-black ring-1 ring-emerald-300'
+                                              : 'bg-zinc-700 hover:bg-amber-500 hover:text-zinc-950 text-zinc-100'
+                                          }`}
                                           title={
-                                            isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive
-                                              ? 'Virtual Keyboard Active (Ready to type)'
-                                              : 'Tap to open iPad on-screen keyboard for this lyric'
+                                            isSoftKeyboardExplicitlyActive
+                                              ? 'Software Keyboard Active: Tap to dismiss / blur'
+                                              : 'Tap to summon on-screen keyboard for this lyric'
                                           }
                                         >
-                                          <Keyboard className="w-2.5 h-2.5" />
-                                          <span>{isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'Typing' : 'Type'}</span>
+                                          <Keyboard className={`w-2.5 h-2.5 shrink-0 ${isSoftKeyboardExplicitlyActive ? 'animate-pulse text-zinc-950' : 'text-zinc-200'}`} />
+                                          <span className="tracking-wider uppercase text-[8.5px] font-black inline-flex items-center gap-0.5">
+                                            {isSoftKeyboardExplicitlyActive ? 'Typing' : 'Type'}
+                                          </span>
                                         </button>
                                         <button
                                           type="button"
@@ -4271,11 +4304,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     {vDisplayOption === 'hanlo' &&
                                       (isSelectedLyric ? (
                                         <input
+                                          id={`lyric-input-${engravedM.measureIndex}-${nIdx}-hanlo`}
                                           type="text"
                                           inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
                                           autoFocus={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive}
                                           size={1}
                                           value={hanloText}
+                                          onFocus={() => {
+                                            setActiveLyricSubfield('hanlo');
+                                            setIsSoftKeyboardExplicitlyActive(true);
+                                          }}
+                                          onBlur={() => setIsSoftKeyboardExplicitlyActive(false)}
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                           onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
                                           placeholder=""
@@ -4296,11 +4335,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     {vDisplayOption === 'poj' &&
                                       (isSelectedLyric ? (
                                         <input
+                                          id={`lyric-input-${engravedM.measureIndex}-${nIdx}-roman`}
                                           type="text"
                                           inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
                                           autoFocus={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive}
                                           size={1}
                                           value={effectivePojText}
+                                          onFocus={() => {
+                                            setActiveLyricSubfield('poj');
+                                            setIsSoftKeyboardExplicitlyActive(true);
+                                          }}
+                                          onBlur={() => setIsSoftKeyboardExplicitlyActive(false)}
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                           onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
                                           placeholder=""
@@ -4329,12 +4374,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                         <div className="flex flex-col items-center justify-center w-full max-w-full min-w-0 gap-0">
                                           {/* Top: POJ */}
                                           <input
+                                            id={`lyric-input-${engravedM.measureIndex}-${nIdx}-roman`}
                                             type="text"
                                             inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
                                             autoFocus={(isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive) && activeLyricSubfield === 'poj'}
                                             size={1}
                                             value={effectivePojText}
-                                            onFocus={() => setActiveLyricSubfield('poj')}
+                                            onFocus={() => {
+                                              setActiveLyricSubfield('poj');
+                                              setIsSoftKeyboardExplicitlyActive(true);
+                                            }}
+                                            onBlur={() => setIsSoftKeyboardExplicitlyActive(false)}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
                                             placeholder=""
@@ -4358,12 +4408,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           />
                                           {/* Bottom: Hàn-lô */}
                                           <input
+                                            id={`lyric-input-${engravedM.measureIndex}-${nIdx}-hanlo`}
                                             type="text"
                                             inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
                                             autoFocus={(isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive) && activeLyricSubfield === 'hanlo'}
                                             size={1}
                                             value={hanloText}
-                                            onFocus={() => setActiveLyricSubfield('hanlo')}
+                                            onFocus={() => {
+                                              setActiveLyricSubfield('hanlo');
+                                              setIsSoftKeyboardExplicitlyActive(true);
+                                            }}
+                                            onBlur={() => setIsSoftKeyboardExplicitlyActive(false)}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
                                             placeholder=""
@@ -4399,12 +4454,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                         <div className="flex flex-col items-center justify-center w-full max-w-full min-w-0 gap-0">
                                           {/* Top: Hàn-lô */}
                                           <input
+                                            id={`lyric-input-${engravedM.measureIndex}-${nIdx}-hanlo`}
                                             type="text"
                                             inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
                                             autoFocus={(isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive) && activeLyricSubfield === 'hanlo'}
                                             size={1}
                                             value={hanloText}
-                                            onFocus={() => setActiveLyricSubfield('hanlo')}
+                                            onFocus={() => {
+                                              setActiveLyricSubfield('hanlo');
+                                              setIsSoftKeyboardExplicitlyActive(true);
+                                            }}
+                                            onBlur={() => setIsSoftKeyboardExplicitlyActive(false)}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
                                             placeholder=""
@@ -4422,12 +4482,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           />
                                           {/* Bottom: POJ */}
                                           <input
+                                            id={`lyric-input-${engravedM.measureIndex}-${nIdx}-roman`}
                                             type="text"
                                             inputMode={isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive ? 'text' : 'none'}
                                             autoFocus={(isVirtualKeyboardEnabled || isSoftKeyboardExplicitlyActive) && activeLyricSubfield === 'poj'}
                                             size={1}
                                             value={effectivePojText}
-                                            onFocus={() => setActiveLyricSubfield('poj')}
+                                            onFocus={() => {
+                                              setActiveLyricSubfield('poj');
+                                              setIsSoftKeyboardExplicitlyActive(true);
+                                            }}
+                                            onBlur={() => setIsSoftKeyboardExplicitlyActive(false)}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
                                             placeholder=""
