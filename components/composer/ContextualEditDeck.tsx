@@ -1330,21 +1330,35 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                     {/* Primary Direct Action 1: Type / Software Keyboard Toggle for Active Syllable */}
                     {onActivateSoftKeyboard && (
                       <button
+                        id="contextual-syllable-edit-input-btn"
                         type="button"
                         onClick={onActivateSoftKeyboard}
-                        className={`min-h-[44px] px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs shrink-0 select-none ${
+                        className={`min-h-[44px] px-3.5 py-2 rounded-xl font-bold flex items-center gap-2 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs shrink-0 select-none border ${
                           isSoftKeyboardActive
-                            ? 'bg-emerald-600 dark:bg-emerald-500 text-white font-black ring-2 ring-emerald-300 shadow-md'
-                            : 'bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black shadow-xs'
+                            ? 'bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold ring-2 ring-emerald-400/60 border-emerald-500 shadow-md'
+                            : 'bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black border-amber-600/30 hover:shadow-sm'
                         }`}
                         title={
                           isSoftKeyboardActive
-                            ? 'Software Keyboard Active: Tap to dismiss / hide keyboard'
-                            : 'Tap to type or summon software keyboard for this syllable'
+                            ? 'Typing Session Active for this note (Tap to dismiss keyboard)'
+                            : 'Type Syllable: Focus text input to type or edit lyrics for this specific note (Space or Enter to step)'
                         }
                       >
-                        <Keyboard className={`w-4 h-4 shrink-0 ${isSoftKeyboardActive ? 'animate-pulse text-white' : 'text-zinc-950'}`} />
-                        <span>{isSoftKeyboardActive ? 'Typing Active' : 'Type / Kbd'}</span>
+                        {isSoftKeyboardActive ? (
+                          <>
+                            <span className="w-2 h-2 rounded-full bg-white animate-pulse shrink-0" />
+                            <Keyboard className="w-4 h-4 shrink-0 text-white" />
+                            <span>Done Typing</span>
+                          </>
+                        ) : (
+                          <>
+                            <Keyboard className="w-4 h-4 shrink-0 text-zinc-950" />
+                            <span>Type Syllable</span>
+                            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono font-bold bg-zinc-950/15 text-zinc-950 tracking-tight">
+                              Focus
+                            </span>
+                          </>
+                        )}
                       </button>
                     )}
 

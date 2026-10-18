@@ -2013,21 +2013,30 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-virtual-keyboard-btn"
                 type="button"
                 onClick={onToggleVirtualKeyboard}
-                className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer active:scale-95 select-none ${
+                className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-xl text-xs sm:text-sm font-semibold transition-all cursor-pointer active:scale-95 select-none border ${
                   isTypingActive
-                    ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-300 dark:ring-amber-400'
+                    ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-300 dark:ring-amber-400 border-amber-600/40'
                     : isVirtualKeyboardEnabled
-                    ? 'bg-emerald-600 dark:bg-emerald-500 text-white font-black shadow-xs ring-2 ring-emerald-400/40 dark:ring-emerald-400/60'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 hover:text-zinc-950 dark:hover:text-zinc-50'
+                    ? 'bg-emerald-600 dark:bg-emerald-500 text-white font-black shadow-xs ring-2 ring-emerald-400/40 dark:ring-emerald-400/60 border-emerald-500'
+                    : 'bg-zinc-100 dark:bg-zinc-800/90 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 hover:text-zinc-950 dark:hover:text-zinc-50 border-zinc-200 dark:border-zinc-700'
                 }`}
                 title={
                   isTypingActive
                     ? 'Typing Session Active (Tap to dismiss / hide software keyboard)'
                     : isVirtualKeyboardEnabled
-                    ? 'Soft Keyboard: AUTO-OPEN ON TOUCH (Clicking any lyric summons virtual keyboard. Tap to turn OFF)'
-                    : 'Soft Keyboard: TOUCH NAVIGATION MODE (Tap lyrics to select/inspect without screen displacement. Tap to turn ON)'
+                    ? 'Global Touch Mode: AUTO-OPEN KEYBOARD (Tapping any lyric summons the virtual keyboard. Tap to switch to Touch Navigation Mode)'
+                    : 'Global Touch Mode: TOUCH NAVIGATION (Tapping lyrics selects/inspects without keyboard popup displacement. Tap to switch to Auto-Open)'
                 }
               >
+                {/* Status LED Dot Indicator */}
+                {isTypingActive ? (
+                  <span className="w-2 h-2 rounded-full bg-zinc-950 animate-ping shrink-0" />
+                ) : isVirtualKeyboardEnabled ? (
+                  <span className="w-2 h-2 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.8)] shrink-0" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full bg-zinc-400 dark:bg-zinc-500 shrink-0" />
+                )}
+
                 {isTypingActive ? (
                   <Keyboard className="w-4 h-4 shrink-0 text-zinc-950 animate-pulse" />
                 ) : isVirtualKeyboardEnabled ? (
@@ -2036,10 +2045,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                   <KeyboardOff className="w-4 h-4 shrink-0 text-zinc-400 dark:text-zinc-500" />
                 )}
                 <span className="hidden xl:inline tracking-tight font-bold">
-                  {isTypingActive ? 'Typing... (Tap to close)' : isVirtualKeyboardEnabled ? 'Auto-Kbd: ON' : 'Soft Kbd: OFF'}
+                  {isTypingActive ? 'Typing Active (Close)' : isVirtualKeyboardEnabled ? 'Auto-Kbd: ON' : 'Touch Nav (Kbd OFF)'}
                 </span>
                 <span className="xl:hidden inline text-[10px] font-mono font-bold tracking-tight">
-                  {isTypingActive ? 'TYPING' : isVirtualKeyboardEnabled ? 'KBD AUTO' : 'KBD OFF'}
+                  {isTypingActive ? 'TYPING' : isVirtualKeyboardEnabled ? 'AUTO-KBD' : 'TOUCH NAV'}
                 </span>
               </button>
             )}
