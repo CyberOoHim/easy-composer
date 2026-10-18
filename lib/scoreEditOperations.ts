@@ -286,12 +286,17 @@ export function splitMeasureAtNote(
   const firstMeasure: Measure = {
     ...target,
     notes: firstNotes,
+    barlineType: 'single',
+    isLineBreak: false,
   };
 
   const secondMeasure: Measure = {
     id: generateAbId('measure'),
     measureNumber: target.measureNumber + 1,
     chord: target.chord,
+    chords: target.chords ? [...target.chords] : undefined,
+    barlineType: target.barlineType,
+    isLineBreak: target.isLineBreak,
     notes: secondNotes,
   };
 

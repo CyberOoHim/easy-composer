@@ -155,7 +155,7 @@ describe('Playback wake lock and downbeat wiring (INT-4)', () => {
     const src = read('lib/audioEngine.ts');
     assert.match(src, /this\.playChordBeat\(\s*ev\.chord,\s*scheduleAt,\s*ev\.beatDuration,\s*ev\.isDownbeat,/);
     assert.equal(src.includes('ev.isChordChange,\n            false'), false);
-    assert.match(src, /this\.playChordBeat\(ev\.chord, beatTime, ev\.beatDuration, ev\.isDownbeat/);
+    assert.match(src, /playChordBeat\([^)]*ev\.isDownbeat/);
   });
 
   it('requests a wake lock from sheet play as well as header transport', () => {

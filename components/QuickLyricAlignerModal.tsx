@@ -525,7 +525,8 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           const targetText = tok.text || formattedHanlo || targetHanlo;
           const targetPhonetic = tok.phonetic || formattedPoj || targetPoj;
 
-          note.lyric = {
+          const targetVerseNumber = (targetVerse as any).verseNumber || (vIdx + 1);
+          const newLyricData = {
             ...note.lyric,
             ...(formattedHanlo !== undefined ? { hanlo: formattedHanlo } : {}),
             ...(formattedPoj !== undefined ? { poj: formattedPoj } : {}),
@@ -533,6 +534,17 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             ...(targetPhonetic !== undefined ? { phonetic: targetPhonetic } : {}),
             ...(tok.isHyphenated !== undefined ? { isHyphenated: tok.isHyphenated } : {}),
             ...(tok.isWordEnd !== undefined ? { isWordEnd: tok.isWordEnd } : {}),
+          };
+
+          if (targetVerseNumber === 1 || vIdx === 0) {
+            note.lyric = newLyricData;
+          }
+          if (!note.lyricsByVerse) {
+            note.lyricsByVerse = {};
+          }
+          note.lyricsByVerse[targetVerseNumber] = {
+            ...(note.lyricsByVerse[targetVerseNumber] || {}),
+            ...newLyricData,
           };
 
           if (isTokenPunct && isNoteNonNotation) {
@@ -562,7 +574,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
             const targetText = tok.text || targetHanlo;
             const targetPhonetic = tok.phonetic || targetPoj;
 
-            note.lyric = {
+            const newLyricData = {
               ...note.lyric,
               ...(targetHanlo !== undefined ? { hanlo: targetHanlo } : {}),
               ...(targetPoj !== undefined ? { poj: targetPoj } : {}),
@@ -570,6 +582,15 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               ...(targetPhonetic !== undefined ? { phonetic: targetPhonetic } : {}),
               ...(tok.isHyphenated !== undefined ? { isHyphenated: tok.isHyphenated } : {}),
               ...(tok.isWordEnd !== undefined ? { isWordEnd: tok.isWordEnd } : {}),
+            };
+
+            note.lyric = newLyricData;
+            if (!note.lyricsByVerse) {
+              note.lyricsByVerse = {};
+            }
+            note.lyricsByVerse[1] = {
+              ...(note.lyricsByVerse[1] || {}),
+              ...newLyricData,
             };
 
             if (isTokenPunct && isNoteNonNotation) {

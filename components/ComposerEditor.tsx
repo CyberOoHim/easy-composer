@@ -202,6 +202,10 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const [playingMeasureIdx, setPlayingMeasureIdx] = useState<number | null>(null);
   const [playingSystemIdx, setPlayingSystemIdx] = useState<number | null>(null);
   const [isPlayingSheet, setIsPlayingSheet] = useState<boolean>(false);
+  const [abRange, setAbRange] = useState<AbRange | null>(null);
+  const [clipboard, setClipboard] = useState<ScoreClipboard | null>(null);
+  const [isPlayingAb, setIsPlayingAb] = useState<boolean>(false);
+  const [isLoopingAb, setIsLoopingAb] = useState<boolean>(false);
   const [activePlaybackNoteId, setActivePlaybackNoteId] = useState<string | null>(null);
   const [isInSongSearchOpen, setIsInSongSearchOpen] = useState<boolean>(false);
   const [showRhythmTools, setShowRhythmTools] = useState<boolean>(false);
@@ -285,6 +289,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         setPlayingMeasureIdx(null);
         setPlayingSystemIdx(null);
         setIsPlayingSheet(false);
+        setIsPlayingAb(false);
       }
     });
     return () => {
@@ -352,11 +357,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       ? currentMeasure.notes[selectedNoteIndex]
       : null;
 
-  // A-B Section Suite states
-  const [abRange, setAbRange] = useState<AbRange | null>(null);
-  const [clipboard, setClipboard] = useState<ScoreClipboard | null>(null);
-  const [isPlayingAb, setIsPlayingAb] = useState<boolean>(false);
-  const [isLoopingAb, setIsLoopingAb] = useState<boolean>(false);
 
   const handleCopyAb = useCallback(() => {
     if (!abRange) return;
@@ -446,6 +446,9 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       setPlayingMeasureIdx(null);
     } else {
       if (!abRange) return;
+      setPlayingMeasureIdx(null);
+      setPlayingSystemIdx(null);
+      setIsPlayingSheet(false);
       setIsPlayingAb(true);
       audioEngine.playMeasureRange(song, abRange.startMeasureIndex, abRange.endMeasureIndex, {
         loop: isLoopingAb,
@@ -498,6 +501,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     } else {
       setPlayingSystemIdx(null);
       setIsPlayingSheet(false);
+      setIsPlayingAb(false);
       setPlayingMeasureIdx(mIdx);
       requestPlaybackWakeLock();
       audioEngine.playMeasure(song, mIdx, () => {
@@ -517,6 +521,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
     } else {
       setPlayingMeasureIdx(null);
       setIsPlayingSheet(false);
+      setIsPlayingAb(false);
       setPlayingSystemIdx(systemIdx);
       requestPlaybackWakeLock();
       audioEngine.playSystem(song, measureIndices, () => {
@@ -536,6 +541,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         setPlayingMeasureIdx(null);
         setPlayingSystemIdx(null);
         setIsPlayingSheet(false);
+        setIsPlayingAb(false);
         return;
       }
 
@@ -553,6 +559,7 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
       const startSec = audioEngine.getNoteStartTime(song, safeMIdx, safeNIdx);
       setPlayingMeasureIdx(null);
       setPlayingSystemIdx(null);
+      setIsPlayingAb(false);
       setIsPlayingSheet(true);
 
       requestPlaybackWakeLock();
@@ -1002,9 +1009,21 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
         }
       }
 
+      let updatedLyricsByVerse = n.lyricsByVerse;
+      if (updatedLyricsByVerse && updatedLyricsByVerse[1]) {
+        updatedLyricsByVerse = {
+          ...updatedLyricsByVerse,
+          1: {
+            ...updatedLyricsByVerse[1],
+            ...updatedLyric,
+          },
+        };
+      }
+
       let updatedNote: NumberedNotationNote = {
         ...n,
         lyric: updatedLyric,
+        ...(updatedLyricsByVerse ? { lyricsByVerse: updatedLyricsByVerse } : {}),
       };
 
       if (zeroBeat.isMatch) {

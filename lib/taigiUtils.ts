@@ -2634,6 +2634,95 @@ export function applyLyricTokensToSong(
   });
 }
 
+export interface PlaybackMeasureStep {
+  measureIndex: number;
+  passNumber: number;
+}
+
+/**
+ * Expands repeat barlines ('repeat_start', 'repeat_end') and volta endings (1st/2nd/3rd ending)
+ * into a sequential list of measure playback steps.
+ *
+ * Musical rules:
+ * - A repeat start is either marked by `barlineType === 'repeat_start'` on the preceding measure
+ *   (or on measure 0), or defaults to measure 0.
+ * - When `barlineType === 'repeat_end'` is encountered, playback jumps back to `repeat_start`.
+ * - On pass 1, measures under volta ending [1] (or containing 1) play.
+ * - On pass 2, measures under volta ending [1] are skipped, and volta ending [2] plays.
+ * - Loop safety: Prevents infinite cycles if barlines are misconfigured.
+ */
+export function buildPlaybackMeasureSequence(
+  song: Song,
+  expandRepeats: boolean = true
+): PlaybackMeasureStep[] {
+  if (!song.measures || song.measures.length === 0) return [];
+  if (!expandRepeats) {
+    return song.measures.map((_, i) => ({ measureIndex: i, passNumber: 1 }));
+  }
+
+  const measures = song.measures;
+  const n = measures.length;
+  const result: PlaybackMeasureStep[] = [];
+
+  let currentRepeatStart = 0;
+  let passNumber = 1;
+  const repeatCounts = new Map<number, number>(); // repeatStart -> times repeated
+  let i = 0;
+  let safetyCounter = 0;
+  const MAX_STEPS = Math.max(200, n * 6);
+
+  while (i < n && safetyCounter++ < MAX_STEPS) {
+    const m = measures[i];
+
+    // If current measure has a volta ending, check if it matches current passNumber
+    if (m.voltaEnding && m.voltaEnding.length > 0) {
+      if (!m.voltaEnding.includes(passNumber)) {
+        // Skip this measure for this pass!
+        i++;
+        continue;
+      }
+    }
+
+    result.push({ measureIndex: i, passNumber });
+
+    // If this measure has repeat_start, subsequent measures repeat back to i + 1 (or 0 if placed on m0)
+    if (m.barlineType === 'repeat_start') {
+      currentRepeatStart = i === 0 ? 0 : i + 1;
+      passNumber = 1;
+    }
+
+    // If this measure ends a repeated block
+    if (m.barlineType === 'repeat_end') {
+      const timesRepeated = repeatCounts.get(currentRepeatStart) || 0;
+
+      // Determine required passes by inspecting subsequent volta endings
+      let maxPasses = 2;
+      for (let k = currentRepeatStart; k < Math.min(n, currentRepeatStart + 32); k++) {
+        if (measures[k]?.voltaEnding) {
+          for (const v of measures[k].voltaEnding!) {
+            if (v > maxPasses) maxPasses = v;
+          }
+        }
+      }
+
+      if (timesRepeated < maxPasses - 1) {
+        repeatCounts.set(currentRepeatStart, timesRepeated + 1);
+        passNumber++;
+        i = currentRepeatStart;
+        continue;
+      } else {
+        // Finished all repeats for this block; advance repeat start for subsequent sections
+        passNumber = 1;
+        currentRepeatStart = i + 1;
+      }
+    }
+
+    i++;
+  }
+
+  return result.length > 0 ? result : measures.map((_, idx) => ({ measureIndex: idx, passNumber: 1 }));
+}
+
 export {
   LANGUAGE_CONFIGS,
   LANGUAGE_OPTIONS,

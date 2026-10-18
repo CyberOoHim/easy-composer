@@ -114,7 +114,7 @@ export function computeVersesTiming(
         accumulatedTime += durationSec;
       }
     });
-    const paddedSec = getPaddedMeasureBeats(measure, song.timeSignature || '4/4') * secPerBeat;
+    const paddedSec = getPaddedMeasureBeats(measure, measure.timeSignature || song.timeSignature || '4/4') * secPerBeat;
     accumulatedTime = Math.max(accumulatedTime, measureStart + paddedSec);
   });
 

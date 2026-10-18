@@ -294,5 +294,72 @@ describe('AudioEngine Health, Integrity & Mute Prevention', () => {
       engine.stop();
       assert.strictEqual(engine.getIsPlaying(), false);
     });
+
+    it('expands repeat barlines and volta endings accurately for playback sequence', () => {
+      const songWithVolta: any = {
+        bpm: 120,
+        timeSignature: '4/4',
+        measures: [
+          { barlineType: 'single', notes: [{ id: 'm0n1', duration: 4, pitch: 1, lyric: {} }] }, // intro
+          { barlineType: 'repeat_start', notes: [{ id: 'm1n1', duration: 4, pitch: 2, lyric: {} }] }, // intro end |:
+          { barlineType: 'single', notes: [{ id: 'm2n1', duration: 4, pitch: 3, lyric: {} }] }, // shared verse body
+          { barlineType: 'repeat_end', voltaEnding: [1], notes: [{ id: 'm3n1', duration: 4, pitch: 4, lyric: {} }] }, // volta [1] :|
+          { barlineType: 'single', voltaEnding: [2], notes: [{ id: 'm4n1', duration: 4, pitch: 5, lyric: {} }] }, // volta [2]
+          { barlineType: 'double', notes: [{ id: 'm5n1', duration: 4, pitch: 6, lyric: {} }] }, // outro
+        ]
+      };
+
+      const engine = new AudioEngine();
+      engine.setOptions({ expandRepeats: true });
+
+      // Pass 1: m0, m1, m2 (body), m3 (volta 1)
+      // Pass 2: m2 (body), m4 (volta 2), m5 (outro)
+      // Expanded total = 7 measures; Linear total = 6 measures
+      const durExpanded = engine.calculateSongDuration(songWithVolta);
+
+      engine.setOptions({ expandRepeats: false });
+      const durLinear = engine.calculateSongDuration(songWithVolta);
+
+      assert.ok(durExpanded > durLinear, 'Expanded duration should be longer than linear duration');
+      // Linear: 6 measures * 4 beats * 0.5s = 12s; Expanded = 7 measures * 4 * 0.5 = 14s
+      assert.strictEqual(durLinear, 12);
+      assert.strictEqual(durExpanded, 14);
+    });
+
+    it('calculates getMeasureStartTime and getPlaybackLocationAtTime accurately with repeats', () => {
+      const engine = new AudioEngine();
+      engine.setOptions({ expandRepeats: true, tempoMultiplier: 1.0 });
+
+      const simpleRepeatSong: any = {
+        bpm: 60, // 1 sec per beat
+        timeSignature: '4/4',
+        measures: [
+          { barlineType: 'single', notes: [{ id: 'n0', duration: 4, pitch: 1, lyric: {} }] },
+          { barlineType: 'repeat_end', notes: [{ id: 'n1', duration: 4, pitch: 2, lyric: {} }] },
+          { barlineType: 'double', notes: [{ id: 'n2', duration: 4, pitch: 3, lyric: {} }] },
+        ]
+      };
+
+      // Repeats measure 0..1 twice, then plays measure 2
+      // Measure 0: 4s
+      // Measure 1: 4s (total 8s), repeat back to 0
+      // Measure 0: 4s (total 12s)
+      // Measure 1: 4s (total 16s)
+      // Measure 2 starts at 16s
+      const m2StartTime = engine.getMeasureStartTime(simpleRepeatSong, 2);
+      assert.strictEqual(m2StartTime, 16);
+
+      // Location at 2s -> Measure 0, note 0
+      const loc2s = engine.getPlaybackLocationAtTime(simpleRepeatSong, 2);
+      assert.strictEqual(loc2s.measureIndex, 0);
+
+      // Location at 10s (second pass through measure 0) -> Measure 0
+      const loc10s = engine.getPlaybackLocationAtTime(simpleRepeatSong, 10);
+      assert.strictEqual(loc10s.measureIndex, 0);
+
+      // Location at 17s (in measure 2) -> Measure 2
+      const loc17s = engine.getPlaybackLocationAtTime(simpleRepeatSong, 17);
+      assert.strictEqual(loc17s.measureIndex, 2);
+    });
   });
 });

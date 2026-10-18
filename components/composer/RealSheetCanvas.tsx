@@ -132,6 +132,8 @@ import {
   isPunctuationOrSpacer,
   checkZeroBeatTrigger,
   isPunctuationDelimiterOrBreak,
+  halveNoteDuration,
+  doubleNoteDuration,
 } from '@/lib/taigiUtils';
 import {
   separateDualLineLyrics,
@@ -1986,11 +1988,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   // Sustain dash '-'
   const handleSetDash = useCallback(() => {
     updateCurrentNote(note => {
-      // Extend duration by 1 beat
-      const nextDur = (note.duration >= 4 ? 4 : (note.duration + 1)) as NoteDuration;
+      // Extend duration by 1 beat, resetting any dotted state
+      const baseBeats = Math.max(1, Math.floor(note.duration));
+      const nextDur = (baseBeats >= 4 ? 4 : (baseBeats + 1)) as NoteDuration;
       return {
         ...note,
         duration: nextDur,
+        isDotted: false,
+        isDoubleDotted: false,
       };
     });
   }, [updateCurrentNote]);
@@ -2657,30 +2662,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         }
         if (e.key === '/') {
           e.preventDefault();
-          // Halve duration
-          updateCurrentNote(note => {
-            let nextDur: NoteDuration = 0.5;
-            if (note.duration >= 4) nextDur = 2;
-            else if (note.duration >= 2) nextDur = 1;
-            else if (note.duration >= 1) nextDur = 0.5;
-            else if (note.duration >= 0.5) nextDur = 0.25;
-            else nextDur = 0.125;
-            return { ...note, duration: nextDur };
-          });
+          // Halve duration cleanly, preserving or adjusting dots correctly
+          updateCurrentNote(note => halveNoteDuration(note));
           return;
         }
         if (e.key === '*') {
           e.preventDefault();
-          // Double duration
-          updateCurrentNote(note => {
-            let nextDur: NoteDuration = 1;
-            if (note.duration <= 0.125) nextDur = 0.25;
-            else if (note.duration <= 0.25) nextDur = 0.5;
-            else if (note.duration <= 0.5) nextDur = 1;
-            else if (note.duration <= 1) nextDur = 2;
-            else nextDur = 4;
-            return { ...note, duration: nextDur };
-          });
+          // Double duration cleanly, preserving or adjusting dots correctly
+          updateCurrentNote(note => doubleNoteDuration(note));
           return;
         }
         if (e.key === '+' || e.key === '=') {
