@@ -37,6 +37,7 @@ import {
   Command,
   Keyboard,
   KeyboardOff,
+  Piano,
   RotateCw,
   WrapText,
   AlignJustify,
@@ -215,6 +216,7 @@ export interface FloatingScoreHudProps {
 
   // iPad / Touch Virtual Software Keyboard
   isVirtualKeyboardEnabled?: boolean;
+  isTypingActive?: boolean;
   onToggleVirtualKeyboard?: () => void;
 }
 
@@ -332,6 +334,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   pastCount = 0,
   futureCount = 0,
   isVirtualKeyboardEnabled = false,
+  isTypingActive = false,
   onToggleVirtualKeyboard,
 }) => {
   const [internalDrawer, setInternalDrawer] = React.useState<HudDrawerType>('none');
@@ -2011,26 +2014,32 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 type="button"
                 onClick={onToggleVirtualKeyboard}
                 className={`flex items-center gap-1.5 px-2.5 sm:px-3 h-8 sm:h-9 rounded-lg text-xs sm:text-sm font-semibold transition-all cursor-pointer active:scale-95 select-none ${
-                  isVirtualKeyboardEnabled
+                  isTypingActive
+                    ? 'bg-amber-500 text-zinc-950 font-black shadow-xs ring-2 ring-amber-300 dark:ring-amber-400'
+                    : isVirtualKeyboardEnabled
                     ? 'bg-emerald-600 dark:bg-emerald-500 text-white font-black shadow-xs ring-2 ring-emerald-400/40 dark:ring-emerald-400/60'
                     : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 hover:text-zinc-950 dark:hover:text-zinc-50'
                 }`}
                 title={
-                  isVirtualKeyboardEnabled
+                  isTypingActive
+                    ? 'Typing Session Active (Tap to dismiss / hide software keyboard)'
+                    : isVirtualKeyboardEnabled
                     ? 'Soft Keyboard: AUTO-OPEN ON TOUCH (Clicking any lyric summons virtual keyboard. Tap to turn OFF)'
                     : 'Soft Keyboard: TOUCH NAVIGATION MODE (Tap lyrics to select/inspect without screen displacement. Tap to turn ON)'
                 }
               >
-                {isVirtualKeyboardEnabled ? (
+                {isTypingActive ? (
+                  <Keyboard className="w-4 h-4 shrink-0 text-zinc-950 animate-pulse" />
+                ) : isVirtualKeyboardEnabled ? (
                   <Keyboard className="w-4 h-4 shrink-0 text-white" />
                 ) : (
                   <KeyboardOff className="w-4 h-4 shrink-0 text-zinc-400 dark:text-zinc-500" />
                 )}
                 <span className="hidden xl:inline tracking-tight font-bold">
-                  {isVirtualKeyboardEnabled ? 'Soft Kbd: ON' : 'Soft Kbd: OFF'}
+                  {isTypingActive ? 'Typing... (Tap to close)' : isVirtualKeyboardEnabled ? 'Auto-Kbd: ON' : 'Soft Kbd: OFF'}
                 </span>
                 <span className="xl:hidden inline text-[10px] font-mono font-bold tracking-tight">
-                  {isVirtualKeyboardEnabled ? 'KBD ON' : 'KBD OFF'}
+                  {isTypingActive ? 'TYPING' : isVirtualKeyboardEnabled ? 'KBD AUTO' : 'KBD OFF'}
                 </span>
               </button>
             )}
@@ -2047,7 +2056,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               }`}
               title="Toggle Virtual Piano Bed (Interactive on-screen keys with audio tone preview)"
             >
-              <Keyboard className={`w-4 h-4 shrink-0 ${currentDrawer === 'piano' ? 'text-zinc-950' : 'text-amber-500'}`} />
+              <Piano className={`w-4 h-4 shrink-0 ${currentDrawer === 'piano' ? 'text-zinc-950' : 'text-amber-500'}`} />
               <span className="hidden md:inline">Piano</span>
             </button>
 

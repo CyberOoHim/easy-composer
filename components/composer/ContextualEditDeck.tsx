@@ -58,6 +58,7 @@ import {
   Check,
   RotateCcw,
   AlignLeft,
+  Keyboard,
 } from 'lucide-react';
 
 export type EditTarget = 'measure' | 'note' | 'syllable';
@@ -91,6 +92,8 @@ export interface ContextualEditDeckProps {
   onSelectMeasure?: (measureIndex: number) => void;
   onSelectNote?: (measureIndex: number, noteIndex: number) => void;
   onOpenLyricSpreader?: () => void;
+  onActivateSoftKeyboard?: () => void;
+  isSoftKeyboardActive?: boolean;
   onClose?: () => void;
 }
 
@@ -112,6 +115,8 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
   onSelectMeasure,
   onSelectNote,
   onOpenLyricSpreader,
+  onActivateSoftKeyboard,
+  isSoftKeyboardActive = false,
   onClose,
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
@@ -1341,6 +1346,29 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                       <ArrowLeftToLine className="w-4 h-4" />
                       <span>Pull All Following ⇦⇦</span>
                     </button>
+
+                    <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
+
+                    {/* Type / Software Keyboard Toggle for Active Syllable */}
+                    {onActivateSoftKeyboard && (
+                      <button
+                        type="button"
+                        onClick={onActivateSoftKeyboard}
+                        className={`min-h-[44px] px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-2xs ${
+                          isSoftKeyboardActive
+                            ? 'bg-emerald-600 dark:bg-emerald-500 text-white font-black ring-2 ring-emerald-300'
+                            : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200'
+                        }`}
+                        title={
+                          isSoftKeyboardActive
+                            ? 'Software Keyboard Active: Tap to dismiss / hide keyboard'
+                            : 'Tap to summon software keyboard for this lyric'
+                        }
+                      >
+                        <Keyboard className="w-4 h-4" />
+                        <span>{isSoftKeyboardActive ? 'Typing Active' : 'Type / Kbd'}</span>
+                      </button>
+                    )}
 
                     <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
 
