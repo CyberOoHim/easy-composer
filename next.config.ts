@@ -31,6 +31,7 @@ const nextConfig: NextConfig = {
     ],
   },
   transpilePackages: ['motion'],
+  allowedDevOrigins: ['cyber.tail683ee1.ts.net', 'cyber', '100.126.251.56', 'localhost'],
   experimental: {
     optimizePackageImports: ['lucide-react', 'motion'],
   },

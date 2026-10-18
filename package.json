@@ -7,13 +7,13 @@
     "node": ">=22.6.0"
   },
   "scripts": {
-    "dev": "next dev -p 3000 -H 0.0.0.0",
+    "dev": "next dev -p ${PORT:-3005} -H 0.0.0.0",
     "review:sheets": "node scripts/review-sheets.mjs",
     "generate:sheets": "node scripts/generate-sheet-manifest.mjs",
     "prebuild": "npm run review:sheets && npm run generate:sheets",
     "predev": "npm run review:sheets && npm run generate:sheets",
     "build": "NODE_ENV=production next build",
-    "start": "next start -H 0.0.0.0 -p ${PORT:-3000}",
+    "start": "next start -H 0.0.0.0 -p ${PORT:-3005}",
     "lint": "eslint --cache .",
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types test/*.test.ts",
