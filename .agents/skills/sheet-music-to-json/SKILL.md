@@ -1,38 +1,50 @@
 ---
 name: "sheet-music-to-json"
 description: >
-  Converts musical scores and notations from Text-based Numbered Notation (簡譜)
-  with lyrics (.txt, .md), Standard MIDI files (.mid, .midi), scanned sheet music
-  images (PNG, JPG, WEBP), and PDF documents into the standardized Song JSON format
-  (strictly containing title, measures, and lyrics) qualified for direct import into
-  the Taigi Composer / Karaoke application.
+  Converts musical scores and notations from user-provided sheet music images
+  (PNG, JPG, WEBP) and PDF documents, AI Agent web search results (online 簡譜,
+  lyrics, chords), Text-based Numbered Notation (.txt, .md), and Standard MIDI
+  files (.mid, .midi) into standardized, production-ready Song JSON (strictly
+  containing title, measures, and lyrics) qualified for direct import into the
+  Taigi Composer / Karaoke application.
 ---
 
 # Sheet Music & Score to JSON Conversion Skill
 
-This skill enables agents and automated workflows to take musical scores from diverse input formats—including **text-based numbered notation with lyrics**, **standard MIDI files**, **scanned sheet images**, and **multi-page PDF documents**—and convert them into 100% compliant Song JSON for instant playback, rehearsal, karaoke stage rendering, and interactive editing in the Taigi Composer app.
+This skill enables agents and automated workflows to take musical scores from diverse input sources—whether from **user-provided visual scores (images, PDFs)**, **autonomous AI agent web searches (online 簡譜, lyrics, chords)**, **text-based numbered notation**, or **standard MIDI files**—and convert them into 100% compliant Song JSON for instant playback, rehearsal, karaoke stage rendering, and interactive editing in the Taigi Composer app.
 
 > [!IMPORTANT]
 > **Mandatory Output JSON Requirements**:
-> Every generated or converted Song JSON **MUST** contain:
-> 1. **`title`**: Non-empty song title string (e.g. `"望春風"`).
-> 2. **`measures`**: Non-empty chronological array of measure objects containing musical notes, pitches, and durations.
-> 3. **`lyrics`**: Aligned lyrics for all vocal melody notes, including both `hanlo` (漢字/漢羅) and `poj` (白話字 with tone marks) in each note's `lyric` object (or multi-verse `lyricsByVerse`).
+> Every generated or converted Song JSON **MUST** strictly contain:
+> 1. **`id`**: URL-safe unique song slug string (`^[a-zA-Z0-9_-]+$`, e.g. `"bang-chhun-hong"`).
+> 2. **`title`**: Non-empty song title string (e.g. `"望春風"`).
+> 3. **`measures`**: Non-empty chronological array of measure objects with unique `id`s (`"m1"`, `"m2"`...).
+> 4. **`notes`**: Notes within each measure with unique `id`s (`"n1_1"`, `"n1_2"`...), valid pitch degrees (`1–7`, `0`, or `'empty'`), and valid durations.
+> 5. **`lyrics`**: Aligned lyrics for all vocal melody notes, including both `hanlo` (漢字/漢羅) and `poj` (白話字 with tone marks) in each note's `lyric` object (or multi-verse `lyricsByVerse`).
+> 6. **Complete Transcription**: Transcribe the complete piece chronologically from beginning to end without omitting measures.
 >
-> Any output JSON lacking a title, measures, or lyrics is incomplete and strictly invalid.
+> Any output JSON lacking id, title, measures, or lyrics is incomplete and strictly invalid.
 
 ---
 
 ## 1. Quick Start
 
 ### Supported Input Modalities
-1. **Visual Sheet Music (Scanned Images & Multi-Page PDFs)**:
+
+1. **User-Provided Visual Sheet Music (Scanned Images & Multi-Page PDFs)**:
    - Formats: `.png`, `.jpg`, `.jpeg`, `.webp`, `.bmp`, `.pdf`
-   - **Direct Agent Multimodal Handling**: The Antigravity Agent inspects the images/PDF directly using its native `view_file` tool and transcribes the score into Song JSON adhering strictly to `schema.json`. Zero external API calls or API keys are required.
-2. **Text-Based Numbered Notation with Lyrics (`.txt`, `.md`, `--text`, `stdin`)**:
+   - **Direct Agent Multimodal Inspection**: The Agent inspects user-uploaded scores or score photos directly using `view_file` and transcribes systems, measures, Numbered Notation pitch numbers, durations, ties/slurs, chords, and bilingual lyrics into Song JSON. Zero external API keys are required.
+
+2. **AI Agent Web Search & Autonomous Research (`search_web`)**:
+   - When the user requests a song by name (e.g. *"Create a sheet for 望春風 / 雨夜花"* or *"Find the notation for ...*") without providing a local score file:
+   - **Targeted Queries**: The Agent searches for public-domain Numbered Notation (`"<Song Title> 簡譜"`, `"<Song Title> 歌譜"`, `"<Song Title> 旋律"`), official key signatures, meter, and authentic Taiwanese lyrics (`"<Song Title> 台語 歌詞 白話字"`).
+   - **Synthesis & Verification**: The Agent synthesizes the retrieved melody, chords, structure, and authentic Han-lo + POJ tone marks into compliant Song JSON.
+
+3. **Text-Based Numbered Notation with Lyrics (`.txt`, `.md`, `--text`, `stdin`)**:
    - **Canonical App Text Format**: Deterministic, offline, zero-cost parser (`convert-sheet.mjs`).
-   - **Freeform / Markdown Notation**: Direct Agent handling without external API calls.
-3. **Standard MIDI Files (`.mid`, `.midi`)**:
+   - **Freeform / Markdown Notation**: Direct Agent parsing and alignment.
+
+4. **Standard MIDI Files (`.mid`, `.midi`)**:
    - Deterministic offline extraction of note pitches, scale degrees (1–7), note durations, rests, tempo, time signature, markers, and embedded lyrics via `convert-sheet.mjs`.
    - Direct Agent lyric enrichment: The Agent directly adds authentic Taiwanese Pe̍h-ōe-jī (POJ) tone diacritics to lyrics without external API calls.
 
@@ -61,7 +73,31 @@ node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs ./final.t
 
 ## 2. Input Formats & Grammar
 
-### A. Text-Based Numbered Notation Format (Recommended)
+### A. User-Provided Visual Scores (Images & Multi-Page PDFs)
+When the user uploads or points to score files in the workspace:
+1. **Multimodal Inspection**: Use `view_file` to read the image (`.png`, `.jpg`, `.webp`) or `.pdf`.
+2. **Decode Score Elements**:
+   - Title, subtitle, composer (曲), lyricist (詞), notator (制譜/記譜).
+   - Key signature (`1 = F` $\rightarrow$ `"F"`), time signature (`4/4`, `3/4`, `2/4`, `6/8`), tempo BPM.
+   - Systems, measures, barline types, repeats (`|:`, `:|`), volta brackets (`[1]`, `[2]`).
+   - Melodic notes: pitch (`1–7`, `0`), octave (`-2..2`), duration, ties, slurs, grace notes.
+   - Lyrics: align each syllable to its note in traditional `hanlo` and authentic `poj` with tone marks.
+3. **Emit Song JSON**: Format directly conforming to the schema and validate using `validate-song-json.mjs`.
+
+### B. AI Agent Web Search & Retrieval (Online 簡譜, Chords, and Lyrics)
+When the user requests a song by name without providing an image (e.g. *"Transcribe 望春風"* or *"Find the score for 雨夜花"*):
+1. **Targeted Web Searches (`search_web`)**:
+   - Query for Numbered Notation: `"<Song Title> 簡譜"`, `"<Song Title> 歌譜"`, `"<Song Title> 數字譜"`
+   - Query for Key & Meter: `"<Song Title> 簡譜 調號 拍號"` (e.g. 1=F 4/4)
+   - Query for Taiwanese Hokkien Lyrics & POJ: `"<Song Title> 台語 歌詞 白話字"` or `"<Song Title> 漢羅 羅馬字"`
+   - Query for Chords & Intro/Outro: `"<Song Title> 吉他譜 和弦"` or `"<Song Title> 前奏 簡譜"`
+2. **Melody & Lyric Synthesis**:
+   - Transcribe scale degree pitches (`1` to `7`), rests (`0`), and durations into measures.
+   - Align lyrics: syllable-by-syllable into `{ "hanlo": "...", "poj": "..." }`.
+   - Never approximate or omit measures—synthesize the complete arrangement from introduction (Prelude) to final cadence.
+3. **Validation**: Always run `validate-song-json.mjs` on the generated song JSON.
+
+### C. Text-Based Numbered Notation Format (Recommended for Manual Editing)
 This human-readable text format can be edited in any text editor and parses deterministically without requiring an API key:
 
 ```text
@@ -94,7 +130,7 @@ Numbered Notation: 3- 2_ 1_
 - `-` suffix: Sustained beat extender (`1-` = 2 beats, `1--` = 3 beats, `1---` = 4 beats).
 - `*` or `d` suffix: Dotted note (+50% duration, e.g. `5_*` = dotted 8th note).
 
-### B. Standard MIDI Files (.mid)
+### D. Standard MIDI Files (.mid)
 The parser extracts:
 - Track events, tempos (Set Tempo meta events), and time signatures.
 - Channel 0..15 note events; computes scale degree relative to the song's key.
@@ -102,30 +138,22 @@ The parser extracts:
 - Captures track lyrics (meta 0x05) and markers (meta 0x06) and pairs them with notes.
 - Use `--auto-fix-rhythm` to automatically pad any incomplete measure with rest notes.
 
-### C. Visual Scores (Images & PDF) - Direct Agent Handling
-The Antigravity Agent inspects sheet music files directly without calling any external APIs:
-1. **View Image or PDF**: The agent invokes `view_file` on the score image (`.png`, `.jpg`, `.webp`) or `.pdf`.
-2. **Decode Notation Elements**:
-   - Header: title, subtitle, composer, lyricist, key signature (e.g. `1=F`), time signature (`4/4`, `3/4`), tempo (BPM).
-   - Systems & Measures: barlines, measure numbers, chords above numbers (`F`, `C7`, `Dm`), section markers (`前奏`, `主歌`, `副歌`).
-   - Notes: scale degree pitches (`1` to `7`), rests (`0`), octave dots (above: `1, 2`, below: `-1, -2`), durations (`4`, `2`, `1`, `0.5`, `0.25`), dots, ties, and slurs.
-   - Taiwanese Hokkien Lyrics: aligns each syllable to its note, transcribing traditional characters into `hanlo` and authentic Church Romanization with tone marks into `poj`.
-3. **Format to Song JSON**: Emits compliant Song JSON matching the schema below.
-4. **Sanitize & Validate**: The agent runs `validate-song-json.mjs` (and optionally `convert-sheet.mjs --auto-fix-rhythm` to balance measure beats).
-
 ---
 
 ## 3. The Target Song JSON Schema
 
-### Mandatory Output Requirements: `title`, `measures`, and `lyrics`
+### Mandatory Output Requirements
 
-Every generated or converted Song JSON **MUST** contain the following three core components:
+Every generated or converted Song JSON **MUST** contain the following components:
 
 | Mandatory Field | Location in JSON | Type | Description & Enforcement |
 | :--- | :--- | :--- | :--- |
-| **`title`** | Root `data.title` | `string` (non-empty) | **Song Title**: Must be present as a descriptive, non-empty string (e.g. `"望春風"`). Output missing `title` will fail validation. |
-| **`measures`** | Root `data.measures` | `Measure[]` (non-empty) | **Chronological Measures**: Must contain at least 1 measure with an array of notes capturing the melodic pitch, octave, and rhythm. |
-| **`lyrics`** | `data.measures[].notes[].lyric` | `LyricSyllable` | **Aligned Lyrics**: Sung notes across the measures must contain transcribed lyrics with both `hanlo` (漢字/漢羅) and `poj` (白話字 with tone marks) or multi-verse `lyricsByVerse`. Songs without lyrics cannot be performed in Karaoke or Rehearsal mode and will fail validation. |
+| **`id`** | Root `data.id` | `string` (slug) | **Song Slug**: Must match `^[a-zA-Z0-9_-]+$` (e.g. `"bang-chhun-hong"`). Required by build validators. |
+| **`title`** | Root `data.title` | `string` (non-empty) | **Song Title**: Must be present as a descriptive string (e.g. `"望春風"`). Output missing `title` will fail validation. |
+| **`measures`** | Root `data.measures` | `Measure[]` (non-empty) | **Chronological Measures**: Array of measures. Each measure MUST have a unique `id` (e.g. `"m1"`, `"m2"`). |
+| **`notes`** | `data.measures[].notes` | `Note[]` (non-empty) | **Melody Notes**: Each note MUST have a unique `id` across the song (e.g. `"n1_1"`), valid `pitch` (0–7 or `'empty'`), and valid `duration`. |
+| **`lyrics`** | `data.measures[].notes[].lyric` | `LyricSyllable` | **Aligned Lyrics**: Sung notes must contain transcribed lyrics with both `hanlo` (漢字/漢羅) and `poj` (白話字 with tone marks) or multi-verse `lyricsByVerse`. Songs without lyrics cannot be performed in Karaoke mode. |
+| **Complete Score** | Chronological | Entire song | **No Truncation**: Transcribe all measures from start to finish. Never use placeholder comments like `// ... remaining measures`. |
 
 ---
 
@@ -240,14 +268,25 @@ $$\sum \text{duration} = \text{Expected Beats per Measure}$$
 
 Use `--auto-fix-rhythm` to automatically insert padding rests into any measure that falls short of the expected beats.
 
-### D. Lyrics Extraction (Taigi / Taiwanese Hokkien) - Mandatory
+### D. Ties vs. Slurs & Melisma
+- **Tie (`"tieToNext": true`)**: Connects two consecutive notes of the **same pitch and octave** (延音線). The pitch sustains across both notes. The second note gets empty lyric: `{ "hanlo": "", "poj": "" }`.
+- **Slur (`"slurToNext": true`)**: Connects notes across **different pitches** for vocal phrasing (圓滑線 / 一字多音 melisma). Only the first note holds the syllable; subsequent notes under the slur get `{ "hanlo": "", "poj": "" }`.
+
+### E. Lyrics Extraction (Taigi / Taiwanese Hokkien) - Mandatory
 - **Lyrics are strictly mandatory in the output JSON**: Every vocal score must have complete lyrics transcribed and aligned with melody notes.
 - Transcribe **both** `hanlo` (漢字/漢羅) and `poj` (白話字/Pe̍h-ōe-jī).
-- The Agent directly provides both `hanlo` (漢字/漢羅) and accurate `poj` (白話字) with official tone diacritics using its Taiwanese Hokkien linguistic knowledge, without calling external APIs.
-- For notes that continue a sustained syllable under a tie or slur, set `lyric: { hanlo: "—", poj: "—" }` or `{}`.
+- Provide accurate `poj` (白話字) with official tone diacritics using authentic Taiwanese Hokkien linguistic knowledge, without calling external APIs.
+- For notes that continue a sustained syllable under a tie or slur, set `lyric: { hanlo: "", "poj": "" }`.
+- For multi-verse songs, use `lyricsByVerse`:
+  ```json
+  "lyricsByVerse": {
+    "1": { "hanlo": "獨", "poj": "To̍k" },
+    "2": { "hanlo": "想", "poj": "Siūⁿ" }
+  }
+  ```
 - An output JSON lacking lyrics will fail validation checks.
 
-### E. Verse & Phrase Segmentation for Karaoke Readability (Short While Meaningful)
+### F. Verse & Phrase Segmentation for Karaoke Readability (Short While Meaningful)
 
 In Karaoke Mode, lyrics are projected in prominent stage typography one active phrase at a time, accompanied by a preview of the upcoming next phrase and real-time bouncing ball tracking.
 
@@ -267,23 +306,124 @@ To deliver an optimal singing and reading experience, **the skill must split ver
    - **Measure Line Break**: Set `"isLineBreak": true` on the measure that concludes the phrase.
    - **Informative Section Headers**: Subdivide sections into distinct phrase labels (e.g. `"section": "主歌 1-A"`, `"section": "主歌 1-B"`).
 
+### G. Reference JSON Output Template
+
+```json
+{
+  "id": "bang-chhun-hong",
+  "title": "望春風",
+  "subtitle": "Bāng Chhun-hong",
+  "composer": "鄧雨賢",
+  "lyricist": "李臨秋",
+  "key": "F",
+  "timeSignature": "4/4",
+  "bpm": 88,
+  "notesPerLine": 4,
+  "orientation": "portrait",
+  "verseCount": 2,
+  "measures": [
+    {
+      "id": "m1",
+      "measureNumber": 1,
+      "chord": "F",
+      "section": "Prelude",
+      "isPrelude": true,
+      "notes": [
+        { "id": "n1_1", "pitch": 5, "octave": 0, "duration": 1.5, "isDotted": true, "slurToNext": true, "lyric": { "hanlo": "", "poj": "" } },
+        { "id": "n1_2", "pitch": 5, "octave": 0, "duration": 0.25, "lyric": { "hanlo": "", "poj": "" } },
+        { "id": "n1_3", "pitch": 6, "octave": 0, "duration": 0.25, "lyric": { "hanlo": "", "poj": "" } },
+        { "id": "n1_4", "pitch": 5, "octave": 0, "duration": 1, "slurToNext": true, "lyric": { "hanlo": "", "poj": "" } },
+        { "id": "n1_5", "pitch": 3, "octave": 0, "duration": 1, "lyric": { "hanlo": "", "poj": "" } }
+      ]
+    },
+    {
+      "id": "m2",
+      "measureNumber": 2,
+      "chord": "F",
+      "section": "Verse 1",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n2_1",
+          "pitch": 5,
+          "octave": -1,
+          "duration": 1.5,
+          "isDotted": true,
+          "lyric": { "hanlo": "獨", "poj": "To̍k" },
+          "lyricsByVerse": {
+            "1": { "hanlo": "獨", "poj": "To̍k" },
+            "2": { "hanlo": "想", "poj": "Siūⁿ" }
+          }
+        },
+        {
+          "id": "n2_2",
+          "pitch": 5,
+          "octave": -1,
+          "duration": 0.25,
+          "lyric": { "hanlo": "夜", "poj": "iā" },
+          "lyricsByVerse": {
+            "1": { "hanlo": "夜", "poj": "iā" },
+            "2": { "hanlo": "欲", "poj": "beh" }
+          }
+        },
+        {
+          "id": "n2_3",
+          "pitch": 6,
+          "octave": -1,
+          "duration": 0.25,
+          "lyric": { "hanlo": "無", "poj": "bô" },
+          "lyricsByVerse": {
+            "1": { "hanlo": "無", "poj": "bô" },
+            "2": { "hanlo": "郎", "poj": "lông" }
+          }
+        },
+        {
+          "id": "n2_4",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 2,
+          "lyric": { "hanlo": "伴\n", "poj": "phōaⁿ\n" },
+          "lyricsByVerse": {
+            "1": { "hanlo": "伴\n", "poj": "phōaⁿ\n" },
+            "2": { "hanlo": "君\n", "poj": "kun\n" }
+          }
+        }
+      ]
+    }
+  ]
+}
+```
+
 ---
 
-## 5. Workflow: From Score File to In-App Playback
+## 5. Workflows: From Music Source to In-App Playback
 
-### Workflow A: Visual Sheet Music (Images & PDF) and Freeform Text (Direct Agent Handling)
-1. **Step 1 - Inspect**: The Agent inspects the visual score or freeform score directly using `view_file`.
-2. **Step 2 - Transcribe**: The Agent decodes key, meter, measures, Numbered Notation pitch numbers, durations, ties/slurs, and bilingual lyrics (Hanlo + POJ tone marks), structuring karaoke phrases. The output JSON **must strictly contain `title`, `measures`, and `lyrics`**.
-3. **Step 3 - Write & Balance**: The Agent writes the Song JSON directly (ensuring `title`, `measures`, and `lyrics` are all present and populated), or passes draft JSON through the sanitizer to auto-pad deficit measures:
+### Workflow A: User-Provided Visual Scores (Images & PDF)
+1. **Step 1 - Inspect**: Call `view_file` on the score image (`.png`, `.jpg`, `.webp`) or `.pdf`.
+2. **Step 2 - Transcribe**: Decode key, meter, measures, pitch numbers, durations, ties/slurs, and bilingual lyrics (Hanlo + POJ tone marks), structuring karaoke phrases.
+3. **Step 3 - Output & Sanitize**: Write compliant Song JSON, ensuring `id`, `title`, `measures`, `notes`, and `lyrics` are all present. Balance rhythm if needed:
    ```bash
    node .agents/skills/sheet-music-to-json/scripts/convert-sheet.mjs draft.json --auto-fix-rhythm -o my-song.taigi.json
    ```
-4. **Step 4 - Validate**: Run `validate-song-json.mjs` to verify `title`, `measures`, `lyrics`, and rhythm integrity:
+4. **Step 4 - Validate**: Run `validate-song-json.mjs`:
    ```bash
    node .agents/skills/sheet-music-to-json/scripts/validate-song-json.mjs ./my-song.taigi.json
    ```
 
-### Workflow B: Structured Text & Standard MIDI Files (Deterministic Local CLI)
+### Workflow B: Autonomous AI Agent Web Search (`search_web`)
+When the user requests a song without providing a score file (e.g. *"Create a sheet for 望春風 / 雨夜花"*):
+1. **Step 1 - Search**: Use `search_web` to retrieve the Numbered Musical Notation (簡譜), key, meter, tempo, chords, and authentic Taigi lyrics:
+   - `search_web(query: "<Song Title> 簡譜")`
+   - `search_web(query: "<Song Title> 台語 歌詞 白話字")`
+2. **Step 2 - Reconstruct Score Chronologically**:
+   - Reconstruct all measures from the intro (Prelude) through all verses, chorus, interludes, and ending.
+   - Assign scale degrees (`1` to `7`), rests (`0`), octave dots, and metric durations.
+   - Synchronize syllables to note onsets, ensuring both `hanlo` and authentic `poj` tone marks are present.
+3. **Step 3 - Write & Validate**:
+   - Save the complete JSON to `data/sheets/<song-id>.taigi.json` or output for user import.
+   - Validate with `validate-song-json.mjs` and ensure all measures pass rhythm checks.
+
+### Workflow C: Structured Text & Standard MIDI Files (Deterministic Local CLI)
 1. **Step 1**: Place your canonical structured text score (`.txt`) or Standard MIDI file (`.mid`) in the workspace.
 2. **Step 2**: Run the deterministic conversion script:
    ```bash

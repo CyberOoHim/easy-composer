@@ -1327,11 +1327,58 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
               <div className="w-full max-w-full min-w-0 flex items-center gap-1.5 overflow-x-auto no-scrollbar touch-momentum touch-pan-x py-0.5 px-0.5">
                 {!isBatchMode ? (
                   <>
+                    {/* Primary Direct Action 1: Type / Software Keyboard Toggle for Active Syllable */}
+                    {onActivateSoftKeyboard && (
+                      <button
+                        type="button"
+                        onClick={onActivateSoftKeyboard}
+                        className={`min-h-[44px] px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs shrink-0 select-none ${
+                          isSoftKeyboardActive
+                            ? 'bg-emerald-600 dark:bg-emerald-500 text-white font-black ring-2 ring-emerald-300 shadow-md'
+                            : 'bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-black shadow-xs'
+                        }`}
+                        title={
+                          isSoftKeyboardActive
+                            ? 'Software Keyboard Active: Tap to dismiss / hide keyboard'
+                            : 'Tap to type or summon software keyboard for this syllable'
+                        }
+                      >
+                        <Keyboard className={`w-4 h-4 shrink-0 ${isSoftKeyboardActive ? 'animate-pulse text-white' : 'text-zinc-950'}`} />
+                        <span>{isSoftKeyboardActive ? 'Typing Active' : 'Type / Kbd'}</span>
+                      </button>
+                    )}
+
+                    {/* Primary Direct Action 2: Spread Lyrics / Bar Lyrics */}
+                    {onOpenLyricSpreader && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onOpenLyricSpreader('cursor')}
+                          className="min-h-[44px] px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-extrabold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs shrink-0 select-none"
+                          title="Paste or spread lyrics from this syllable across subsequent notes"
+                        >
+                          <AlignLeft className="w-4 h-4 shrink-0" />
+                          <span>Spread Lyrics</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onOpenLyricSpreader('bar')}
+                          className="min-h-[44px] px-3 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shrink-0 select-none"
+                          title="Edit or spread lyrics within current measure only"
+                        >
+                          <AlignLeft className="w-3.5 h-3.5 shrink-0 text-zinc-500" />
+                          <span>Bar Lyrics</span>
+                        </button>
+                      </>
+                    )}
+
+                    <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
+
                     {/* Shift Syllable Left / Right */}
                     <button
                       type="button"
                       onClick={() => handleShiftSyllable('left')}
-                      className="min-h-[44px] px-3.5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation"
+                      className="min-h-[44px] px-3.5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shrink-0"
                       title="Shift this syllable to preceding note (⇦)"
                     >
                       <ArrowLeft className="w-4 h-4" />
@@ -1341,7 +1388,7 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                     <button
                       type="button"
                       onClick={() => handleShiftSyllable('right')}
-                      className="min-h-[44px] px-3.5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation"
+                      className="min-h-[44px] px-3.5 py-2 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shrink-0"
                       title="Shift this syllable to next note (⇨)"
                     >
                       <span>Shift Syl ⇨</span>
@@ -1354,7 +1401,7 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                     <button
                       type="button"
                       onClick={handlePushLyrics}
-                      className="min-h-[44px] px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-600 hover:text-white text-indigo-950 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-850 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-2xs"
+                      className="min-h-[44px] px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-600 hover:text-white text-indigo-950 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-850 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-2xs shrink-0"
                       title="Push this syllable and all subsequent lyrics forward by 1 note (frees current slot for new word!)"
                     >
                       <ArrowRightToLine className="w-4 h-4" />
@@ -1364,7 +1411,7 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                     <button
                       type="button"
                       onClick={handlePullLyrics}
-                      className="min-h-[44px] px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-600 hover:text-white text-indigo-950 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-850 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-2xs"
+                      className="min-h-[44px] px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-600 hover:text-white text-indigo-950 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-850 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-2xs shrink-0"
                       title="Delete this syllable and pull all subsequent lyrics backward by 1 note"
                     >
                       <ArrowLeftToLine className="w-4 h-4" />
@@ -1373,31 +1420,8 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
 
                     <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
 
-                    {/* Type / Software Keyboard Toggle for Active Syllable */}
-                    {onActivateSoftKeyboard && (
-                      <button
-                        type="button"
-                        onClick={onActivateSoftKeyboard}
-                        className={`min-h-[44px] px-3.5 py-2 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-2xs ${
-                          isSoftKeyboardActive
-                            ? 'bg-emerald-600 dark:bg-emerald-500 text-white font-black ring-2 ring-emerald-300'
-                            : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200'
-                        }`}
-                        title={
-                          isSoftKeyboardActive
-                            ? 'Software Keyboard Active: Tap to dismiss / hide keyboard'
-                            : 'Tap to summon software keyboard for this lyric'
-                        }
-                      >
-                        <Keyboard className="w-4 h-4" />
-                        <span>{isSoftKeyboardActive ? 'Typing Active' : 'Type / Kbd'}</span>
-                      </button>
-                    )}
-
-                    <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
-
                     {/* Quick Connectors & Punctuation */}
-                    <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-850 p-1 rounded-xl border border-zinc-200 dark:border-zinc-750">
+                    <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-850 p-1 rounded-xl border border-zinc-200 dark:border-zinc-750 shrink-0">
                       <button
                         type="button"
                         onClick={() => handleAppendSymbol('-')}
@@ -1446,36 +1470,12 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                     <button
                       type="button"
                       onClick={handleClearSyllable}
-                      className="min-h-[44px] px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation"
+                      className="min-h-[44px] px-3 py-2 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/40 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shrink-0"
                       title="Clear this syllable"
                     >
                       <Trash2 className="w-4 h-4" />
                       <span>Clear Syllable</span>
                     </button>
-
-                    {/* Launch Lyric Spreader */}
-                    {onOpenLyricSpreader && (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => onOpenLyricSpreader('bar')}
-                          className="min-h-[44px] px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs"
-                          title="Edit or spread lyrics in current measure"
-                        >
-                          <AlignLeft className="w-4 h-4" />
-                          <span>Bar Lyrics</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onOpenLyricSpreader('cursor')}
-                          className="min-h-[44px] px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-extrabold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs"
-                          title="Spread lyrics from current note across score"
-                        >
-                          <AlignLeft className="w-4 h-4" />
-                          <span>Spread Lyrics</span>
-                        </button>
-                      </>
-                    )}
                   </>
                 ) : (
                   /* BATCH SYLLABLE ACTIONS */

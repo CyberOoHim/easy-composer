@@ -37,6 +37,174 @@ const VALID_VERSE_DISPLAY = new Set<VerseDisplayOption>([
 ]);
 
 /**
+ * Default prompt for external multimodal AI agents (ChatGPT, Claude, Gemini)
+ * to transcribe sheet music / Numbered Notation into compliant Song JSON.
+ */
+export const AI_TRANSCRIPTION_PROMPT = `You are a world-class music transcription AI and expert in Numbered Musical Notation (簡譜) and Taiwanese Hokkien songs (Taigi / 台語).
+
+Task: Transcribe all pages of the attached sheet music (Image, PDF, or text score) chronologically into a single, complete, strictly valid JSON object matching the Taigi Composer Song schema below.
+
+CRITICAL MANDATORY REQUIREMENTS:
+1. Complete Transcription: Transcribe EVERY measure from start to finish. NEVER truncate or use comments like "// ... remaining measures".
+2. Mandatory Root Fields: "id" (slug string using only a-z, 0-9, _, -), "title" (non-empty string), "key", "timeSignature", "bpm", and "measures" (non-empty array).
+3. Unique IDs: Every measure MUST have a unique "id" (e.g. "m1", "m2") and every note MUST have a unique "id" (e.g. "n1_1", "n1_2").
+4. Aligned Lyrics: Every sung vocal note MUST include "lyric": { "hanlo": "...", "poj": "..." } with Traditional Hanji/Hanlo and authentic Pe̍h-ōe-jī (POJ) romanization with tone diacritics. Rests, tied continuation notes, and instrumental prelude notes use { "hanlo": "", "poj": "" }.
+
+RULES FOR TRANSCRIPTION:
+
+1. Song Metadata (Root Object):
+   - "id": URL-safe slug (e.g. "bang-chhun-hong")
+   - "title": Song title (e.g. "望春風")
+   - "subtitle": Optional subtitle or Romanized title (e.g. "Bāng Chhun-hong")
+   - "composer": Composer name (曲)
+   - "lyricist": Lyricist name (詞)
+   - "notator": Transcriber/engraver credit if shown (制譜/記譜)
+   - "catalogNumber": Catalog serial if shown
+   - "key": Normalize "1 = F" to one of: "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"
+   - "timeSignature": One of: "4/4", "3/4", "2/4", "6/8"
+   - "bpm": Tempo number (20-320, default 80 if not printed)
+   - "notesPerLine": 4 (default)
+   - "orientation": "portrait" or "landscape"
+   - "verseCount": Total number of verses (1 to 5)
+
+2. Measures ("measures" array):
+   - "id": Unique string (e.g. "m1", "m2")
+   - "measureNumber": 1-based sequential integer (1, 2, 3...)
+   - "chord": Optional primary chord symbol above the measure (e.g. "F", "C7", "Dm")
+   - "chords": Optional array if multiple chords occur in one measure (e.g. ["Bb", "C7"])
+   - "section": Optional section label (e.g. "Prelude", "Verse", "Chorus", "前奏", "主歌 1-A", "副歌")
+   - "isPrelude": true if the measure is part of an instrumental intro/interlude/outro
+   - "barlineType": Omit for normal single barlines, or set to "double" | "end" | "repeat_start" | "repeat_end"
+   - "voltaEnding": Optional repeat ending bracket numbers, e.g. [1], [2], or [1, 2]
+   - "obbligatoText": Optional counter-melody string if printed above sustained notes (e.g. "0 56 53 21 6 5")
+   - "isLineBreak": Set to true at the end of each musical phrase (every 2 to 4 measures)
+
+3. Notes ("notes" array inside each measure):
+   - "id": Unique string across the song (e.g. "n1_1", "n1_2")
+   - "pitch": Integer 1 to 7 (scale degrees Do..Ti), 0 (rest 休止符), or "empty" (0-beat spacer)
+   - "octave": Integer from -2 to 2:
+     * 0 = middle octave (no dots above or below)
+     * 1 = one dot above (高音), 2 = two dots above (倍高音)
+     * -1 = one dot below (低音), -2 = two dots below (倍低音)
+   - "accidental": Optional "#" (sharp) or "b" (flat)
+   - "duration": Duration in beats (Quarter note = 1 beat). Use this exact Numbered Notation (簡譜) mapping:
+     * Whole note (X - - -): duration = 4 (DO NOT create separate notes for "-" dashes!)
+     * Dotted half note (X - -): duration = 3
+     * Half note (X -): duration = 2
+     * Dotted quarter note (X·): duration = 1.5, "isDotted": true
+     * Quarter note (X): duration = 1
+     * Dotted 8th note (X_·, 1 underline + dot): duration = 0.75, "isDotted": true
+     * 8th note (X_, 1 underline): duration = 0.5
+     * Dotted 16th note (X__·, 2 underlines + dot): duration = 0.375, "isDotted": true
+     * 16th note (X__, 2 underlines): duration = 0.25
+     * 32nd note (X___, 3 underlines): duration = 0.125
+     * Triplet 8th (3 notes in 1 beat): duration = 0.333, "isTriplet": true
+   - RHYTHM INTEGRITY CHECK: In every non-pickup measure, the sum of all "duration" values in "notes" MUST equal the expected beats per measure (4/4 = 4 beats, 3/4 = 3 beats, 2/4 = 2 beats, 6/8 = 3 beats).
+   - Ties vs. Slurs:
+     * "tieToNext": true when a curved line connects two notes of the SAME pitch & octave (延音線). The second note gets empty lyric { "hanlo": "", "poj": "" }.
+     * "slurToNext": true when a curved line connects notes of DIFFERENT pitches sung on a single syllable (圓滑線 / 一字多音). Only the first note gets the lyric syllable; subsequent notes under the slur get { "hanlo": "", "poj": "" }.
+   - "preGraceNotes" / "postGraceNotes": Optional array of 1-3 grace notes, e.g. [{ "pitch": 5, "octave": 0 }]
+   - "lyric": { "hanlo": "獨", "poj": "To̍k" }
+   - "lyricsByVerse": If multiple verses are stacked under the melody, include:
+     "lyricsByVerse": {
+       "1": { "hanlo": "獨", "poj": "To̍k" },
+       "2": { "hanlo": "想", "poj": "Siūⁿ" }
+     }
+
+4. Phrase Segmentation for Karaoke Readability:
+   - Split lyrics into short, meaningful phrases of 4 to 8 sung syllables (typically 2 to 4 measures).
+   - At the end of each phrase, append "\\n" to the concluding syllable's "hanlo" and "poj" (e.g. "hanlo": "下\\n", "poj": "ē\\n") AND set "isLineBreak": true on that measure.
+
+REFERENCE JSON OUTPUT TEMPLATE:
+\`\`\`json
+{
+  "id": "bang-chhun-hong",
+  "title": "望春風",
+  "subtitle": "Bāng Chhun-hong",
+  "composer": "鄧雨賢",
+  "lyricist": "李臨秋",
+  "key": "F",
+  "timeSignature": "4/4",
+  "bpm": 88,
+  "notesPerLine": 4,
+  "orientation": "portrait",
+  "verseCount": 2,
+  "measures": [
+    {
+      "id": "m1",
+      "measureNumber": 1,
+      "chord": "F",
+      "section": "Prelude",
+      "isPrelude": true,
+      "notes": [
+        { "id": "n1_1", "pitch": 5, "octave": 0, "duration": 1.5, "isDotted": true, "slurToNext": true, "lyric": { "hanlo": "", "poj": "" } },
+        { "id": "n1_2", "pitch": 5, "octave": 0, "duration": 0.25, "lyric": { "hanlo": "", "poj": "" } },
+        { "id": "n1_3", "pitch": 6, "octave": 0, "duration": 0.25, "lyric": { "hanlo": "", "poj": "" } },
+        { "id": "n1_4", "pitch": 5, "octave": 0, "duration": 1, "slurToNext": true, "lyric": { "hanlo": "", "poj": "" } },
+        { "id": "n1_5", "pitch": 3, "octave": 0, "duration": 1, "lyric": { "hanlo": "", "poj": "" } }
+      ]
+    },
+    {
+      "id": "m2",
+      "measureNumber": 2,
+      "chord": "F",
+      "section": "Verse 1",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "n2_1",
+          "pitch": 5,
+          "octave": -1,
+          "duration": 1.5,
+          "isDotted": true,
+          "lyric": { "hanlo": "獨", "poj": "To̍k" },
+          "lyricsByVerse": {
+            "1": { "hanlo": "獨", "poj": "To̍k" },
+            "2": { "hanlo": "想", "poj": "Siūⁿ" }
+          }
+        },
+        {
+          "id": "n2_2",
+          "pitch": 5,
+          "octave": -1,
+          "duration": 0.25,
+          "lyric": { "hanlo": "夜", "poj": "iā" },
+          "lyricsByVerse": {
+            "1": { "hanlo": "夜", "poj": "iā" },
+            "2": { "hanlo": "欲", "poj": "beh" }
+          }
+        },
+        {
+          "id": "n2_3",
+          "pitch": 6,
+          "octave": -1,
+          "duration": 0.25,
+          "lyric": { "hanlo": "無", "poj": "bô" },
+          "lyricsByVerse": {
+            "1": { "hanlo": "無", "poj": "bô" },
+            "2": { "hanlo": "郎", "poj": "lông" }
+          }
+        },
+        {
+          "id": "n2_4",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 2,
+          "lyric": { "hanlo": "伴\\n", "poj": "phōaⁿ\\n" },
+          "lyricsByVerse": {
+            "1": { "hanlo": "伴\\n", "poj": "phōaⁿ\\n" },
+            "2": { "hanlo": "君\\n", "poj": "kun\\n" }
+          }
+        }
+      ]
+    }
+  ]
+}
+\`\`\`
+
+Output ONLY the raw JSON object (or a single \`\`\`json code block) with no omitted measures.`;
+
+/**
  * Export song to JSON string
  */
 export function exportSongToJson(song: Song): string {

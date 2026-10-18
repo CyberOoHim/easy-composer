@@ -125,11 +125,23 @@ In the interactive Karaoke Prompter and Rehearsal Stage, lyrics are displayed in
 
 ---
 
-## 7. Multi-Format Input Support (Text, MIDI, Images, PDF)
+## 7. Multi-Format Input Support (Images, PDF, Web Search, Text, MIDI)
 
-The conversion tool (`convert-sheet.mjs`) supports four primary input modalities:
+The skill accommodates musical sources across four distinct input modalities:
 
-### A. Text-Based Numbered Notation with Lyrics
+### A. User-Provided Sheet Images (.png, .jpg, .webp) & PDF (.pdf)
+- Direct Multimodal Agent Vision inspection using `view_file` with multi-page sequencing and strict schema validation.
+- Decodes key signatures (1=F), barlines, chords, grace notes, durations, and aligns Taigi lyrics directly.
+
+### B. AI Agent Web Search & Autonomous Research (`search_web`)
+- When the user requests a song by name without providing a score file:
+- Targeted web search queries (`search_web`):
+  * `"<Song Title> 簡譜"` or `"<Song Title> 歌譜"` for Numbered Musical Notation.
+  * `"<Song Title> 簡譜 調號 拍號"` for key, meter, and BPM.
+  * `"<Song Title> 台語 歌詞 白話字"` for authentic Taiwanese Han-lo and Pe̍h-ōe-jī (POJ) tone marks.
+- The Agent reconstructs the complete score from Prelude to final barline, ensuring measure rhythm balance and non-empty IDs.
+
+### C. Text-Based Numbered Notation with Lyrics
 1. **Canonical App Text Format** (Instant, deterministic, zero-cost):
    ```text
    Title: 望春風
@@ -143,18 +155,14 @@ The conversion tool (`convert-sheet.mjs`) supports four primary input modalities
    漢羅: 獨 夜 無 伴 守
    ```
 2. **Freeform / Markdown / ASCII Notation** (Direct Agent Handling):
-   Accepts arbitrary text sheets such as `1=F 4/4 | 5. 6 1 2 | 3 - 2 1 | 獨夜無伴守燈下`. The Antigravity Agent directly reads, structures, and transcribes notes and aligns lyrics without external API calls.
+   Accepts arbitrary text sheets such as `1=F 4/4 | 5. 6 1 2 | 3 - 2 1 | 獨夜無伴守燈下`. The Agent parses notes and aligns syllables.
 
-### B. Standard MIDI Files (.mid, .midi)
-- Automatically parses Format 0 and Format 1 MIDI files deterministically offline.
-- Computes scale degrees (1–7) based on Key signature and converts note-on/note-off ticks to metric note durations.
+### D. Standard MIDI Files (.mid, .midi)
+- Automatically parses Format 0 and Format 1 MIDI files deterministically offline via `convert-sheet.mjs`.
+- Computes scale degrees (1–7) based on Key signature and converts ticks to metric note durations.
 - Automatically inserts rest notes (`pitch: 0`) for gaps between notes.
 - Extracts track lyrics (Meta event 0x05) and markers (Meta event 0x06).
-- The Agent directly enriches extracted lyrics with authentic Pe̍h-ōe-jī (POJ) Romanization tone diacritics.
-
-### C. Sheet Images (.png, .jpg, .webp) & PDF (.pdf)
-- Direct Multimodal Agent Vision transcription with multi-page sequencing and strict schema validation.
-- Auto-detects key signatures, barlines, chords, grace notes, and Taigi lyrics directly without external API calls.
+- The Agent directly enriches extracted lyrics with authentic Pe̍h-ōe-jī (POJ) tone diacritics.
 
 ---
 

@@ -8,6 +8,7 @@ import {
   exportSongToText,
   importSongFromJson,
   importSongFromText,
+  AI_TRANSCRIPTION_PROMPT,
 } from '@/lib/songParser';
 import {
   downloadMidiFile,
@@ -357,6 +358,14 @@ export const ImportExportModal: React.FC<ImportExportModalProps> = ({
   const [importText, setImportText] = useState('');
   const [importError, setImportError] = useState<string | null>(null);
   const [importConflict, setImportConflict] = useState<Song | null>(null);
+  const [showAiPromptHelp, setShowAiPromptHelp] = useState(false);
+  const [copiedAiPrompt, setCopiedAiPrompt] = useState(false);
+
+  const handleCopyAiPrompt = () => {
+    navigator.clipboard.writeText(AI_TRANSCRIPTION_PROMPT);
+    setCopiedAiPrompt(true);
+    setTimeout(() => setCopiedAiPrompt(false), 2000);
+  };
 
   // Compute export previews before any conditional early returns
   const currentExportString =
@@ -1603,6 +1612,60 @@ ${midiLyricsSummary.previewLines.map(l => `  [M${l.measureNumber}${l.section ? `
                   </div>
                 </div>
               )}
+
+              {/* External AI Sheet Transcription Prompt Helper */}
+              <div
+                id="ai-prompt-helper-card"
+                className="rounded-xl border border-amber-200/90 dark:border-amber-900/60 bg-gradient-to-r from-amber-50/80 to-amber-100/40 dark:from-amber-950/30 dark:to-zinc-900/60 p-3.5 flex flex-col gap-2.5 text-xs"
+              >
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-amber-500 shrink-0" />
+                    <div>
+                      <span className="font-bold text-zinc-900 dark:text-zinc-100">
+                        Convert Sheet Music or PDF with External AI
+                      </span>
+                      <p className="text-[11px] text-zinc-600 dark:text-zinc-400">
+                        Copy this prompt and send it to ChatGPT, Claude, or Gemini along with your sheet music image or PDF.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      id="copy-ai-prompt-btn"
+                      type="button"
+                      onClick={handleCopyAiPrompt}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs shadow-xs transition-all cursor-pointer"
+                    >
+                      {copiedAiPrompt ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                      <span>{copiedAiPrompt ? 'Copied Prompt!' : 'Copy AI Prompt'}</span>
+                    </button>
+                    <button
+                      id="toggle-ai-prompt-preview-btn"
+                      type="button"
+                      onClick={() => setShowAiPromptHelp(prev => !prev)}
+                      className="px-2.5 py-1.5 rounded-lg border border-zinc-200 dark:border-zinc-700 bg-white/80 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 font-semibold text-xs transition-colors cursor-pointer"
+                    >
+                      {showAiPromptHelp ? 'Hide Prompt' : 'View Prompt'}
+                    </button>
+                  </div>
+                </div>
+
+                {showAiPromptHelp && (
+                  <div className="flex flex-col gap-1.5 pt-2 border-t border-amber-200/60 dark:border-amber-900/40">
+                    <div className="flex items-center justify-between text-[11px] text-zinc-500 dark:text-zinc-400">
+                      <span>Source file in repo: <code className="font-mono bg-zinc-200/60 dark:bg-zinc-800 px-1 py-0.5 rounded">.agents/skills/sheet-music-to-json/examples/sample-prompt.txt</code></span>
+                    </div>
+                    <textarea
+                      readOnly
+                      rows={8}
+                      value={AI_TRANSCRIPTION_PROMPT}
+                      className="w-full px-2.5 py-2 text-[11px] font-mono bg-white/90 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 rounded-lg text-zinc-800 dark:text-zinc-200 select-all focus:outline-hidden"
+                    />
+                  </div>
+                )}
+              </div>
 
               <div className="flex justify-end">
                 <button
