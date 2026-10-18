@@ -20,12 +20,12 @@ export const LANGUAGE_CONFIGS: Record<SongLanguage, LanguageConfig> = {
   taigi: {
     id: 'taigi',
     name: 'Taiwanese Hokkien',
-    nativeName: '台語 (Tâi-gí)',
-    badge: '台語',
+    nativeName: 'Taigi (Tâi-gí)',
+    badge: 'Taigi',
     isDefault: true,
-    primaryFieldLabel: 'Hàn-lô (漢羅)',
-    secondaryFieldLabel: 'Romanization (POJ / 白話字)',
-    primaryPlaceholder: '漢羅 (e.g. 望春風)',
+    primaryFieldLabel: 'Han-lo Script',
+    secondaryFieldLabel: 'Romanization (POJ / Tailo)',
+    primaryPlaceholder: 'Han-lo script (e.g. Bang chhun-hong)',
     secondaryPlaceholder: 'Roman (e.g. Bāng chhun-hong)',
     supportsDualDisplay: true,
     sampleLyrics: '獨夜無伴守燈下 清風對面吹 十七八歲未出嫁 見著少年家',
@@ -37,12 +37,12 @@ export const LANGUAGE_CONFIGS: Record<SongLanguage, LanguageConfig> = {
   mandarin: {
     id: 'mandarin',
     name: 'Mandarin Chinese',
-    nativeName: '華語 / 國語',
-    badge: '華語',
+    nativeName: 'Mandarin',
+    badge: 'Mandarin',
     isDefault: false,
-    primaryFieldLabel: 'Hanzi (漢字)',
-    secondaryFieldLabel: 'Pinyin (漢語拼音)',
-    primaryPlaceholder: '漢字 (e.g. 月亮代表我的心)',
+    primaryFieldLabel: 'Characters (Hanzi)',
+    secondaryFieldLabel: 'Pinyin Romanization',
+    primaryPlaceholder: 'Characters (e.g. Yue liang dai biao wo de xin)',
     secondaryPlaceholder: 'Pinyin (e.g. yuè liàng dài biǎo)',
     supportsDualDisplay: true,
     sampleLyrics: '你問我愛你有多深 我愛你有幾分 我的情也真 我的愛也真 月亮代表我的心',
@@ -71,13 +71,13 @@ export const LANGUAGE_CONFIGS: Record<SongLanguage, LanguageConfig> = {
   japanese: {
     id: 'japanese',
     name: 'Japanese',
-    nativeName: '日本語',
-    badge: '日本語',
+    nativeName: 'Japanese',
+    badge: 'JP',
     isDefault: false,
-    primaryFieldLabel: 'Kanji / Kana (歌詞)',
-    secondaryFieldLabel: 'Furigana / Romaji (ふりがな)',
-    primaryPlaceholder: '歌詞 (e.g. さくら さくら 桜)',
-    secondaryPlaceholder: 'ふりがな (e.g. sakura)',
+    primaryFieldLabel: 'Kanji / Kana Lyrics',
+    secondaryFieldLabel: 'Furigana / Romaji',
+    primaryPlaceholder: 'Kanji or Kana (e.g. sakura)',
+    secondaryPlaceholder: 'Romaji or Furigana (e.g. sakura)',
     supportsDualDisplay: true,
     sampleLyrics: 'さくら さくら 野山も里も 見わたす限り かすみか雲か 朝日ににほう',
     sampleDualLyrics: {
@@ -88,7 +88,7 @@ export const LANGUAGE_CONFIGS: Record<SongLanguage, LanguageConfig> = {
   multilingual: {
     id: 'multilingual',
     name: 'Multilingual',
-    nativeName: '多語言 (Multilingual)',
+    nativeName: 'Multilingual',
     badge: 'Multi',
     isDefault: false,
     primaryFieldLabel: 'Primary Text',
@@ -101,11 +101,11 @@ export const LANGUAGE_CONFIGS: Record<SongLanguage, LanguageConfig> = {
 };
 
 export const LANGUAGE_OPTIONS: { id: SongLanguage; label: string; isDefault?: boolean }[] = [
-  { id: 'taigi', label: '台語 (Taigi / Taiwanese)', isDefault: true },
-  { id: 'mandarin', label: '華語 (Mandarin Chinese)' },
+  { id: 'taigi', label: 'Taigi (Taiwanese Hokkien)', isDefault: true },
+  { id: 'mandarin', label: 'Mandarin', },
   { id: 'english', label: 'English' },
-  { id: 'japanese', label: '日本語 (Japanese)' },
-  { id: 'multilingual', label: 'Multilingual (多語言)' },
+  { id: 'japanese', label: 'Japanese' },
+  { id: 'multilingual', label: 'Multilingual' },
 ];
 
 /**
@@ -729,10 +729,12 @@ export function separateDualLineLyrics(input: string): {
 export function parseAndPairBilingualLyrics(
   hanloLine: string,
   romanLine: string,
-  language: SongLanguage = 'taigi'
+  language: SongLanguage = 'taigi',
+  options?: { preserveHyphens?: boolean }
 ): LyricSyllable[] {
   const hSyllables = splitMultilingualLyrics(hanloLine, language);
   const rSyllables = splitMultilingualLyrics(romanLine, language);
+  const preserveHyphens = options?.preserveHyphens ?? false;
 
   const maxLen = Math.max(hSyllables.length, rSyllables.length);
   const tokens: LyricSyllable[] = [];
@@ -740,7 +742,7 @@ export function parseAndPairBilingualLyrics(
   for (let sIdx = 0; sIdx < maxLen; sIdx++) {
     const r = rSyllables[sIdx];
     const h = hSyllables[sIdx];
-    const rText = r ? r.text.replace(/-+$/, '') : '';
+    const rText = r ? (preserveHyphens ? r.text : r.text.replace(/-+$/, '')) : '';
     const hText = h ? h.text : '';
 
     tokens.push({

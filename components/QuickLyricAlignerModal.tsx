@@ -10,6 +10,7 @@ import {
   isPunctuationOrSpacer,
   normalizeSongDurations,
   applyLyricTokensToSong,
+  extractLyricsFromScope,
   getSongVerseCount,
 } from '@/lib/taigiUtils';
 import {
@@ -30,6 +31,7 @@ import {
   Eye,
   ArrowLeft,
   FileCheck2,
+  Download,
 } from 'lucide-react';
 import { getStoredQuickAlignTarget, setStoredQuickAlignTarget } from '@/lib/storage';
 
@@ -75,6 +77,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   const [romanText, setRomanText] = useState('');
   const [hanloText, setHanloText] = useState('');
   const [pasteNotice, setPasteNotice] = useState<string | null>(null);
+  const [skipRestsAndTies, setSkipRestsAndTies] = useState<boolean>(true);
 
   const [targetField, setTargetFieldState] = useState<TargetAlignMode>(() => {
     if (typeof window !== 'undefined') return getStoredQuickAlignTarget('dual');
@@ -109,28 +112,26 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
   const verseCount = useMemo(() => getSongVerseCount(song), [song]);
 
   // Calculate notes available under current scope
-  const targetScopeNotesCount = useMemo(() => {
-    if (alignScope === 'all') return totalNotesCount;
-    if (alignScope === 'selection' && activeCoordinate) {
-      let count = 0;
-      const [startM, startN] = activeCoordinate;
-      for (let m = startM; m < song.measures.length; m++) {
-        const notes = song.measures[m]?.notes || [];
-        const nStart = m === startM ? startN : 0;
-        count += Math.max(0, notes.length - nStart);
-      }
-      return count;
-    }
-    if (alignScope === 'measure') {
-      let count = 0;
-      for (let m = selectedStartMeasure; m < song.measures.length; m++) {
-        count += song.measures[m]?.notes?.length || 0;
-      }
-      return count;
-    }
-    // 'verse' (parallel lyricsByVerse slot) and 'all' both span every note.
-    return totalNotesCount;
-  }, [alignScope, activeCoordinate, selectedStartMeasure, totalNotesCount, song]);
+  const targetScopeStats = useMemo(() => {
+    const startM =
+      alignScope === 'selection' && activeCoordinate
+        ? activeCoordinate[0]
+        : alignScope === 'measure'
+        ? selectedStartMeasure
+        : 0;
+    const startN = alignScope === 'selection' && activeCoordinate ? activeCoordinate[1] : 0;
+    const targetV = alignScope === 'verse' ? selectedTargetVerse : 1;
+
+    return extractLyricsFromScope(song, {
+      startMeasureIdx: startM,
+      startNoteIdx: startN,
+      verseIndex: targetV,
+      skipRests: skipRestsAndTies,
+      skipTiedNotes: skipRestsAndTies,
+    });
+  }, [alignScope, activeCoordinate, selectedStartMeasure, selectedTargetVerse, skipRestsAndTies, song]);
+
+  const targetScopeNotesCount = targetScopeStats.singableNoteCount || totalNotesCount;
 
   const totalPreviewTokensCount = useMemo(() => {
     return versePreviews.reduce((acc, vp) => acc + vp.tokens.length, 0);
@@ -145,6 +146,25 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     const romanScript = romanText ? detectScriptType(romanText) : null;
     return { detectedLang, hanloScript, romanScript };
   }, [targetField, hanloText, romanText, inputText]);
+
+  // Load existing lyrics from the active scope into the textareas
+  const handleLoadCurrentScoreLyrics = () => {
+    const { hanloText: extractedHanlo, romanText: extractedRoman } = targetScopeStats;
+    if (!extractedHanlo && !extractedRoman) {
+      setPasteNotice('No existing lyrics found in the selected score scope.');
+      setTimeout(() => setPasteNotice(null), 3500);
+      return;
+    }
+    setHanloText(extractedHanlo);
+    setRomanText(extractedRoman);
+    if (targetField === 'roman' || targetField === 'poj' || targetField === 'tl') {
+      setInputText(extractedRoman || extractedHanlo);
+    } else {
+      setInputText(extractedHanlo || extractedRoman);
+    }
+    setPasteNotice('Loaded existing lyrics from score scope for bulk editing.');
+    setTimeout(() => setPasteNotice(null), 3500);
+  };
 
   // Swap Hanlo and POJ contents
   const handleSwapHanloAndPoj = () => {
@@ -166,8 +186,8 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
       setPasteNotice(
         separated.swapped
-          ? 'Auto-detected & routed: Line 1 (Hàn-lô) and Line 2 (POJ) swapped to fit correct fields.'
-          : `Auto-detected: Separated into Hàn-lô and POJ. Language set to ${separated.detectedLang.toUpperCase()}.`
+          ? 'Auto-detected & routed: Line 1 (Han-lo) and Line 2 (POJ) swapped to fit correct fields.'
+          : `Auto-detected: Separated into Han-lo and POJ. Language set to ${separated.detectedLang.toUpperCase()}.`
       );
       setTimeout(() => setPasteNotice(null), 4500);
     }
@@ -195,13 +215,14 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
   if (!isOpen) return null;
 
-  // Handle plan & preview generation
-  const handleGeneratePlanForReview = () => {
+  // Build VersePreviewItem[] from current inputs
+  const buildPreviewsFromInputs = (): VersePreviewItem[] => {
     // DUAL MODE: User provides both Roman/POJ and Han-Lo text separately
     if (targetField === 'dual') {
-      if (!romanText.trim() && !hanloText.trim()) return;
+      if (!romanText.trim() && !hanloText.trim()) return [];
 
       const autoLang = detectSongLanguageFromLyrics(hanloText, romanText);
+      const effectiveLang = autoLang || alignLanguage;
       if (autoLang && autoLang !== alignLanguage) {
         setAlignLanguage(autoLang);
       }
@@ -222,12 +243,13 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
       const hLines = actualHanlo.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
       const lineCount = Math.max(rLines.length, hLines.length);
 
+      const useOneToOneVerses = alignScope === 'all' && songVerses.length >= lineCount && songVerses.length > 1;
       const previews: VersePreviewItem[] = [];
       for (let idx = 0; idx < lineCount; idx++) {
         const rLine = rLines[idx] || '';
         const hLine = hLines[idx] || '';
-        const rSyllables = rLine ? splitMultilingualLyrics(rLine, alignLanguage) : [];
-        const hSyllables = hLine ? splitMultilingualLyrics(hLine, alignLanguage) : [];
+        const rSyllables = rLine ? splitMultilingualLyrics(rLine, effectiveLang) : [];
+        const hSyllables = hLine ? splitMultilingualLyrics(hLine, effectiveLang) : [];
         const maxSyl = Math.max(rSyllables.length, hSyllables.length);
 
         const tokens: LyricSyllable[] = [];
@@ -246,12 +268,12 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           });
         }
 
-        const matchedVerse = songVerses[idx];
+        const matchedVerse = useOneToOneVerses ? songVerses[idx] : undefined;
         previews.push({
           verseIndex: idx,
           verseTitle: matchedVerse
-            ? `Verse ${idx + 1}${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
-            : `Verse ${idx + 1} (Line ${idx + 1})`,
+            ? `Phrase ${idx + 1}${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
+            : `Phrase ${idx + 1} (Line ${idx + 1})`,
           section: matchedVerse?.section,
           measureRange: matchedVerse
             ? `Measures ${matchedVerse.startMeasureNumber}-${matchedVerse.endMeasureNumber}`
@@ -260,20 +282,18 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           tokens,
         });
       }
-      setVersePreviews(previews);
-      setCurrentStep('review');
-      return;
+      return previews;
     }
 
     // SINGLE MODE: Romanization/Phonetic or Han-Lo/Primary Text
-    if (!inputText.trim()) return;
+    if (!inputText.trim()) return [];
 
     const lines = inputText
       .split(/\r?\n/)
       .map(l => l.trim())
       .filter(Boolean);
 
-    if (lines.length === 0) return;
+    if (lines.length === 0) return [];
 
     // If single textarea was used but contains 2 lines with 1 CJK and 1 Roman, auto-split
     if (lines.length === 2) {
@@ -309,18 +329,17 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           }
           previews.push({
             verseIndex: idx,
-            verseTitle: `Verse ${idx + 1}`,
+            verseTitle: `Phrase ${idx + 1}`,
             measureRange: '',
             noteCount: targetScopeNotesCount,
             tokens,
           });
         }
-        setVersePreviews(previews);
-        setCurrentStep('review');
-        return;
+        return previews;
       }
     }
 
+    const useOneToOneVerses = alignScope === 'all' && songVerses.length >= lines.length && songVerses.length > 1;
     const isRomanTarget = targetField === 'roman' || targetField === 'poj' || targetField === 'tl';
     const previews: VersePreviewItem[] = lines.map((line, idx) => {
       const rawSyllables = splitMultilingualLyrics(line, alignLanguage);
@@ -345,12 +364,12 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           };
         }
       });
-      const matchedVerse = songVerses[idx];
+      const matchedVerse = useOneToOneVerses ? songVerses[idx] : undefined;
       return {
         verseIndex: idx,
         verseTitle: matchedVerse
-          ? `Verse ${idx + 1}${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
-          : `Verse ${idx + 1} (Line ${idx + 1})`,
+          ? `Phrase ${idx + 1}${matchedVerse.section ? ` (${matchedVerse.section})` : ''}`
+          : `Phrase ${idx + 1} (Line ${idx + 1})`,
         section: matchedVerse?.section,
         measureRange: matchedVerse
           ? `Measures ${matchedVerse.startMeasureNumber}-${matchedVerse.endMeasureNumber}`
@@ -359,6 +378,13 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
         tokens,
       };
     });
+    return previews;
+  };
+
+  // Handle plan & preview generation
+  const handleGeneratePlanForReview = () => {
+    const previews = buildPreviewsFromInputs();
+    if (previews.length === 0) return;
     setVersePreviews(previews);
     setCurrentStep('review');
   };
@@ -413,10 +439,10 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
       targetVerse.tokens = [
         ...targetVerse.tokens,
         targetField === 'dual'
-          ? { hanlo: '字', poj: 'syl', text: '字', phonetic: 'syl' }
+          ? { hanlo: 'la', poj: 'syl', text: 'la', phonetic: 'syl' }
           : targetField === 'roman'
           ? { poj: 'syl', text: 'syl', phonetic: 'syl' }
-          : { hanlo: '字', text: '字' },
+          : { hanlo: 'la', text: 'la' },
       ];
       next[vIdx] = targetVerse;
       return next;
@@ -440,10 +466,29 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     });
   };
 
-  const handleApply = () => {
-    if (versePreviews.length === 0) return;
+  const applyPreviewsToScore = (activePreviews: VersePreviewItem[]) => {
+    if (activePreviews.length === 0) return;
 
-    const allTokens = versePreviews.flatMap(vp => vp.tokens);
+    // Flatten tokens with line-break markers at the end of each line (except the last)
+    const allTokensWithLineBreaks: LyricSyllable[] = activePreviews.flatMap((vp, vpIdx) => {
+      const isLastLine = vpIdx === activePreviews.length - 1;
+      return vp.tokens.map((tok, tokIdx) => {
+        const isLastTok = tokIdx === vp.tokens.length - 1;
+        if (!isLastLine && isLastTok) {
+          const h = tok.hanlo ?? tok.text ?? '';
+          const p = tok.poj ?? tok.phonetic ?? '';
+          return {
+            ...tok,
+            hanlo: h && !h.endsWith('\n') ? `${h}\n` : h,
+            text: h && !h.endsWith('\n') ? `${h}\n` : tok.text,
+            poj: p && !p.endsWith('\n') ? `${p}\n` : p,
+            phonetic: p && !p.endsWith('\n') ? `${p}\n` : tok.phonetic,
+          };
+        }
+        return tok;
+      });
+    });
+
     const updatedSongBase: Song = {
       ...song,
       language: alignLanguage,
@@ -452,10 +497,12 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
     if (alignScope === 'selection' && activeCoordinate) {
       const [startM, startN] = activeCoordinate;
       onApplyLyrics(
-        applyLyricTokensToSong(updatedSongBase, allTokens, {
+        applyLyricTokensToSong(updatedSongBase, allTokensWithLineBreaks, {
           startMeasureIdx: startM,
           startNoteIdx: startN,
           verseIndex: selectedTargetVerse,
+          skipRests: skipRestsAndTies,
+          skipTiedNotes: skipRestsAndTies,
         })
       );
       onClose();
@@ -464,10 +511,12 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
     if (alignScope === 'measure') {
       onApplyLyrics(
-        applyLyricTokensToSong(updatedSongBase, allTokens, {
+        applyLyricTokensToSong(updatedSongBase, allTokensWithLineBreaks, {
           startMeasureIdx: selectedStartMeasure,
           startNoteIdx: 0,
           verseIndex: selectedTargetVerse,
+          skipRests: skipRestsAndTies,
+          skipTiedNotes: skipRestsAndTies,
         })
       );
       onClose();
@@ -476,44 +525,52 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
     if (alignScope === 'verse') {
       onApplyLyrics(
-        applyLyricTokensToSong(updatedSongBase, allTokens, {
+        applyLyricTokensToSong(updatedSongBase, allTokensWithLineBreaks, {
           startMeasureIdx: 0,
           startNoteIdx: 0,
           verseIndex: selectedTargetVerse,
+          skipRests: skipRestsAndTies,
+          skipTiedNotes: skipRestsAndTies,
         })
       );
       onClose();
       return;
     }
 
-    // Default: Multi-line verse alignment across the whole song
-    const newMeasures = updatedSongBase.measures.map(m => ({
-      ...m,
-      notes: m.notes.map(note => ({
-        ...note,
-        lyric: { ...note.lyric },
-      })),
-    }));
+    // Whole song alignment:
+    // If song already has >= versePreviews.length phrase partitions, align 1-to-1 per partition.
+    // Otherwise (e.g. a fresh melody with 1 undivided verse and multiple pasted sentences),
+    // flow all sentences sequentially across the song's notes with line breaks!
+    if (songVerses.length > 1 && songVerses.length >= activePreviews.length) {
+      const newMeasures = updatedSongBase.measures.map(m => ({
+        ...m,
+        notes: m.notes.map(note => ({
+          ...note,
+          lyric: { ...note.lyric },
+        })),
+      }));
 
-    if (versePreviews.length > 1 || songVerses.length > 1) {
-      versePreviews.forEach((vp, vIdx) => {
+      activePreviews.forEach((vp, vIdx) => {
         const targetVerse = songVerses[vIdx];
         if (!targetVerse) return;
 
         let tokIdx = 0;
+        let prevNoteInSong: any = null;
         for (let nIdx = 0; nIdx < targetVerse.notes.length; nIdx++) {
           if (tokIdx >= vp.tokens.length) break;
           const noteRef = targetVerse.notes[nIdx];
           const note = newMeasures[noteRef.measureIndex]?.notes[noteRef.noteIndex];
           if (!note) continue;
 
+          const isTiedCont = Boolean(note.isTied || prevNoteInSong?.tieToNext);
+          prevNoteInSong = note;
+
           const isNoteNonNotation = isNonNotationItem(note);
           const tok = vp.tokens[tokIdx];
           const isTokenPunct = isPunctuationOrSpacer(tok.text || tok.hanlo || tok.hanji || tok.custom || '');
 
-          if (isNoteNonNotation && !isTokenPunct) {
-            continue;
-          }
+          if (isNoteNonNotation && !isTokenPunct) continue;
+          if (skipRestsAndTies && (note.pitch === 0 || isTiedCont) && !isTokenPunct) continue;
 
           tokIdx++;
           const targetHanlo = tok.hanlo !== undefined ? tok.hanlo : (tok.hanji !== undefined ? tok.hanji : tok.custom);
@@ -525,7 +582,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           const targetText = tok.text || formattedHanlo || targetHanlo;
           const targetPhonetic = tok.phonetic || formattedPoj || targetPoj;
 
-          const targetVerseNumber = (targetVerse as any).verseNumber || (vIdx + 1);
+          const targetVerseNumber = (targetVerse as any).verseNumber || 1;
           const newLyricData = {
             ...note.lyric,
             ...(formattedHanlo !== undefined ? { hanlo: formattedHanlo } : {}),
@@ -553,60 +610,38 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
           }
         }
       });
-    } else {
-      // Single continuous line across the whole song
-      let tokenIdx = 0;
-      const flatTokens = versePreviews[0]?.tokens || [];
-      newMeasures.forEach(m => {
-        m.notes.forEach(note => {
-          if (tokenIdx < flatTokens.length) {
-            const isNoteNonNotation = isNonNotationItem(note);
-            const tok = flatTokens[tokenIdx];
-            const isTokenPunct = isPunctuationOrSpacer(tok.text || tok.hanlo || tok.hanji || tok.custom || '');
 
-            if (isNoteNonNotation && !isTokenPunct) {
-              return;
-            }
-
-            tokenIdx++;
-            const targetHanlo = tok.hanlo !== undefined ? tok.hanlo : (tok.hanji !== undefined ? tok.hanji : tok.custom);
-            const targetPoj = tok.poj !== undefined ? tok.poj : tok.tl;
-            const targetText = tok.text || targetHanlo;
-            const targetPhonetic = tok.phonetic || targetPoj;
-
-            const newLyricData = {
-              ...note.lyric,
-              ...(targetHanlo !== undefined ? { hanlo: targetHanlo } : {}),
-              ...(targetPoj !== undefined ? { poj: targetPoj } : {}),
-              ...(targetText !== undefined ? { text: targetText } : {}),
-              ...(targetPhonetic !== undefined ? { phonetic: targetPhonetic } : {}),
-              ...(tok.isHyphenated !== undefined ? { isHyphenated: tok.isHyphenated } : {}),
-              ...(tok.isWordEnd !== undefined ? { isWordEnd: tok.isWordEnd } : {}),
-            };
-
-            note.lyric = newLyricData;
-            if (!note.lyricsByVerse) {
-              note.lyricsByVerse = {};
-            }
-            note.lyricsByVerse[1] = {
-              ...(note.lyricsByVerse[1] || {}),
-              ...newLyricData,
-            };
-
-            if (isTokenPunct && isNoteNonNotation) {
-              note.pitch = 'empty';
-              note.duration = 0 as NoteDuration;
-            }
-          }
-        });
-      });
+      onApplyLyrics(
+        normalizeSongDurations({
+          ...updatedSongBase,
+          measures: newMeasures,
+        })
+      );
+      onClose();
+      return;
     }
 
-    onApplyLyrics({
-      ...updatedSongBase,
-      measures: newMeasures,
-    });
+    // Sequential multi-sentence flow across the entire song
+    onApplyLyrics(
+      applyLyricTokensToSong(updatedSongBase, allTokensWithLineBreaks, {
+        startMeasureIdx: 0,
+        startNoteIdx: 0,
+        verseIndex: 1,
+        skipRests: skipRestsAndTies,
+        skipTiedNotes: skipRestsAndTies,
+      })
+    );
     onClose();
+  };
+
+  const handleApply = () => {
+    applyPreviewsToScore(versePreviews);
+  };
+
+  const handleApplyDirectlyFromStep1 = () => {
+    const previews = buildPreviewsFromInputs();
+    if (previews.length === 0) return;
+    applyPreviewsToScore(previews);
   };
 
   return (
@@ -695,7 +730,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>台語 (Taigi)</span>
+                    <span>Taigi (Hokkien)</span>
                     {alignLanguage === 'taigi' && <span className="text-[10px] bg-zinc-900 text-amber-300 px-1 rounded-sm">Active</span>}
                   </button>
 
@@ -722,7 +757,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>華語 (Mandarin)</span>
+                    <span>Mandarin</span>
                   </button>
 
                   <button
@@ -735,7 +770,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         : 'bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>日本語 (Japanese)</span>
+                    <span>Japanese</span>
                   </button>
                 </div>
 
@@ -747,7 +782,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     onClick={() => handleLoadSample('taigi')}
                     className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 font-mono cursor-pointer transition-colors"
                   >
-                    Taigi (望春風)
+                    Taigi (Spring Breeze)
                   </button>
                   <button
                     type="button"
@@ -761,29 +796,41 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     onClick={() => handleLoadSample('mandarin')}
                     className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 font-mono cursor-pointer transition-colors"
                   >
-                    Mandarin (送別)
+                    Mandarin (Farewell)
                   </button>
                   <button
                     type="button"
                     onClick={() => handleLoadSample('japanese')}
                     className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700 hover:border-amber-400 hover:text-amber-600 dark:hover:text-amber-400 font-mono cursor-pointer transition-colors"
                   >
-                    Japanese (さくらさくら)
+                    Japanese (Sakura)
                   </button>
                 </div>
               </div>
 
               {/* Target Scope Selection */}
-              <div className="flex flex-col gap-1.5 bg-zinc-50 dark:bg-zinc-800/40 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700/70">
+              <div className="flex flex-col gap-2 bg-zinc-50 dark:bg-zinc-800/40 p-3 rounded-xl border border-zinc-200 dark:border-zinc-700/70">
                 <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-amber-500" />
                     <span>Target Score Scope</span>
                   </label>
-                  <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">
-                    {targetScopeNotesCount} notes available
-                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleLoadCurrentScoreLyrics}
+                      className="px-2 py-1 rounded-md border text-[11px] font-bold transition-all cursor-pointer bg-white dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400 flex items-center gap-1"
+                      title="Extract and load existing lyrics from the current scope into the editor"
+                    >
+                      <Download className="w-3 h-3 text-amber-500" />
+                      <span>Load Current Lyrics</span>
+                    </button>
+                    <span className="text-[11px] font-mono font-bold text-amber-600 dark:text-amber-400">
+                      {targetScopeNotesCount} notes available
+                    </span>
+                  </div>
                 </div>
+
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
                   <button
                     type="button"
@@ -839,7 +886,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
 
                 {/* Sub-selectors for Measure and Verse */}
                 {alignScope === 'measure' && (
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700 text-xs">
+                  <div className="flex items-center gap-2 mt-1 pt-2 border-t border-zinc-200 dark:border-zinc-700 text-xs">
                     <span className="text-zinc-600 dark:text-zinc-400 font-medium">Start Measure:</span>
                     <select
                       value={selectedStartMeasure}
@@ -856,7 +903,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 )}
 
                 {alignScope === 'verse' && (
-                  <div className="flex items-center gap-2 mt-2 pt-2 border-t border-zinc-200 dark:border-zinc-700 text-xs">
+                  <div className="flex items-center gap-2 mt-1 pt-2 border-t border-zinc-200 dark:border-zinc-700 text-xs">
                     <span className="text-zinc-600 dark:text-zinc-400 font-medium">Target Verse:</span>
                     <select
                       value={selectedTargetVerse}
@@ -871,6 +918,22 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     </select>
                   </div>
                 )}
+
+                {/* Options: Skip Rests & Tied Notes */}
+                <div className="flex items-center gap-2 pt-1.5 border-t border-zinc-200/70 dark:border-zinc-700/60">
+                  <label className="flex items-center gap-2 text-xs text-zinc-700 dark:text-zinc-300 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={skipRestsAndTies}
+                      onChange={e => setSkipRestsAndTies(e.target.checked)}
+                      className="rounded border-zinc-300 text-amber-500 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+                    />
+                    <span className="font-medium">Skip Rests (0) & Tied Notes</span>
+                  </label>
+                  <span className="text-[10px] text-zinc-400">
+                    (Advances lyrics only to singable notes with active pitch)
+                  </span>
+                </div>
               </div>
 
               {/* Alignment Mode Tabs */}
@@ -880,7 +943,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     Input Format Mode
                   </label>
                   <span className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                    Two lines (Hàn-lô + POJ) recommended for complete bilingual notation
+                    Two lines (Han-lo + POJ) recommended for complete bilingual notation
                   </span>
                 </div>
                 <div className="grid grid-cols-3 gap-2 text-xs">
@@ -897,7 +960,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    <span>Two Lines: Hanlo + POJ</span>
+                    <span>Two Lines: Han-lo + POJ</span>
                   </button>
 
                   <button
@@ -910,7 +973,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    Single: Han-Lo Only
+                    <span>Single: Han-lo Only</span>
                   </button>
 
                   <button
@@ -923,7 +986,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                         : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:border-amber-400'
                     }`}
                   >
-                    Single: POJ / Roman Only
+                    <span>Single: POJ / Roman Only</span>
                   </button>
                 </div>
               </div>
@@ -951,7 +1014,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
                         <label htmlFor="aligner-hanlo-text" className="block text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                          Line 1: Hàn-lô (漢字 / 漢羅)
+                          Line 1: Han-lo Script
                         </label>
                         <span className="text-[11px] text-zinc-400">Primary display</span>
                       </div>
@@ -980,7 +1043,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     <div className="flex flex-col gap-1">
                       <div className="flex items-center justify-between">
                         <label htmlFor="aligner-roman-text" className="block text-xs font-bold text-zinc-800 dark:text-zinc-200">
-                          Line 2: POJ (白話字 / 羅馬字)
+                          Line 2: POJ / Romanization
                         </label>
                         <span className="text-[11px] text-zinc-400">Phonetic tones & singing guide</span>
                       </div>
@@ -1030,7 +1093,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                     <label htmlFor="aligner-input-text" className="block text-xs font-bold text-zinc-700 dark:text-zinc-300">
                       {targetField === 'roman' || targetField === 'poj' || targetField === 'tl'
                         ? 'Paste Romanization Lyrics (POJ)'
-                        : 'Paste Han-Lo Lyrics (Han-lô)'}
+                        : 'Paste Han-Lo Lyrics'}
                     </label>
                     <span className="text-[11px] text-amber-600 dark:text-amber-400 font-medium">
                       💡 Newline creates new line/verse
@@ -1051,21 +1114,38 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 </div>
               )}
 
-              {/* Action Trigger Button */}
-              <button
-                id="aligner-parse-btn"
-                type="button"
-                disabled={
-                  targetField === 'dual'
-                    ? (!romanText.trim() && !hanloText.trim())
-                    : !inputText.trim()
-                }
-                onClick={handleGeneratePlanForReview}
-                className="flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 font-bold text-sm transition-all disabled:opacity-50 cursor-pointer shadow-sm active:scale-98"
-              >
-                <Eye className="w-4 h-4 text-amber-400" />
-                <span>Plan for Review & Syllable Matching ➔</span>
-              </button>
+              {/* Action Trigger Buttons */}
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <button
+                  id="aligner-parse-btn"
+                  type="button"
+                  disabled={
+                    targetField === 'dual'
+                      ? (!romanText.trim() && !hanloText.trim())
+                      : !inputText.trim()
+                  }
+                  onClick={handleGeneratePlanForReview}
+                  className="flex-1 w-full flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white dark:bg-zinc-100 dark:hover:bg-white dark:text-zinc-900 font-bold text-sm transition-all disabled:opacity-50 cursor-pointer shadow-sm active:scale-98"
+                >
+                  <Eye className="w-4 h-4 text-amber-400" />
+                  <span>Plan for Review & Syllable Matching ➔</span>
+                </button>
+                <button
+                  id="aligner-direct-apply-btn"
+                  type="button"
+                  disabled={
+                    targetField === 'dual'
+                      ? (!romanText.trim() && !hanloText.trim())
+                      : !inputText.trim()
+                  }
+                  onClick={handleApplyDirectlyFromStep1}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 py-3 px-5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-zinc-950 font-bold text-sm shadow-sm transition-all disabled:opacity-50 cursor-pointer active:scale-98"
+                  title="Directly distribute syllables to score without going to step 2"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>Apply Directly to Score</span>
+                </button>
+              </div>
             </>
           )}
 
@@ -1083,7 +1163,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                       Alignment Review Plan ({versePreviews.length} verse{versePreviews.length > 1 ? 's' : ''})
                     </span>
                     <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      Syllables paired across Hàn-lô and POJ. Click any token to adjust spelling or shift order.
+                      Syllables paired across Han-lo and POJ. Click any token to adjust spelling or shift order.
                     </p>
                   </div>
                 </div>
@@ -1110,8 +1190,11 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
               {/* Verses Preview List with In-Line Micro-Editor */}
               <div className="flex flex-col gap-3 max-h-[46vh] overflow-y-auto pr-1">
                 {versePreviews.map((vp, vIdx) => {
-                  const isOverflowVerse = vIdx >= songVerses.length;
-                  const isSyllableOverflow = !isOverflowVerse && vp.tokens.length > vp.noteCount;
+                  const cumulativeTokensBefore = versePreviews.slice(0, vIdx).reduce((acc, p) => acc + p.tokens.length, 0);
+                  const isOverflowVerse = songVerses.length > 1
+                    ? (vIdx >= songVerses.length && cumulativeTokensBefore >= targetScopeNotesCount)
+                    : (cumulativeTokensBefore >= targetScopeNotesCount);
+                  const isSyllableOverflow = !isOverflowVerse && (cumulativeTokensBefore + vp.tokens.length > targetScopeNotesCount);
                   return (
                     <div
                       key={vIdx}
@@ -1146,7 +1229,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                             {vp.tokens.length} syl
                             {isSyllableOverflow && (
                               <span className="text-amber-600 dark:text-amber-400 ml-1 font-bold">
-                                (+{vp.tokens.length - vp.noteCount} excess)
+                                (+{Math.max(0, cumulativeTokensBefore + vp.tokens.length - targetScopeNotesCount)} excess)
                               </span>
                             )}
                           </span>
@@ -1156,7 +1239,8 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                       {/* Syllables Matrix */}
                       <div className="flex flex-wrap gap-2">
                         {vp.tokens.map((tok, tokIdx) => {
-                          const isExceedingNote = !isOverflowVerse && tokIdx >= vp.noteCount;
+                          const noteGlobalIndex = cumulativeTokensBefore + tokIdx;
+                          const isExceedingNote = noteGlobalIndex >= targetScopeNotesCount;
                           const isEditingThis = editingTokenCoord?.vIdx === vIdx && editingTokenCoord?.tIdx === tokIdx;
                           const hanloVal = tok.hanlo || tok.text || tok.hanji || tok.custom || '';
                           const pojVal = tok.poj || tok.phonetic || tok.tl || '';
@@ -1208,7 +1292,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                                 <div className="flex flex-col gap-1 w-20">
                                   <input
                                     type="text"
-                                    placeholder="Hàn-lô"
+                                    placeholder="Han-lo"
                                     autoFocus
                                     value={tokenDraftText}
                                     onChange={e => setTokenDraftText(e.target.value)}
@@ -1235,7 +1319,7 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                                 <div
                                   onClick={() => handleStartEditToken(vIdx, tokIdx, hanloVal, pojVal)}
                                   className="flex flex-col items-center cursor-pointer hover:opacity-80 py-0.5"
-                                  title="Click to edit Hàn-lô and POJ values"
+                                  title="Click to edit Han-lo and POJ values"
                                 >
                                   <span className="font-bold text-sm leading-tight text-zinc-900 dark:text-zinc-100">
                                     {hanloVal || '—'}
@@ -1289,18 +1373,33 @@ export const QuickLyricAlignerModal: React.FC<QuickLyricAlignerModalProps> = ({
                 <span>Apply to Score</span>
               </button>
             ) : (
-              <button
-                type="button"
-                disabled={
-                  targetField === 'dual'
-                    ? (!romanText.trim() && !hanloText.trim())
-                    : !inputText.trim()
-                }
-                onClick={handleGeneratePlanForReview}
-                className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-sm shadow-md transition-all disabled:opacity-50 cursor-pointer active:scale-98"
-              >
-                <span>Plan for Review ➔</span>
-              </button>
+              <>
+                <button
+                  type="button"
+                  disabled={
+                    targetField === 'dual'
+                      ? (!romanText.trim() && !hanloText.trim())
+                      : !inputText.trim()
+                  }
+                  onClick={handleApplyDirectlyFromStep1}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-zinc-200 hover:bg-zinc-300 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-800 dark:text-zinc-200 font-bold text-sm transition-all disabled:opacity-50 cursor-pointer"
+                >
+                  <Check className="w-4 h-4 text-emerald-500" />
+                  <span>Apply Directly</span>
+                </button>
+                <button
+                  type="button"
+                  disabled={
+                    targetField === 'dual'
+                      ? (!romanText.trim() && !hanloText.trim())
+                      : !inputText.trim()
+                  }
+                  onClick={handleGeneratePlanForReview}
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-sm shadow-md transition-all disabled:opacity-50 cursor-pointer active:scale-98"
+                >
+                  <span>Plan for Review ➔</span>
+                </button>
+              </>
             )}
           </div>
         </div>

@@ -2409,21 +2409,34 @@ export function fillMeasureDeficitWithRests(
   };
 }
 
+export interface DistributeLyricsOptions {
+  endMeasureIdx?: number;
+  endNoteIdx?: number;
+  skipRests?: boolean;
+  skipTiedNotes?: boolean;
+}
+
 /**
- * Distributes raw lyric text across subsequent notes starting from a specific measure and note index.
- * Handles Taiwanese Han-lo, Romanization (POJ/TL), hyphens, and multi-verse slots.
- */
+  * Distributes raw lyric text across subsequent notes starting from a specific measure and note index.
+  * Handles Taiwanese Han-lo, Romanization (POJ/TL), hyphens, and multi-verse slots.
+  */
 export function distributeLyricsAcrossNotes(
   rawText: string,
   song: Song,
   startMeasureIdx: number = 0,
   startNoteIdx: number = 0,
   verseIndex: number = 1,
-  field: 'roman' | 'hanlo' | 'auto' = 'auto'
+  field: 'roman' | 'hanlo' | 'auto' = 'auto',
+  options: DistributeLyricsOptions = {}
 ): Song {
   if (!rawText || !rawText.trim()) return song;
   const syllables = splitTaigiLyricSyllables(rawText);
   if (syllables.length === 0) return song;
+
+  const endMeasureIdx = options.endMeasureIdx;
+  const endNoteIdx = options.endNoteIdx;
+  const skipRests = options.skipRests ?? false;
+  const skipTiedNotes = options.skipTiedNotes ?? false;
 
   // Deep clone measures
   const newMeasures = song.measures.map(m => ({
@@ -2443,10 +2456,16 @@ export function distributeLyricsAcrossNotes(
 
   let sylIdx = 0;
   let started = false;
+  let prevNote: NumberedNotationNote | null = null;
 
   for (let mIdx = 0; mIdx < newMeasures.length; mIdx++) {
+    if (endMeasureIdx !== undefined && mIdx > endMeasureIdx) break;
     const m = newMeasures[mIdx];
     for (let nIdx = 0; nIdx < m.notes.length; nIdx++) {
+      const note = m.notes[nIdx];
+      const isTiedCont = Boolean(note.isTied || prevNote?.tieToNext || (note as any).tie === 'stop');
+      prevNote = note;
+
       if (!started) {
         if (mIdx === startMeasureIdx && nIdx >= startNoteIdx) {
           started = true;
@@ -2457,15 +2476,24 @@ export function distributeLyricsAcrossNotes(
         }
       }
 
+      if (endMeasureIdx !== undefined && mIdx === endMeasureIdx && endNoteIdx !== undefined && nIdx > endNoteIdx) {
+        break;
+      }
+
       if (sylIdx >= syllables.length) break;
 
-      const note = m.notes[nIdx];
       const isNonNotation = isNonNotationItem(note);
       const syl = syllables[sylIdx];
       const isTokenPunct = isPunctuationOrSpacer(syl);
 
       // Skip non-notation spacers/rests unless token is punctuation
       if (isNonNotation && !isTokenPunct) {
+        continue;
+      }
+      if (skipRests && note.pitch === 0 && !isTokenPunct) {
+        continue;
+      }
+      if (skipTiedNotes && isTiedCont && !isTokenPunct) {
         continue;
       }
 
@@ -2487,6 +2515,7 @@ export function distributeLyricsAcrossNotes(
           note.lyric.poj = syl;
         } else {
           note.lyric.hanlo = syl;
+          note.lyric.text = syl;
         }
       }
 
@@ -2500,6 +2529,7 @@ export function distributeLyricsAcrossNotes(
         note.lyricsByVerse[verseIndex].poj = syl;
       } else {
         note.lyricsByVerse[verseIndex].hanlo = syl;
+        note.lyricsByVerse[verseIndex].text = syl;
       }
     }
     if (sylIdx >= syllables.length) break;
@@ -2514,7 +2544,11 @@ export function distributeLyricsAcrossNotes(
 export interface ApplyLyricTokensOptions {
   startMeasureIdx?: number;
   startNoteIdx?: number;
+  endMeasureIdx?: number;
+  endNoteIdx?: number;
   verseIndex?: number;
+  skipRests?: boolean;
+  skipTiedNotes?: boolean;
 }
 
 /**
@@ -2531,7 +2565,11 @@ export function applyLyricTokensToSong(
 
   const startMeasureIdx = options.startMeasureIdx ?? 0;
   const startNoteIdx = options.startNoteIdx ?? 0;
+  const endMeasureIdx = options.endMeasureIdx;
+  const endNoteIdx = options.endNoteIdx;
   const verseIndex = Math.max(1, Math.round(options.verseIndex ?? 1));
+  const skipRests = options.skipRests ?? false;
+  const skipTiedNotes = options.skipTiedNotes ?? false;
 
   const newMeasures = song.measures.map(m => ({
     ...m,
@@ -2550,10 +2588,16 @@ export function applyLyricTokensToSong(
 
   let tokIdx = 0;
   let started = false;
+  let prevNote: NumberedNotationNote | null = null;
 
   for (let mIdx = 0; mIdx < newMeasures.length; mIdx++) {
+    if (endMeasureIdx !== undefined && mIdx > endMeasureIdx) break;
     const m = newMeasures[mIdx];
     for (let nIdx = 0; nIdx < m.notes.length; nIdx++) {
+      const note = m.notes[nIdx];
+      const isTiedCont = Boolean(note.isTied || prevNote?.tieToNext || (note as any).tie === 'stop');
+      prevNote = note;
+
       if (!started) {
         if (mIdx === startMeasureIdx && nIdx >= startNoteIdx) {
           started = true;
@@ -2564,9 +2608,12 @@ export function applyLyricTokensToSong(
         }
       }
 
+      if (endMeasureIdx !== undefined && mIdx === endMeasureIdx && endNoteIdx !== undefined && nIdx > endNoteIdx) {
+        break;
+      }
+
       if (tokIdx >= tokens.length) break;
 
-      const note = m.notes[nIdx];
       const tok = tokens[tokIdx];
       const isNonNotation = isNonNotationItem(note);
       const isTokenPunct = isPunctuationOrSpacer(
@@ -2574,6 +2621,12 @@ export function applyLyricTokensToSong(
       );
 
       if (isNonNotation && !isTokenPunct) {
+        continue;
+      }
+      if (skipRests && note.pitch === 0 && !isTokenPunct) {
+        continue;
+      }
+      if (skipTiedNotes && isTiedCont && !isTokenPunct) {
         continue;
       }
 
@@ -2632,6 +2685,126 @@ export function applyLyricTokensToSong(
     ...song,
     measures: newMeasures,
   });
+}
+
+/**
+ * Extracts existing Hàn-lô and POJ lyrics plus target note capacity for a given score scope.
+ */
+export function extractLyricsFromScope(
+  song: Song,
+  options: ApplyLyricTokensOptions = {}
+): {
+  hanloText: string;
+  romanText: string;
+  singableNoteCount: number;
+  totalNoteCount: number;
+} {
+  const startMeasureIdx = options.startMeasureIdx ?? 0;
+  const startNoteIdx = options.startNoteIdx ?? 0;
+  const endMeasureIdx = options.endMeasureIdx ?? Math.max(0, song.measures.length - 1);
+  const endNoteIdx = options.endNoteIdx;
+  const verseIndex = Math.max(1, Math.round(options.verseIndex ?? 1));
+  const skipRests = options.skipRests ?? false;
+  const skipTiedNotes = options.skipTiedNotes ?? false;
+
+  let singableNoteCount = 0;
+  let totalNoteCount = 0;
+  let started = false;
+  let prevNote: NumberedNotationNote | null = null;
+
+  const hanloLines: string[] = [];
+  const romanLines: string[] = [];
+  let currentHanloTokens: string[] = [];
+  let currentRomanTokens: string[] = [];
+
+  const flushLine = () => {
+    if (currentHanloTokens.length > 0 || currentRomanTokens.length > 0) {
+      let hStr = '';
+      for (const tok of currentHanloTokens) {
+        if (!tok) continue;
+        const prevEndsLatin = /[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]$/.test(hStr);
+        const currStartsLatin = /^[a-zA-Z0-9\u00C0-\u024F\u1E00-\u1EFF]/.test(tok);
+        hStr += prevEndsLatin && currStartsLatin ? ` ${tok}` : tok;
+      }
+      let rStr = '';
+      for (const tok of currentRomanTokens) {
+        if (!tok) continue;
+        if (!rStr) {
+          rStr = tok;
+        } else if (rStr.endsWith('-')) {
+          rStr += tok;
+        } else {
+          rStr += ` ${tok}`;
+        }
+      }
+      if (hStr.trim()) hanloLines.push(hStr.trim());
+      if (rStr.trim()) romanLines.push(rStr.trim());
+      currentHanloTokens = [];
+      currentRomanTokens = [];
+    }
+  };
+
+  for (let mIdx = 0; mIdx < song.measures.length; mIdx++) {
+    if (mIdx > endMeasureIdx) break;
+    const m = song.measures[mIdx];
+    for (let nIdx = 0; nIdx < m.notes.length; nIdx++) {
+      const note = m.notes[nIdx];
+      const isTiedCont = Boolean(note.isTied || prevNote?.tieToNext || (note as any).tie === 'stop');
+      prevNote = note;
+
+      if (!started) {
+        if (mIdx === startMeasureIdx && nIdx >= startNoteIdx) {
+          started = true;
+        } else if (mIdx > startMeasureIdx) {
+          started = true;
+        } else {
+          continue;
+        }
+      }
+
+      if (mIdx === endMeasureIdx && endNoteIdx !== undefined && nIdx > endNoteIdx) {
+        break;
+      }
+
+      totalNoteCount++;
+      const isNonNotation = isNonNotationItem(note);
+      const isSkippedRest = skipRests && note.pitch === 0;
+      const isSkippedTie = skipTiedNotes && isTiedCont;
+
+      if (!isNonNotation && !isSkippedRest && !isSkippedTie) {
+        singableNoteCount++;
+      }
+
+      const activeLyric =
+        verseIndex > 1
+          ? note.lyricsByVerse?.[verseIndex] || {}
+          : note.lyricsByVerse?.[1] || note.lyric || {};
+
+      const hRaw = (activeLyric.hanlo ?? activeLyric.text ?? activeLyric.hanji ?? activeLyric.custom ?? '').trim();
+      const rRaw = (activeLyric.poj ?? activeLyric.phonetic ?? activeLyric.tl ?? '').trim();
+
+      if (hRaw === '\n' || rRaw === '\n') {
+        flushLine();
+        continue;
+      }
+
+      if (hRaw) currentHanloTokens.push(hRaw);
+      if (rRaw) currentRomanTokens.push(rRaw);
+    }
+
+    if (started && m.isLineBreak && mIdx < endMeasureIdx) {
+      flushLine();
+    }
+  }
+
+  flushLine();
+
+  return {
+    hanloText: hanloLines.join('\n'),
+    romanText: romanLines.join('\n'),
+    singableNoteCount,
+    totalNoteCount,
+  };
 }
 
 export interface PlaybackMeasureStep {

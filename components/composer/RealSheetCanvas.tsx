@@ -124,6 +124,7 @@ import {
   distributeLyricsAcrossNotes,
   splitTaigiLyricSyllables,
   applyLyricTokensToSong,
+  extractLyricsFromScope,
   autoRearrangeSongMeasures,
   autoWrapSongMeasures,
   getSongVerseCount,
@@ -923,11 +924,109 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   // Inline Lyric Spreader Popover State (MOD-5 / MOD-3)
   const [isLyricSpreaderOpen, setIsLyricSpreaderOpen] = useState(false);
   const [lyricSpreaderMode, setLyricSpreaderMode] = useState<'dual' | 'single'>('dual');
+  const [lyricSpreaderScope, setLyricSpreaderScope] = useState<'cursor' | 'bar' | 'line' | 'range'>('cursor');
+  const [lyricSpreaderSkipRestsAndTies, setLyricSpreaderSkipRestsAndTies] = useState<boolean>(true);
   const [lyricSpreaderHanlo, setLyricSpreaderHanlo] = useState('');
   const [lyricSpreaderPoj, setLyricSpreaderPoj] = useState('');
   const [lyricSpreaderInput, setLyricSpreaderInput] = useState('');
   const [lyricSpreaderField, setLyricSpreaderField] = useState<'auto' | 'roman' | 'hanlo'>('auto');
   const [lyricSpreaderVerse, setLyricSpreaderVerse] = useState<number>(1);
+
+  const computeSpreaderBounds = useCallback(
+    (scope: 'cursor' | 'bar' | 'line' | 'range') => {
+      if (scope === 'bar') {
+        return {
+          startMeasureIdx: currentMIdx,
+          startNoteIdx: 0,
+          endMeasureIdx: currentMIdx,
+          endNoteIdx: undefined as number | undefined,
+          label: `Bar #${currentMIdx + 1} Only`,
+        };
+      }
+      if (scope === 'line') {
+        const sysRange = smartFindSystemRange(song, currentMIdx);
+        return {
+          startMeasureIdx: sysRange.startMeasureIndex,
+          startNoteIdx: 0,
+          endMeasureIdx: sysRange.endMeasureIndex,
+          endNoteIdx: undefined as number | undefined,
+          label: `Current Line (Bars #${sysRange.startMeasureIndex + 1}–#${sysRange.endMeasureIndex + 1})`,
+        };
+      }
+      if (scope === 'range') {
+        const rStart = abRange ? abRange.startMeasureIndex : batchMeasureRange.start;
+        const rEnd = abRange ? abRange.endMeasureIndex : batchMeasureRange.end;
+        return {
+          startMeasureIdx: Math.min(rStart, rEnd),
+          startNoteIdx: 0,
+          endMeasureIdx: Math.max(rStart, rEnd),
+          endNoteIdx: undefined as number | undefined,
+          label: `Selected Range (Bars #${Math.min(rStart, rEnd) + 1}–#${Math.max(rStart, rEnd) + 1})`,
+        };
+      }
+      return {
+        startMeasureIdx: currentMIdx,
+        startNoteIdx: currentNIdx,
+        endMeasureIdx: undefined as number | undefined,
+        endNoteIdx: undefined as number | undefined,
+        label: `From Bar #${currentMIdx + 1}, Note #${currentNIdx + 1} to End`,
+      };
+    },
+    [currentMIdx, currentNIdx, song, abRange, batchMeasureRange]
+  );
+
+  const handleLoadScopeLyricsToSpreader = useCallback(
+    (
+      targetScope: 'cursor' | 'bar' | 'line' | 'range' = lyricSpreaderScope,
+      targetVerse: number = lyricSpreaderVerse,
+      skipFlag: boolean = lyricSpreaderSkipRestsAndTies
+    ) => {
+      const bounds = computeSpreaderBounds(targetScope);
+      const extracted = extractLyricsFromScope(song, {
+        startMeasureIdx: bounds.startMeasureIdx,
+        startNoteIdx: bounds.startNoteIdx,
+        endMeasureIdx: bounds.endMeasureIdx,
+        endNoteIdx: bounds.endNoteIdx,
+        verseIndex: targetVerse,
+        skipRests: skipFlag,
+        skipTiedNotes: skipFlag,
+      });
+      setLyricSpreaderHanlo(extracted.hanloText);
+      setLyricSpreaderPoj(extracted.romanText);
+      const combined = [extracted.hanloText, extracted.romanText].filter(Boolean).join('\n');
+      setLyricSpreaderInput(combined);
+    },
+    [lyricSpreaderScope, lyricSpreaderVerse, lyricSpreaderSkipRestsAndTies, computeSpreaderBounds, song]
+  );
+
+  const openLyricSpreaderWithScope = useCallback(
+    (
+      initialScope: 'cursor' | 'bar' | 'line' | 'range' = 'cursor',
+      verseNum: number = activeVerseRow
+    ) => {
+      setLyricSpreaderVerse(verseNum);
+      setLyricSpreaderScope(initialScope);
+      if (initialScope !== 'cursor') {
+        const bounds = computeSpreaderBounds(initialScope);
+        const extracted = extractLyricsFromScope(song, {
+          startMeasureIdx: bounds.startMeasureIdx,
+          startNoteIdx: bounds.startNoteIdx,
+          endMeasureIdx: bounds.endMeasureIdx,
+          endNoteIdx: bounds.endNoteIdx,
+          verseIndex: verseNum,
+          skipRests: lyricSpreaderSkipRestsAndTies,
+          skipTiedNotes: lyricSpreaderSkipRestsAndTies,
+        });
+        if (extracted.hanloText || extracted.romanText) {
+          setLyricSpreaderHanlo(extracted.hanloText);
+          setLyricSpreaderPoj(extracted.romanText);
+          setLyricSpreaderInput([extracted.hanloText, extracted.romanText].filter(Boolean).join('\n'));
+        }
+      }
+      setIsLyricSpreaderOpen(true);
+    },
+    [activeVerseRow, computeSpreaderBounds, song, lyricSpreaderSkipRestsAndTies]
+  );
 
   const handleSwapSpreaderLines = useCallback(() => {
     setLyricSpreaderHanlo((prevHanlo) => {
@@ -949,17 +1048,23 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Apply inline lyric spread (MOD-5 / MOD-3)
   const handleApplyInlineLyricSpread = useCallback(() => {
+    const bounds = computeSpreaderBounds(lyricSpreaderScope);
     if (lyricSpreaderMode === 'dual') {
       if (!lyricSpreaderHanlo.trim() && !lyricSpreaderPoj.trim()) return;
       const tokens = parseAndPairBilingualLyrics(
         lyricSpreaderHanlo,
         lyricSpreaderPoj,
-        song.language || 'taigi'
+        song.language || 'taigi',
+        { preserveHyphens: true }
       );
       const updated = applyLyricTokensToSong(song, tokens, {
-        startMeasureIdx: currentMIdx,
-        startNoteIdx: currentNIdx,
+        startMeasureIdx: bounds.startMeasureIdx,
+        startNoteIdx: bounds.startNoteIdx,
+        endMeasureIdx: bounds.endMeasureIdx,
+        endNoteIdx: bounds.endNoteIdx,
         verseIndex: lyricSpreaderVerse,
+        skipRests: lyricSpreaderSkipRestsAndTies,
+        skipTiedNotes: lyricSpreaderSkipRestsAndTies,
       });
       onUpdateSong(updated);
       setIsLyricSpreaderOpen(false);
@@ -977,12 +1082,17 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         const tokens = parseAndPairBilingualLyrics(
           sep.hanloText,
           sep.romanText,
-          song.language || 'taigi'
+          song.language || 'taigi',
+          { preserveHyphens: true }
         );
         const updated = applyLyricTokensToSong(song, tokens, {
-          startMeasureIdx: currentMIdx,
-          startNoteIdx: currentNIdx,
+          startMeasureIdx: bounds.startMeasureIdx,
+          startNoteIdx: bounds.startNoteIdx,
+          endMeasureIdx: bounds.endMeasureIdx,
+          endNoteIdx: bounds.endNoteIdx,
           verseIndex: lyricSpreaderVerse,
+          skipRests: lyricSpreaderSkipRestsAndTies,
+          skipTiedNotes: lyricSpreaderSkipRestsAndTies,
         });
         onUpdateSong(updated);
         setIsLyricSpreaderOpen(false);
@@ -996,10 +1106,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     const updated = distributeLyricsAcrossNotes(
       lyricSpreaderInput,
       song,
-      currentMIdx,
-      currentNIdx,
+      bounds.startMeasureIdx,
+      bounds.startNoteIdx,
       lyricSpreaderVerse,
-      lyricSpreaderField
+      lyricSpreaderField,
+      {
+        endMeasureIdx: bounds.endMeasureIdx,
+        endNoteIdx: bounds.endNoteIdx,
+        skipRests: lyricSpreaderSkipRestsAndTies,
+        skipTiedNotes: lyricSpreaderSkipRestsAndTies,
+      }
     );
     onUpdateSong(updated);
     setIsLyricSpreaderOpen(false);
@@ -1007,13 +1123,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     setLyricSpreaderHanlo('');
     setLyricSpreaderPoj('');
   }, [
+    computeSpreaderBounds,
+    lyricSpreaderScope,
     lyricSpreaderMode,
     lyricSpreaderHanlo,
     lyricSpreaderPoj,
     lyricSpreaderInput,
+    lyricSpreaderSkipRestsAndTies,
     song,
-    currentMIdx,
-    currentNIdx,
     lyricSpreaderVerse,
     lyricSpreaderField,
     onUpdateSong,
@@ -2957,15 +3074,91 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     [updateCurrentNote, currentMIdx, currentNIdx]
   );
 
-  // Key navigation within note lyric input (Space, Tab, Hyphen to step to next note, ArrowUp/ArrowDown to switch lines)
+  // Multi-syllable & dual-line paste directly inside an inline note lyric input
+  const handleLyricPaste = useCallback(
+    (e: React.ClipboardEvent<HTMLInputElement>, verseRow: number, subField: 'hanlo' | 'poj') => {
+      const pasted = e.clipboardData?.getData('text') || '';
+      if (!pasted) return;
+      const lines = pasted.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if (lines.length >= 2) {
+        const sep = separateDualLineLyrics(pasted);
+        if (sep.hanloText && sep.romanText) {
+          e.preventDefault();
+          const tokens = parseAndPairBilingualLyrics(
+            sep.hanloText,
+            sep.romanText,
+            song.language || 'taigi',
+            { preserveHyphens: true }
+          );
+          const updated = applyLyricTokensToSong(song, tokens, {
+            startMeasureIdx: currentMIdx,
+            startNoteIdx: currentNIdx,
+            verseIndex: verseRow,
+            skipRests: true,
+            skipTiedNotes: true,
+          });
+          onUpdateSong(updated);
+          return;
+        }
+      }
+
+      const syllables = splitTaigiLyricSyllables(pasted);
+      if (syllables.length > 1) {
+        e.preventDefault();
+        const updated = distributeLyricsAcrossNotes(
+          pasted,
+          song,
+          currentMIdx,
+          currentNIdx,
+          verseRow,
+          subField === 'poj' ? 'roman' : 'hanlo',
+          { skipRests: true, skipTiedNotes: true }
+        );
+        onUpdateSong(updated);
+      }
+    },
+    [song, currentMIdx, currentNIdx, onUpdateSong]
+  );
+
+  // Key navigation within note lyric input (Space, Tab, Enter, Hyphen to step to next note, Shift+Tab/Shift+Enter/Backspace-on-empty to step back, ArrowUp/ArrowDown to switch lines)
   const handleLyricKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLInputElement>, verseRow: number, subField: 'hanlo' | 'poj') => {
-      if (e.key === ' ' || e.key === 'Tab' || e.key === '-') {
+      if (e.nativeEvent.isComposing) return;
+
+      if ((e.key === 'Tab' || e.key === 'Enter') && e.shiftKey) {
         e.preventDefault();
+        stepToPrevNote();
+        return;
+      }
+
+      if (e.key === 'Backspace' && e.currentTarget.value === '') {
+        e.preventDefault();
+        stepToPrevNote();
+        return;
+      }
+
+      if (e.key === ' ' || e.key === 'Tab' || e.key === 'Enter' || e.key === '-') {
+        e.preventDefault();
+        const cur = e.currentTarget.value;
         if (e.key === '-') {
-          const cur = e.currentTarget.value;
           const updated = cur.endsWith('-') ? cur : cur + '-';
           handleLyricInputChange(updated, verseRow, subField);
+          stepToNextNote();
+          return;
+        }
+        // If user typed or dictated multiple syllables into this single note box, spread them across consecutive notes
+        const syllables = splitTaigiLyricSyllables(cur);
+        if (syllables.length > 1) {
+          const updated = distributeLyricsAcrossNotes(
+            cur,
+            song,
+            currentMIdx,
+            currentNIdx,
+            verseRow,
+            subField === 'poj' ? 'roman' : 'hanlo',
+            { skipRests: true, skipTiedNotes: true }
+          );
+          onUpdateSong(updated);
         }
         stepToNextNote();
         return;
@@ -3012,7 +3205,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         }
       }
     },
-    [handleLyricInputChange, stepToNextNote, song, verseCount]
+    [handleLyricInputChange, stepToNextNote, stepToPrevNote, song, currentMIdx, currentNIdx, onUpdateSong, verseCount]
   );
 
   // Global verse formatting (unified across all verses)
@@ -4363,8 +4556,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           type="button"
                                           onClick={(e) => {
                                             e.stopPropagation();
-                                            setLyricSpreaderVerse(vNum);
-                                            setIsLyricSpreaderOpen(true);
+                                            openLyricSpreaderWithScope('cursor', vNum);
                                           }}
                                           className="px-1.5 py-0.5 rounded bg-amber-500 hover:bg-amber-400 text-zinc-950 text-[9px] font-extrabold flex items-center gap-1 transition-all cursor-pointer active:scale-95"
                                           title="Paste Line / Spread Lyrics across notes (MOD-3/MOD-5)"
@@ -4387,6 +4579,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           onFocus={() => setActiveLyricSubfield('hanlo')}
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                           onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
+                                          onPaste={e => handleLyricPaste(e, vNum, 'hanlo')}
                                           placeholder=""
                                           style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
                                           className={`w-full max-w-full min-w-0 text-center bg-transparent border-none outline-none font-bold text-sm sm:text-base touch-manipulation px-0.5 ${
@@ -4414,6 +4607,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                           onFocus={() => setActiveLyricSubfield('poj')}
                                           onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                           onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
+                                          onPaste={e => handleLyricPaste(e, vNum, 'poj')}
                                           placeholder=""
                                           style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
                                           className={`w-full max-w-full min-w-0 font-serif italic bg-transparent border-none outline-none font-semibold text-xs sm:text-sm touch-manipulation px-0.5 ${
@@ -4449,6 +4643,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                             onFocus={() => setActiveLyricSubfield('poj')}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
+                                            onPaste={e => handleLyricPaste(e, vNum, 'poj')}
                                             placeholder=""
                                             style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
                                             className={`w-full max-w-full min-w-0 font-serif italic text-xs sm:text-[13px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
@@ -4479,6 +4674,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                             onFocus={() => setActiveLyricSubfield('hanlo')}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
+                                            onPaste={e => handleLyricPaste(e, vNum, 'hanlo')}
                                             placeholder=""
                                             style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
                                             className={`w-full max-w-full min-w-0 text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
@@ -4490,7 +4686,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                                 ? 'text-zinc-100 font-bold'
                                                 : 'text-zinc-950 font-bold'
                                             }`}
-                                            title="Hàn-lô text (bottom)"
+                                            title="Han-lo text (bottom)"
                                           />
                                         </div>
                                       ) : (
@@ -4521,6 +4717,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                             onFocus={() => setActiveLyricSubfield('hanlo')}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'hanlo')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'hanlo')}
+                                            onPaste={e => handleLyricPaste(e, vNum, 'hanlo')}
                                             placeholder=""
                                             style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
                                             className={`w-full max-w-full min-w-0 text-center text-xs sm:text-sm leading-tight font-bold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
@@ -4532,7 +4729,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                                 ? 'text-zinc-100 font-bold'
                                                 : 'text-zinc-950 font-bold'
                                             }`}
-                                            title="Hàn-lô text (top)"
+                                            title="Han-lo text (top)"
                                           />
                                           {/* Bottom: POJ */}
                                           <input
@@ -4545,6 +4742,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                             onFocus={() => setActiveLyricSubfield('poj')}
                                             onChange={e => handleLyricInputChange(e.target.value, vNum, 'poj')}
                                             onKeyDown={e => handleLyricKeyDown(e, vNum, 'poj')}
+                                            onPaste={e => handleLyricPaste(e, vNum, 'poj')}
                                             placeholder=""
                                             style={{ width: '100%', maxWidth: '100%', minWidth: 0 }}
                                             className={`w-full max-w-full min-w-0 font-serif italic text-xs sm:text-[13px] leading-tight font-semibold bg-transparent border-none outline-none touch-manipulation rounded px-0.5 ${
@@ -4695,6 +4893,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
               onDuplicateAb={onDuplicateAb || (() => {})}
               onTransposeAb={onTransposeAb || (() => {})}
               onClearLyricsAb={onClearLyricsAb || (() => {})}
+              onEditLyricsAb={() => openLyricSpreaderWithScope('range', activeVerseRow)}
               onAutoHarmonizeAb={onAutoHarmonize}
               onSnapBar={handleSnapBar}
               onSnapLine={handleSnapLine}
@@ -4781,10 +4980,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     activeVerseRow
                   )
                 }
-                onOpenLyricSpreader={() => {
-                  setLyricSpreaderVerse(activeVerseRow);
-                  setIsLyricSpreaderOpen(true);
-                }}
+                onOpenLyricSpreader={(scope) => openLyricSpreaderWithScope(scope || 'cursor', activeVerseRow)}
                 onActivateSoftKeyboard={() => handleActivateSoftKeyboardForSelectedLyric(activeVerseRow)}
                 isSoftKeyboardActive={isSoftKeyboardExplicitlyActive || isVirtualKeyboardEnabled}
                 onClose={() => setIsContextualEditActive(false)}
@@ -4823,10 +5019,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         voltaEnding={currentMeasure?.voltaEnding}
         onAutoFillRest={onAutoFillRest ? () => onAutoFillRest(currentMIdx) : undefined}
         canFillRest={true}
-        onOpenLyricSpreader={() => {
-          setLyricSpreaderVerse(activeVerseRow);
-          setIsLyricSpreaderOpen(true);
-        }}
+        onOpenLyricSpreader={() => openLyricSpreaderWithScope('cursor', activeVerseRow)}
         zoomScale={zoomScale}
         onZoomIn={() => setZoomScale(s => Math.min(1.6, s + 0.1))}
         onZoomOut={() => setZoomScale(s => Math.max(0.7, s - 0.1))}
@@ -5041,22 +5234,54 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
       {/* Inline Lyric Spreader Modal / Popover (MOD-5 / MOD-3) */}
       {isLyricSpreaderOpen && (() => {
+        const activeBounds = computeSpreaderBounds(lyricSpreaderScope);
+        const scopeStats = extractLyricsFromScope(song, {
+          startMeasureIdx: activeBounds.startMeasureIdx,
+          startNoteIdx: activeBounds.startNoteIdx,
+          endMeasureIdx: activeBounds.endMeasureIdx,
+          endNoteIdx: activeBounds.endNoteIdx,
+          verseIndex: lyricSpreaderVerse,
+          skipRests: lyricSpreaderSkipRestsAndTies,
+          skipTiedNotes: lyricSpreaderSkipRestsAndTies,
+        });
         const dualTokens = parseAndPairBilingualLyrics(
           lyricSpreaderHanlo,
           lyricSpreaderPoj,
-          song.language || 'taigi'
+          song.language || 'taigi',
+          { preserveHyphens: true }
         );
         const singleLines = lyricSpreaderInput.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
         const autoSeparated = singleLines.length >= 2 ? separateDualLineLyrics(lyricSpreaderInput) : null;
         const isAutoDual = Boolean(autoSeparated && autoSeparated.hanloText && autoSeparated.romanText);
         const autoTokens = isAutoDual && autoSeparated
-          ? parseAndPairBilingualLyrics(autoSeparated.hanloText, autoSeparated.romanText, song.language || 'taigi')
+          ? parseAndPairBilingualLyrics(
+              autoSeparated.hanloText,
+              autoSeparated.romanText,
+              song.language || 'taigi',
+              { preserveHyphens: true }
+            )
           : null;
         const singleSyllables = splitTaigiLyricSyllables(lyricSpreaderInput);
+        const parsedSyllableCount =
+          lyricSpreaderMode === 'dual'
+            ? dualTokens.length
+            : isAutoDual && autoTokens
+            ? autoTokens.length
+            : singleSyllables.length;
 
         const canDistribute = lyricSpreaderMode === 'dual'
           ? Boolean(lyricSpreaderHanlo.trim() || lyricSpreaderPoj.trim())
           : Boolean(lyricSpreaderInput.trim());
+
+        const handleTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && canDistribute) {
+            e.preventDefault();
+            handleApplyInlineLyricSpread();
+          } else if (e.key === 'Escape') {
+            e.preventDefault();
+            setIsLyricSpreaderOpen(false);
+          }
+        };
 
         return (
           <div
@@ -5075,18 +5300,26 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                   <AlignLeft className="w-5 h-5 text-amber-500 shrink-0" />
                   <div>
                     <h3 className="text-sm font-bold text-zinc-900 dark:text-zinc-100 flex items-center gap-2">
-                      <span>Paste Line & Spread Lyrics</span>
+                      <span>Spread & Edit Lyrics</span>
                       <span className="px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-600 dark:text-amber-400 text-[10px] font-mono font-bold">
                         Bilingual
                       </span>
                     </h3>
                     <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
-                      Starting from Measure {currentMIdx + 1}, Note {currentNIdx + 1}
+                      {activeBounds.label} · {scopeStats.singableNoteCount} singable note(s)
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleLoadScopeLyricsToSpreader()}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-zinc-100 hover:bg-zinc-200 dark:bg-zinc-800 dark:hover:bg-zinc-700 text-zinc-700 dark:text-zinc-200 text-xs font-bold border border-zinc-300 dark:border-zinc-700 transition-all cursor-pointer"
+                    title="Load existing lyrics from the selected scope into the editor boxes"
+                  >
+                    <span>Load Existing</span>
+                  </button>
                   {onOpenAligner && (
                     <button
                       type="button"
@@ -5098,7 +5331,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                       title="Open full Lyric Aligner with Note-by-Note Review Plan matrix"
                     >
                       <Sparkles className="w-3.5 h-3.5" />
-                      <span>Review Plan</span>
+                      <span>Full Aligner</span>
                       <ExternalLink className="w-3 h-3 opacity-70" />
                     </button>
                   )}
@@ -5113,6 +5346,36 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 </div>
               </div>
 
+              {/* Scope Selector Pills */}
+              <div className="flex items-center gap-1 p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl mb-2.5 border border-zinc-200 dark:border-zinc-700 text-[11px] font-bold">
+                {(
+                  [
+                    { id: 'cursor', label: 'From Cursor' },
+                    { id: 'bar', label: `Bar #${currentMIdx + 1}` },
+                    { id: 'line', label: 'Current Line' },
+                    { id: 'range', label: 'Selected Range' },
+                  ] as const
+                ).map((sc) => (
+                  <button
+                    key={sc.id}
+                    type="button"
+                    onClick={() => {
+                      setLyricSpreaderScope(sc.id);
+                      if (sc.id !== 'cursor' && !lyricSpreaderHanlo.trim() && !lyricSpreaderPoj.trim() && !lyricSpreaderInput.trim()) {
+                        handleLoadScopeLyricsToSpreader(sc.id);
+                      }
+                    }}
+                    className={`flex-1 py-1 px-2 rounded-lg transition-all cursor-pointer text-center ${
+                      lyricSpreaderScope === sc.id
+                        ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
+                        : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
+                    }`}
+                  >
+                    {sc.label}
+                  </button>
+                ))}
+              </div>
+
               {/* Mode Tabs */}
               <div className="flex items-center gap-1.5 p-1 bg-zinc-100 dark:bg-zinc-800/80 rounded-xl mb-3 border border-zinc-200 dark:border-zinc-700 text-xs font-semibold">
                 <button
@@ -5125,7 +5388,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                   }`}
                 >
                   <span className="w-2 h-2 rounded-full bg-amber-500" />
-                  <span>Two Lines: Hàn-lô + POJ</span>
+                  <span>Two Lines: Han-lo + POJ</span>
                 </button>
                 <button
                   type="button"
@@ -5136,66 +5399,82 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                       : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-800 dark:hover:text-zinc-200'
                   }`}
                 >
-                  <span>Single Line / Quick Text</span>
+                  <span>Single Line / Quick Paste</span>
                 </button>
               </div>
 
               {/* Target Settings */}
-              <div className="flex items-center gap-3 mb-3 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <span className="font-bold text-zinc-600 dark:text-zinc-400">Target Verse:</span>
-                  <select
-                    value={lyricSpreaderVerse}
-                    onChange={(e) => setLyricSpreaderVerse(Number(e.target.value))}
-                    className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold"
-                  >
-                    {Array.from({ length: Math.max(verseCount, 5) }, (_, i) => i + 1).map((v) => (
-                      <option key={v} value={v}>
-                        Verse {v}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {lyricSpreaderMode === 'single' && (
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3 text-xs">
+                <div className="flex items-center gap-3">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-zinc-600 dark:text-zinc-400">Target Field:</span>
+                    <span className="font-bold text-zinc-600 dark:text-zinc-400">Verse:</span>
                     <select
-                      value={lyricSpreaderField}
-                      onChange={(e) => setLyricSpreaderField(e.target.value as 'auto' | 'roman' | 'hanlo')}
+                      value={lyricSpreaderVerse}
+                      onChange={(e) => setLyricSpreaderVerse(Number(e.target.value))}
                       className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold"
                     >
-                      <option value="auto">Auto-detect</option>
-                      <option value="roman">Romanization (POJ)</option>
-                      <option value="hanlo">Han-Lo</option>
+                      {Array.from({ length: Math.max(verseCount, 5) }, (_, i) => i + 1).map((v) => (
+                        <option key={v} value={v}>
+                          Verse {v}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                )}
+
+                  {lyricSpreaderMode === 'single' && (
+                    <div className="flex items-center gap-1.5">
+                      <span className="font-bold text-zinc-600 dark:text-zinc-400">Field:</span>
+                      <select
+                        value={lyricSpreaderField}
+                        onChange={(e) => setLyricSpreaderField(e.target.value as 'auto' | 'roman' | 'hanlo')}
+                        className="px-2 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-700 rounded-lg text-zinc-900 dark:text-zinc-100 font-bold"
+                      >
+                        <option value="auto">Auto-detect</option>
+                        <option value="roman">Romanization (POJ)</option>
+                        <option value="hanlo">Han-lo</option>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
+                <label className="flex items-center gap-1.5 cursor-pointer select-none text-zinc-700 dark:text-zinc-300 font-semibold">
+                  <input
+                    type="checkbox"
+                    checked={lyricSpreaderSkipRestsAndTies}
+                    onChange={(e) => setLyricSpreaderSkipRestsAndTies(e.target.checked)}
+                    className="rounded border-zinc-300 text-amber-500 focus:ring-amber-500 cursor-pointer"
+                  />
+                  <span>Skip Rests (0) & Tied Notes</span>
+                </label>
               </div>
 
               {/* Inputs */}
               {lyricSpreaderMode === 'dual' ? (
                 <div className="space-y-2.5 mb-3">
-                  {/* Line 1: Hàn-lô */}
+                  {/* Line 1: Han-lo */}
                   <div>
                     <div className="flex items-center justify-between mb-1 text-xs">
                       <label className="font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                         <span className="px-1.5 py-0.2 rounded bg-zinc-200 dark:bg-zinc-700 text-[10px] font-mono">Line 1</span>
-                        <span>Hàn-lô (漢字 / 漢羅)</span>
+                        <span>Han-lo Script</span>
                       </label>
-                      <span className="text-[10px] text-zinc-400">Chinese / Han characters</span>
+                      <span className="text-[10px] text-zinc-400">Primary script characters</span>
                     </div>
                     <textarea
                       rows={2}
                       value={lyricSpreaderHanlo}
                       onChange={(e) => setLyricSpreaderHanlo(e.target.value)}
-                      placeholder="e.g. 獨夜無伴守燈下 or 孤"
+                      onKeyDown={handleTextareaKeyDown}
+                      placeholder="Paste or type Han-lo lyrics here..."
                       className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-serif text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
 
                   {/* Swap Lines Button */}
-                  <div className="flex items-center justify-end -my-1">
+                  <div className="flex items-center justify-between -my-1">
+                    <span className="text-[10px] font-mono text-zinc-400">
+                      Tip: Press Cmd/Ctrl + Enter to apply immediately
+                    </span>
                     <button
                       type="button"
                       onClick={handleSwapSpreaderLines}
@@ -5212,15 +5491,16 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     <div className="flex items-center justify-between mb-1 text-xs">
                       <label className="font-bold text-zinc-700 dark:text-zinc-300 flex items-center gap-1.5">
                         <span className="px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 text-[10px] font-mono">Line 2</span>
-                        <span>POJ (白話字 / 羅馬字)</span>
+                        <span>POJ / Romanization</span>
                       </label>
-                      <span className="text-[10px] text-zinc-400">Romanization with tone marks</span>
+                      <span className="text-[10px] text-zinc-400">Romanization with tone marks & hyphens</span>
                     </div>
                     <textarea
                       rows={2}
                       value={lyricSpreaderPoj}
                       onChange={(e) => setLyricSpreaderPoj(e.target.value)}
-                      placeholder="e.g. To̍k-iā bô-phōaⁿ siú teng-ē or ko͘"
+                      onKeyDown={handleTextareaKeyDown}
+                      placeholder="e.g. To̍k-iā bô-phōaⁿ siú teng-ē"
                       className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-serif text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
                     />
                   </div>
@@ -5235,12 +5515,13 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     rows={3}
                     value={lyricSpreaderInput}
                     onChange={(e) => setLyricSpreaderInput(e.target.value)}
-                    placeholder="e.g. 獨夜無伴守燈下 or To̍k-iā bô-phōaⁿ siú teng-ē (or two lines to auto-pair!)"
+                    onKeyDown={handleTextareaKeyDown}
+                    placeholder="e.g. To̍k-iā bô-phōaⁿ siú teng-ē (or paste 2 lines to auto-pair Han-lo + POJ)"
                     className="w-full px-3 py-2 bg-zinc-50 dark:bg-zinc-800/80 border border-zinc-300 dark:border-zinc-700 rounded-xl text-sm font-serif text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500"
                   />
                   {isAutoDual && (
                     <div className="mt-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs flex items-center justify-between">
-                      <span>💡 <strong>Auto-detected 2 lines:</strong> Hàn-lô + POJ will pair onto the same notes!</span>
+                      <span>💡 <strong>Auto-detected 2 lines:</strong> Han-lo + POJ will pair onto the same notes!</span>
                       <button
                         type="button"
                         onClick={() => {
@@ -5265,9 +5546,21 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                   <div className="mb-4 p-2.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
                     <div className="flex items-center justify-between text-xs mb-1.5 text-zinc-500 dark:text-zinc-400">
                       <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                        Paired Syllables ({dualTokens.length} notes)
+                        Paired Syllables ({dualTokens.length} / {scopeStats.singableNoteCount} singable notes in scope)
                       </span>
-                      <span className="font-mono text-[10px]">Both tiers assign to the same note</span>
+                      <span
+                        className={`font-mono text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                          dualTokens.length === scopeStats.singableNoteCount
+                            ? 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-300'
+                            : 'bg-amber-500/15 text-amber-700 dark:text-amber-300'
+                        }`}
+                      >
+                        {dualTokens.length === scopeStats.singableNoteCount
+                          ? 'Exact Fit'
+                          : dualTokens.length < scopeStats.singableNoteCount
+                          ? `${scopeStats.singableNoteCount - dualTokens.length} note(s) remaining`
+                          : `${dualTokens.length - scopeStats.singableNoteCount} extra syllable(s)`}
+                      </span>
                     </div>
                     <div className="flex flex-wrap gap-1.5 max-h-28 overflow-y-auto p-1">
                       {dualTokens.map((tok, idx) => (
@@ -5290,7 +5583,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 <div className="mb-4 p-2.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
                   <div className="flex items-center justify-between text-xs mb-1.5 text-zinc-500 dark:text-zinc-400">
                     <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                      Auto-Paired Syllables ({autoTokens.length} notes)
+                      Auto-Paired Syllables ({autoTokens.length} / {scopeStats.singableNoteCount} notes)
                     </span>
                     <span className="font-mono text-[10px]">Both tiers assign to the same note</span>
                   </div>
@@ -5315,7 +5608,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                   <div className="mb-4 p-2.5 bg-zinc-50 dark:bg-zinc-800/50 rounded-xl border border-zinc-200 dark:border-zinc-700">
                     <div className="flex items-center justify-between text-xs mb-1.5 text-zinc-500 dark:text-zinc-400">
                       <span className="font-semibold text-zinc-700 dark:text-zinc-300">
-                        Parsed Syllables ({singleSyllables.length})
+                        Parsed Syllables ({singleSyllables.length} / {scopeStats.singableNoteCount} singable notes)
                       </span>
                       <span className="font-mono text-[10px]">Each syllable assigns to one note</span>
                     </div>
@@ -5343,6 +5636,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                   Cancel
                 </button>
                 <div className="flex items-center gap-2">
+                  <span className="hidden sm:inline text-[10px] font-mono text-zinc-400">
+                    {parsedSyllableCount > 0 ? `${parsedSyllableCount} syl` : ''}
+                  </span>
                   <button
                     type="button"
                     disabled={!canDistribute}

@@ -339,7 +339,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
             className="mb-1 text-[10px] font-sans font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/80 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-700 whitespace-nowrap shadow-2xs"
             title={`Note Instrument Override: ${INSTRUMENT_LABELS[note.instrument]?.en || note.instrument}`}
           >
-            {INSTRUMENT_LABELS[note.instrument]?.zh || note.instrument}
+            {INSTRUMENT_LABELS[note.instrument]?.en || note.instrument}
           </span>
         )}
 
@@ -534,9 +534,9 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 language === 'english'
                   ? 'Alt / IPA'
                   : language === 'mandarin'
-                  ? 'Pinyin (拼音)'
+                  ? 'Pinyin'
                   : language === 'japanese'
-                  ? 'Furigana (ふりがな)'
+                  ? 'Furigana'
                   : 'Roman (POJ)'
               }
               className="w-full text-center font-serif italic text-[22px] leading-tight font-bold px-1 py-1 rounded-lg bg-emerald-50/80 dark:bg-[#0c1410] border border-emerald-300 dark:border-emerald-800/60 text-emerald-950 dark:text-emerald-300 focus:outline-hidden focus:ring-2 focus:ring-emerald-500 focus:bg-white dark:focus:bg-zinc-800 h-[42px] min-h-[42px] placeholder:text-[13px] placeholder:font-normal placeholder:not-italic placeholder:text-emerald-800/50 dark:placeholder:text-emerald-400/40 touch-manipulation"
@@ -585,10 +585,10 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                 language === 'english'
                   ? 'Lyric / Word'
                   : language === 'mandarin'
-                  ? 'Hanzi (漢字)'
+                  ? 'Hanzi'
                   : language === 'japanese'
-                  ? 'Kanji / Kana (歌詞)'
-                  : 'Han-lô'
+                  ? 'Kanji / Kana'
+                  : 'Han-lo'
               }
               className="w-full text-center font-black text-[25px] leading-tight px-1 py-1 rounded-lg bg-zinc-100/90 dark:bg-[#0a0c10] border border-zinc-300 dark:border-zinc-700 text-zinc-950 dark:text-zinc-100 focus:outline-hidden focus:ring-2 focus:ring-amber-500 focus:bg-white dark:focus:bg-zinc-800 h-[46px] min-h-[46px] placeholder:text-[14px] placeholder:font-normal placeholder:text-zinc-500 dark:placeholder:text-zinc-500 touch-manipulation"
               title={
@@ -598,7 +598,7 @@ export const NoteCell: React.FC<NoteCellProps> = React.memo(({
                   ? 'Chinese Hanzi - Space or Tab moves to next note'
                   : language === 'japanese'
                   ? 'Japanese lyrics - Space or Tab moves to next note'
-                  : 'Han-lô / Lyrics - Space or Tab moves to next note'
+                  : 'Han-lo / Lyrics - Space or Tab moves to next note'
               }
             />
           </div>

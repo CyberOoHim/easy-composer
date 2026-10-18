@@ -1098,13 +1098,17 @@ export function appendToSyllable(
   if (!note) return song;
 
   const syl = getNoteVerseSyllable(note, verseRow);
-  const curHanlo = syl.hanlo || syl.hanji || syl.custom || '';
-  const curPoj = syl.poj || syl.tl || '';
+  const curHanlo = syl.hanlo || syl.text || syl.hanji || syl.custom || '';
+  const curPoj = syl.poj || syl.phonetic || syl.tl || '';
+  const nextHanlo = symbol === '-' ? curHanlo : `${curHanlo}${symbol}`;
+  const nextPoj = `${curPoj}${symbol}`;
 
   const newSyl: LyricSyllable = {
     ...syl,
-    hanlo: symbol === '-' ? curHanlo : `${curHanlo}${symbol}`,
-    poj: `${curPoj}${symbol}`,
+    hanlo: nextHanlo,
+    text: nextHanlo,
+    poj: nextPoj,
+    phonetic: nextPoj,
   };
 
   return updateNoteLyricAt(song, mIdx, nIdx, newSyl, verseRow);

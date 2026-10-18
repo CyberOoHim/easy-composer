@@ -91,7 +91,7 @@ export interface ContextualEditDeckProps {
   onUpdateSong: (song: Song, options?: { coalesce?: boolean; coalesceKey?: string }) => void;
   onSelectMeasure?: (measureIndex: number) => void;
   onSelectNote?: (measureIndex: number, noteIndex: number) => void;
-  onOpenLyricSpreader?: () => void;
+  onOpenLyricSpreader?: (initialScope?: 'cursor' | 'bar' | 'line' | 'range') => void;
   onActivateSoftKeyboard?: () => void;
   isSoftKeyboardActive?: boolean;
   onClose?: () => void;
@@ -763,6 +763,18 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                       <span>Pad Rests</span>
                     </button>
 
+                    {onOpenLyricSpreader && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenLyricSpreader('bar')}
+                        className="min-h-[44px] px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-2xs"
+                        title="Edit or spread lyrics in this measure"
+                      >
+                        <AlignLeft className="w-4 h-4" />
+                        <span>Bar Lyrics</span>
+                      </button>
+                    )}
+
                     <button
                       type="button"
                       onClick={handleClearBarLyrics}
@@ -843,6 +855,18 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                     >
                       <span>Pad Rests in Range</span>
                     </button>
+
+                    {onOpenLyricSpreader && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenLyricSpreader('range')}
+                        className="min-h-[44px] px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-2xs"
+                        title="Edit or spread lyrics across selected measure range"
+                      >
+                        <AlignLeft className="w-4 h-4" />
+                        <span>Range Lyrics</span>
+                      </button>
+                    )}
 
                     <button
                       type="button"
@@ -1431,15 +1455,26 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
 
                     {/* Launch Lyric Spreader */}
                     {onOpenLyricSpreader && (
-                      <button
-                        type="button"
-                        onClick={onOpenLyricSpreader}
-                        className="min-h-[44px] px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-extrabold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs"
-                        title="Open Full Lyric Spreader & Auto-Aligner"
-                      >
-                        <AlignLeft className="w-4 h-4" />
-                        <span>Lyric Aligner</span>
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => onOpenLyricSpreader('bar')}
+                          className="min-h-[44px] px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs"
+                          title="Edit or spread lyrics in current measure"
+                        >
+                          <AlignLeft className="w-4 h-4" />
+                          <span>Bar Lyrics</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onOpenLyricSpreader('cursor')}
+                          className="min-h-[44px] px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-extrabold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs"
+                          title="Spread lyrics from current note across score"
+                        >
+                          <AlignLeft className="w-4 h-4" />
+                          <span>Spread Lyrics</span>
+                        </button>
+                      </>
                     )}
                   </>
                 ) : (
@@ -1478,12 +1513,12 @@ export const ContextualEditDeck: React.FC<ContextualEditDeckProps> = ({
                     {onOpenLyricSpreader && (
                       <button
                         type="button"
-                        onClick={onOpenLyricSpreader}
+                        onClick={() => onOpenLyricSpreader('range')}
                         className="min-h-[44px] px-3.5 py-2 bg-amber-500 hover:bg-amber-400 text-zinc-950 rounded-xl font-extrabold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 touch-manipulation shadow-xs ml-auto"
-                        title="Open Full Lyric Spreader"
+                        title="Edit or spread lyrics in selected measure range"
                       >
                         <AlignLeft className="w-4 h-4" />
-                        <span>Lyric Aligner</span>
+                        <span>Spread in Range</span>
                       </button>
                     )}
                   </>

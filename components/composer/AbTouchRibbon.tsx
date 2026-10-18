@@ -37,6 +37,7 @@ export interface AbTouchRibbonProps {
   onDuplicateAb: () => void;
   onTransposeAb: (stepDelta: number) => void;
   onClearLyricsAb: () => void;
+  onEditLyricsAb?: () => void;
   onAutoHarmonizeAb?: () => void;
   onSnapBar: () => void;
   onSnapLine: () => void;
@@ -61,6 +62,7 @@ export const AbTouchRibbon: React.FC<AbTouchRibbonProps> = ({
   onDuplicateAb,
   onTransposeAb,
   onClearLyricsAb,
+  onEditLyricsAb,
   onAutoHarmonizeAb,
   onSnapBar,
   onSnapLine,
@@ -331,6 +333,20 @@ export const AbTouchRibbon: React.FC<AbTouchRibbonProps> = ({
               </div>
             )}
           </div>
+
+          {/* Edit / Spread Lyrics in A-B */}
+          {onEditLyricsAb && (
+            <button
+              id="ab-edit-lyrics-btn"
+              type="button"
+              onClick={onEditLyricsAb}
+              className="flex items-center gap-1 px-2.5 h-8 sm:h-9 min-h-[36px] rounded-lg bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:hover:bg-emerald-950/70 text-emerald-700 dark:text-emerald-300 border border-emerald-200/80 dark:border-emerald-800/60 text-xs font-bold transition-all cursor-pointer touch-manipulation"
+              title="Edit or spread lyrics across measures in A-B range"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Lyrics</span>
+            </button>
+          )}
 
           {/* Delete A-B */}
           <button

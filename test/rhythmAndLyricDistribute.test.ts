@@ -6,6 +6,7 @@ import {
   distributeLyricsAcrossNotes,
   applyLyricTokensToSong,
   calculateMeasureBeats,
+  extractLyricsFromScope,
 } from '../lib/taigiUtils.ts';
 import type { Song, Measure, NumberedNotationNote } from '../types/song.ts';
 
@@ -344,5 +345,136 @@ describe('Multilingual Two-Line Input & Auto-Detection', () => {
     assert.equal(tokens[0].poj, 'To̍k');
     assert.equal(tokens[1].hanlo, '夜');
     assert.equal(tokens[1].poj, 'iā');
+  });
+
+  it('preserves hyphens in roman syllables when preserveHyphens option is true', async () => {
+    const { parseAndPairBilingualLyrics } = await import('../lib/multilingualUtils.ts');
+    const tokens = parseAndPairBilingualLyrics('獨夜無伴', 'To̍k-iā bô-phōaⁿ', 'taigi', { preserveHyphens: true });
+    assert.equal(tokens.length, 4);
+    assert.equal(tokens[0].poj, 'To̍k-');
+    assert.equal(tokens[1].poj, 'iā');
+    assert.equal(tokens[2].poj, 'bô-');
+    assert.equal(tokens[3].poj, 'phōaⁿ');
+  });
+});
+
+describe('Lyric Input Hierarchy & Distribution Enhancements', () => {
+  it('skips rests (pitch 0) when distributing lyrics with skipRests option', () => {
+    // Measure with note, rest, note, note
+    const m = createTestMeasure('m1', 1, [1, 1, 1, 1]);
+    m.notes[1].pitch = 0; // rest
+    const song = createTestSong([m]);
+
+    const result = distributeLyricsAcrossNotes('A B C', song, 0, 0, 1, 'hanlo', {
+      skipRests: true,
+    });
+
+    const notes = result.measures[0].notes;
+    assert.equal(notes[0].lyric.hanlo, 'A');
+    assert.equal(notes[1].pitch, 0);
+    assert.equal(notes[1].lyric.hanlo, undefined); // skipped rest!
+    assert.equal(notes[2].lyric.hanlo, 'B');
+    assert.equal(notes[3].lyric.hanlo, 'C');
+  });
+
+  it('skips tied notes (tie: stop) when distributing lyrics with skipTiedNotes option', () => {
+    const m = createTestMeasure('m1', 1, [1, 1, 1, 1]);
+    m.notes[1].isTied = true;
+    (m.notes[1] as any).tie = 'stop'; // tied extension note
+    const song = createTestSong([m]);
+
+    const result = distributeLyricsAcrossNotes('A B C', song, 0, 0, 1, 'hanlo', {
+      skipTiedNotes: true,
+    });
+
+    const notes = result.measures[0].notes;
+    assert.equal(notes[0].lyric.hanlo, 'A');
+    assert.equal(notes[1].isTied, true);
+    assert.equal(notes[1].lyric.hanlo, undefined); // skipped tied note!
+    assert.equal(notes[2].lyric.hanlo, 'B');
+    assert.equal(notes[3].lyric.hanlo, 'C');
+  });
+
+  it('strictly respects endMeasureIdx and endNoteIdx bounds', () => {
+    const m1 = createTestMeasure('m1', 1, [1, 1, 1, 1]);
+    const m2 = createTestMeasure('m2', 2, [1, 1, 1, 1]);
+    const song = createTestSong([m1, m2]);
+
+    // Apply lyrics starting at measure 0 note 2, ending at measure 1 note 1 (inclusive)
+    const result = distributeLyricsAcrossNotes('1 2 3 4 5 6 7 8', song, 0, 2, 1, 'hanlo', {
+      endMeasureIdx: 1,
+      endNoteIdx: 1,
+    });
+
+    // M0: note 0 and 1 empty, note 2 = '1', note 3 = '2'
+    assert.equal(result.measures[0].notes[0].lyric.hanlo, undefined);
+    assert.equal(result.measures[0].notes[1].lyric.hanlo, undefined);
+    assert.equal(result.measures[0].notes[2].lyric.hanlo, '1');
+    assert.equal(result.measures[0].notes[3].lyric.hanlo, '2');
+
+    // M1: note 0 = '3', note 1 = '4', note 2 and 3 unassigned (bounds respected!)
+    assert.equal(result.measures[1].notes[0].lyric.hanlo, '3');
+    assert.equal(result.measures[1].notes[1].lyric.hanlo, '4');
+    assert.equal(result.measures[1].notes[2].lyric.hanlo, undefined);
+    assert.equal(result.measures[1].notes[3].lyric.hanlo, undefined);
+  });
+
+  it('distributes multi-sentence tokens sequentially across notes with line-break tokens', () => {
+    const m1 = createTestMeasure('m1', 1, [1, 1]);
+    const m2 = createTestMeasure('m2', 2, [1, 1]);
+    const song = createTestSong([m1, m2]);
+
+    const tokens = [
+      { hanlo: '獨', poj: 'To̍k' },
+      { hanlo: '夜\n', poj: 'iā\n' }, // phrase break at end of line
+      { hanlo: '無', poj: 'bô' },
+      { hanlo: '伴', poj: 'phōaⁿ' },
+    ];
+
+    const result = applyLyricTokensToSong(song, tokens, {
+      startMeasureIdx: 0,
+      startNoteIdx: 0,
+    });
+
+    assert.equal(result.measures[0].notes[0].lyric.hanlo, '獨');
+    assert.equal(result.measures[0].notes[1].lyric.hanlo, '夜\n');
+    assert.equal(result.measures[1].notes[0].lyric.hanlo, '無');
+    assert.equal(result.measures[1].notes[1].lyric.hanlo, '伴');
+  });
+
+  it('extractLyricsFromScope extracts lyrics and counts singable notes accurately', () => {
+    const m1 = createTestMeasure('m1', 1, [1, 1]);
+    m1.notes[0].lyric = { hanlo: '春', poj: 'chhun' };
+    m1.notes[1].pitch = 0; // rest
+
+    const m2 = createTestMeasure('m2', 2, [1, 1]);
+    m2.notes[0].lyric = { hanlo: '風', poj: 'hong' };
+    m2.notes[1].isTied = true;
+    (m2.notes[1] as any).tie = 'stop'; // tied extension
+    m2.notes[1].lyric = { hanlo: '風', poj: 'hong' };
+
+    const song = createTestSong([m1, m2]);
+
+    const extracted = extractLyricsFromScope(song, {
+      skipRests: true,
+      skipTiedNotes: true,
+    });
+    // In Hanlo typography, CJK characters are concatenated without spaces (春風風)
+    assert.equal(extracted.hanloText, '春風風');
+    assert.equal(extracted.romanText, 'chhun hong hong');
+    assert.equal(extracted.totalNoteCount, 4);
+    // singable: note 0 in m1 (pitch > 0), note 0 in m2 (pitch > 0, not tie stop) -> 2 singable notes
+    assert.equal(extracted.singableNoteCount, 2);
+
+    // Measure scope
+    const measureExtract = extractLyricsFromScope(song, {
+      startMeasureIdx: 0,
+      endMeasureIdx: 0,
+      skipRests: true,
+      skipTiedNotes: true,
+    });
+    assert.equal(measureExtract.hanloText, '春');
+    assert.equal(measureExtract.singableNoteCount, 1);
+    assert.equal(measureExtract.totalNoteCount, 2);
   });
 });
