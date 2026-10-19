@@ -156,13 +156,13 @@ export function isFactoryPresetId(id: string): boolean {
 export function canonicalizeStoredSong(song: Song | null | undefined): Song | null {
   if (!song) return null;
   const factory = PRESET_SONGS.find(p => p.id === song.id);
-  if (factory && !isSongModifiedFromPreset(song)) return factory;
+  if (factory && !isStoredPresetOverride(song)) return factory;
   return song;
 }
 
 export function shouldPersistSongBody(song: Song): boolean {
   if (!isFactoryPresetId(song.id)) return true;
-  return isSongModifiedFromPreset(song);
+  return isStoredPresetOverride(song);
 }
 
 /**
@@ -195,16 +195,18 @@ export function pickBootstrapSong(
   const canonIdb = canonicalizeStoredSong(idbSong);
   const canonLocal = canonicalizeStoredSong(localSong);
   const localIsUnmodifiedPreset = Boolean(
-    localSong && isFactoryPresetId(localSong.id) && !isSongModifiedFromPreset(localSong)
+    localSong && isFactoryPresetId(localSong.id) && !isStoredPresetOverride(localSong)
   );
   const idbIsUnmodifiedPreset = Boolean(
-    idbSong && isFactoryPresetId(idbSong.id) && !isSongModifiedFromPreset(idbSong)
+    idbSong && isFactoryPresetId(idbSong.id) && !isStoredPresetOverride(idbSong)
   );
 
   // If neither IndexedDB nor localStorage has any user edits (both are pristine factory presets),
   // always prefer the primary default preset PRESET_SONGS[0].
   if ((localIsUnmodifiedPreset || !localSong) && (idbIsUnmodifiedPreset || !idbSong)) {
-    return { song: PRESET_SONGS[0], fromLocalDraft: false };
+    const targetPresetId = localSong?.id || idbSong?.id;
+    const targetPreset = PRESET_SONGS.find(p => p.id === targetPresetId) || PRESET_SONGS[0];
+    return { song: targetPreset, fromLocalDraft: false };
   }
 
   if (localIsUnmodifiedPreset) {
