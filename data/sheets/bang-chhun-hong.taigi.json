@@ -2,22 +2,23 @@
   "order": 1,
   "id": "bang-chhun-hong",
   "title": "望春風",
-  "subtitle": "(根據韓寶儀閩南語演唱音頻記譜)",
-  "catalogNumber": "LPDC—JCR1341",
-  "lyricist": "鄧雨賢 詞",
-  "composer": "李臨秋 曲",
-  "notator": "嶺南印象 制譜",
-  "key": "E",
+  "subtitle": "Bāng Chhun-hong (李臨秋 詞 / 鄧雨賢 曲・全三段)",
+  "catalogNumber": "TW-1933-BCH",
+  "lyricist": "李臨秋 詞",
+  "composer": "鄧雨賢 曲",
+  "notator": "數位簡譜標準採譜排版",
+  "key": "F",
   "timeSignature": "4/4",
-  "bpm": 88,
+  "bpm": 84,
   "notesPerLine": 4,
-  "description": "經典臺灣歌謠《望春風》，E調 (4/4拍)，標準紙本簡譜排版，包含前奏、第4小節上方副旋律襯音 (Obbligato)、疊行多段歌詞 (1.3. / 2.) 與第 1.2. 及第 3. 反覆跳越結尾 (Volta Repeat Endings)。",
-  "footnote": "本曲譜使用JP-Word簡譜編輯軟件製作  JPW簡譜軟件交流群：332718458\n歡迎光臨嶺南印象製譜園地：http://www.qupu123.com/space/336279   QQ：54334643\n本人所記曲譜只發布在“中國曲譜網”本人個人園地上，轉載本人所記曲譜時凡抹去和篡改本人記製譜信息者均為盜版",
+  "verseCount": 3,
+  "description": "1933年經典臺灣歌謠《望春風》（李臨秋作詞、鄧雨賢作曲），F調 (4/4拍，♩=84)。完整收錄標準四小節前奏、第4小節上方副旋律襯音 (Obbligato) 與全三段漢羅及白話字 (POJ) 對齊歌詞。",
+  "footnote": "作詞：李臨秋 (Lí Lîm-chhiu) / 作曲：鄧雨賢 (Tēng Ú-hiân)\n1933年古倫美亞唱片發表（原唱：純純），五聲音階宮調式臺灣代表民謠。",
   "measures": [
     {
       "id": "bch_m1",
       "measureNumber": 1,
-      "chord": "E",
+      "chord": "F",
       "section": "Prelude",
       "isPrelude": true,
       "notes": [
@@ -79,7 +80,7 @@
     {
       "id": "bch_m2",
       "measureNumber": 2,
-      "chord": "C#m",
+      "chord": "Dm",
       "isPrelude": true,
       "notes": [
         {
@@ -128,7 +129,11 @@
     {
       "id": "bch_m3",
       "measureNumber": 3,
-      "chord": "A",
+      "chord": "Bb",
+      "chords": [
+        "Bb",
+        "C7"
+      ],
       "isPrelude": true,
       "notes": [
         {
@@ -178,6 +183,7 @@
           "pitch": 3,
           "octave": 0,
           "duration": 0.5,
+          "slurToNext": true,
           "lyric": {
             "poj": "",
             "hanlo": ""
@@ -198,9 +204,9 @@
     {
       "id": "bch_m4",
       "measureNumber": 4,
-      "chord": "E",
-      "isPrelude": true,
+      "chord": "F",
       "isLineBreak": true,
+      "isPrelude": true,
       "obbligatoText": "0 56 53 21 6̣ 5̣",
       "obbligato": [
         {
@@ -310,7 +316,7 @@
     {
       "id": "bch_m5",
       "measureNumber": 5,
-      "chord": "E",
+      "chord": "F",
       "section": "Verse",
       "notes": [
         {
@@ -330,7 +336,11 @@
             },
             "2": {
               "hanlo": "想",
-              "poj": "Siūⁿ"
+              "poj": "Siūⁿ-"
+            },
+            "3": {
+              "hanlo": "青",
+              "poj": "Chheng-"
             }
           }
         },
@@ -349,8 +359,12 @@
               "poj": "iā"
             },
             "2": {
-              "hanlo": "要",
-              "poj": "iàu"
+              "hanlo": "欲",
+              "poj": "beh"
+            },
+            "3": {
+              "hanlo": "春",
+              "poj": "chhun"
             }
           }
         },
@@ -360,17 +374,21 @@
           "octave": -1,
           "duration": 0.25,
           "lyric": {
-            "poj": "bû",
+            "poj": "bô",
             "hanlo": "無"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "無",
-              "poj": "bû"
+              "poj": "bô"
             },
             "2": {
               "hanlo": "郎",
-              "poj": "lông"
+              "poj": "lông-"
+            },
+            "3": {
+              "hanlo": "花",
+              "poj": "hoe"
             }
           }
         },
@@ -391,6 +409,10 @@
             "2": {
               "hanlo": "君",
               "poj": "kun"
+            },
+            "3": {
+              "hanlo": "開",
+              "poj": "khui"
             }
           }
         }
@@ -399,7 +421,7 @@
     {
       "id": "bch_m6",
       "measureNumber": 6,
-      "chord": "B",
+      "chord": "C7",
       "isLineBreak": true,
       "notes": [
         {
@@ -420,6 +442,10 @@
             "2": {
               "hanlo": "做",
               "poj": "chò"
+            },
+            "3": {
+              "hanlo": "清",
+              "poj": "chheng-"
             }
           }
         },
@@ -440,17 +466,21 @@
           "duration": 0.5,
           "slurToNext": true,
           "lyric": {
-            "poj": "teng",
+            "poj": "teng-",
             "hanlo": "燈"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "燈",
-              "poj": "teng"
+              "poj": "teng-"
             },
             "2": {
-              "hanlo": "恁",
-              "poj": "lín"
+              "hanlo": "尪",
+              "poj": "ang-"
+            },
+            "3": {
+              "hanlo": "芳",
+              "poj": "phang"
             }
           }
         },
@@ -482,6 +512,10 @@
             "2": {
               "hanlo": "婿，",
               "poj": "sài,"
+            },
+            "3": {
+              "hanlo": "味，",
+              "poj": "bī,"
             }
           }
         },
@@ -490,6 +524,7 @@
           "pitch": 3,
           "octave": 0,
           "duration": 0.5,
+          "slurToNext": true,
           "lyric": {
             "poj": "",
             "hanlo": ""
@@ -510,7 +545,7 @@
     {
       "id": "bch_m7",
       "measureNumber": 7,
-      "chord": "A",
+      "chord": "Bb",
       "notes": [
         {
           "id": "bch_n7_1",
@@ -519,17 +554,21 @@
           "duration": 1.5,
           "isDotted": true,
           "lyric": {
-            "poj": "chheng",
+            "poj": "chheng-",
             "hanlo": "清"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "清",
-              "poj": "chheng"
+              "poj": "chheng-"
             },
             "2": {
               "hanlo": "意",
-              "poj": "ì"
+              "poj": "ì-"
+            },
+            "3": {
+              "hanlo": "愛",
+              "poj": "ài-"
             }
           }
         },
@@ -550,6 +589,10 @@
             "2": {
               "hanlo": "愛",
               "poj": "ài"
+            },
+            "3": {
+              "hanlo": "情",
+              "poj": "chêng"
             }
           }
         },
@@ -570,6 +613,10 @@
             "2": {
               "hanlo": "在",
               "poj": "chāi"
+            },
+            "3": {
+              "hanlo": "永",
+              "poj": "éng"
             }
           }
         },
@@ -590,7 +637,11 @@
             },
             "2": {
               "hanlo": "心",
-              "poj": "sim"
+              "poj": "sim-"
+            },
+            "3": {
+              "hanlo": "不",
+              "poj": "put"
             }
           }
         },
@@ -600,18 +651,8 @@
           "octave": 0,
           "duration": 1,
           "lyric": {
-            "poj": "chhoe",
-            "hanlo": "吹"
-          },
-          "lyricsByVerse": {
-            "1": {
-              "hanlo": "吹",
-              "poj": "chhoe"
-            },
-            "2": {
-              "hanlo": "內",
-              "poj": "lāi"
-            }
+            "poj": "",
+            "hanlo": ""
           }
         }
       ]
@@ -619,7 +660,7 @@
     {
       "id": "bch_m8",
       "measureNumber": 8,
-      "chord": "B",
+      "chord": "C7",
       "isLineBreak": true,
       "notes": [
         {
@@ -628,8 +669,22 @@
           "octave": 0,
           "duration": 4,
           "lyric": {
-            "poj": "",
-            "hanlo": ""
+            "poj": "chhoe.",
+            "hanlo": "吹。"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "吹。",
+              "poj": "chhoe."
+            },
+            "2": {
+              "hanlo": "內。",
+              "poj": "lāi."
+            },
+            "3": {
+              "hanlo": "移。",
+              "poj": "î."
+            }
           }
         }
       ]
@@ -637,8 +692,7 @@
     {
       "id": "bch_m9",
       "measureNumber": 9,
-      "chord": "C#m",
-      "section": "Bridge",
+      "chord": "Dm",
       "notes": [
         {
           "id": "bch_n9_1",
@@ -647,17 +701,21 @@
           "duration": 1.5,
           "isDotted": true,
           "lyric": {
-            "poj": "cha̍p",
+            "poj": "cha̍p-",
             "hanlo": "十"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "十",
-              "poj": "cha̍p"
+              "poj": "cha̍p-"
             },
             "2": {
               "hanlo": "等",
-              "poj": "tán"
+              "poj": "tán-"
+            },
+            "3": {
+              "hanlo": "戀",
+              "poj": "loân-"
             }
           }
         },
@@ -667,17 +725,21 @@
           "octave": 0,
           "duration": 0.5,
           "lyric": {
-            "poj": "chhit",
+            "poj": "chhit-",
             "hanlo": "七"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "七",
-              "poj": "chhit"
+              "poj": "chhit-"
             },
             "2": {
               "hanlo": "待",
               "poj": "thāi"
+            },
+            "3": {
+              "hanlo": "愛",
+              "poj": "ài"
             }
           }
         },
@@ -687,17 +749,21 @@
           "octave": 0,
           "duration": 0.5,
           "lyric": {
-            "poj": "peh",
+            "poj": "peh-",
             "hanlo": "八"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "八",
-              "poj": "peh"
+              "poj": "peh-"
             },
             "2": {
-              "hanlo": "hô",
-              "poj": "hô"
+              "hanlo": "何",
+              "poj": "hô-"
+            },
+            "3": {
+              "hanlo": "那",
+              "poj": "ná"
             }
           }
         },
@@ -716,8 +782,12 @@
               "poj": "hòe"
             },
             "2": {
-              "hanlo": "sî",
+              "hanlo": "時",
               "poj": "sî"
+            },
+            "3": {
+              "hanlo": "會",
+              "poj": "ē"
             }
           }
         },
@@ -736,8 +806,12 @@
               "poj": "bē"
             },
             "2": {
-              "hanlo": "kun",
+              "hanlo": "君",
               "poj": "kun"
+            },
+            "3": {
+              "hanlo": "彼",
+              "poj": "hiah"
             }
           }
         }
@@ -746,7 +820,7 @@
     {
       "id": "bch_m10",
       "measureNumber": 10,
-      "chord": "G#m",
+      "chord": "Am",
       "isLineBreak": true,
       "notes": [
         {
@@ -755,18 +829,23 @@
           "octave": 1,
           "duration": 1.5,
           "isDotted": true,
+          "slurToNext": true,
           "lyric": {
-            "poj": "chhut",
+            "poj": "chhut-",
             "hanlo": "出"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "出",
-              "poj": "chhut"
+              "poj": "chhut-"
             },
             "2": {
-              "hanlo": "lâi",
+              "hanlo": "來",
               "poj": "lâi"
+            },
+            "3": {
+              "hanlo": "甘",
+              "poj": "kam-"
             }
           }
         },
@@ -775,6 +854,16 @@
           "pitch": 2,
           "octave": 1,
           "duration": 0.5,
+          "lyric": {
+            "poj": "",
+            "hanlo": ""
+          }
+        },
+        {
+          "id": "bch_n10_3",
+          "pitch": 2,
+          "octave": 1,
+          "duration": 2,
           "lyric": {
             "poj": "kè,",
             "hanlo": "嫁，"
@@ -785,19 +874,13 @@
               "poj": "kè,"
             },
             "2": {
-              "hanlo": "chhái,",
+              "hanlo": "採，",
               "poj": "chhái,"
+            },
+            "3": {
+              "hanlo": "甜，",
+              "poj": "tîⁿ,"
             }
-          }
-        },
-        {
-          "id": "bch_n10_3",
-          "pitch": 2,
-          "octave": 1,
-          "duration": 2,
-          "lyric": {
-            "poj": "",
-            "hanlo": ""
           }
         }
       ]
@@ -805,7 +888,11 @@
     {
       "id": "bch_m11",
       "measureNumber": 11,
-      "chord": "A",
+      "chord": "Bb",
+      "chords": [
+        "Bb",
+        "C7"
+      ],
       "notes": [
         {
           "id": "bch_n11_1",
@@ -814,17 +901,21 @@
           "duration": 1.5,
           "isDotted": true,
           "lyric": {
-            "poj": "kìⁿ",
+            "poj": "kìⁿ-",
             "hanlo": "見"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "見",
-              "poj": "kìⁿ"
+              "poj": "kìⁿ-"
             },
             "2": {
-              "hanlo": "chheng",
-              "poj": "青"
+              "hanlo": "青",
+              "poj": "chheng-"
+            },
+            "3": {
+              "hanlo": "予",
+              "poj": "hō͘"
             }
           }
         },
@@ -843,8 +934,12 @@
               "poj": "tio̍h"
             },
             "2": {
-              "hanlo": "chhun",
+              "hanlo": "春",
               "poj": "chhun"
+            },
+            "3": {
+              "hanlo": "阮",
+              "poj": "gún"
             }
           }
         },
@@ -854,17 +949,21 @@
           "octave": 0,
           "duration": 0.5,
           "lyric": {
-            "poj": "siàu",
+            "poj": "siàu-",
             "hanlo": "少"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "少",
-              "poj": "siàu"
+              "poj": "siàu-"
             },
             "2": {
-              "hanlo": "hoe",
+              "hanlo": "花",
               "poj": "hoe"
+            },
+            "3": {
+              "hanlo": "病",
+              "poj": "pīⁿ"
             }
           }
         },
@@ -875,17 +974,21 @@
           "duration": 0.5,
           "slurToNext": true,
           "lyric": {
-            "poj": "liân",
+            "poj": "liân-",
             "hanlo": "年"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "年",
-              "poj": "liân"
+              "poj": "liân-"
             },
             "2": {
-              "hanlo": "tng",
+              "hanlo": "當",
               "poj": "tng"
+            },
+            "3": {
+              "hanlo": "相",
+              "poj": "siuⁿ-"
             }
           }
         },
@@ -894,6 +997,7 @@
           "pitch": 3,
           "octave": 0,
           "duration": 0.5,
+          "slurToNext": true,
           "lyric": {
             "poj": "",
             "hanlo": ""
@@ -905,18 +1009,8 @@
           "octave": 0,
           "duration": 0.5,
           "lyric": {
-            "poj": "ke",
-            "hanlo": "家"
-          },
-          "lyricsByVerse": {
-            "1": {
-              "hanlo": "家",
-              "poj": "ke"
-            },
-            "2": {
-              "hanlo": "開",
-              "poj": "khui"
-            }
+            "poj": "",
+            "hanlo": ""
           }
         }
       ]
@@ -924,7 +1018,7 @@
     {
       "id": "bch_m12",
       "measureNumber": 12,
-      "chord": "E",
+      "chord": "F",
       "isLineBreak": true,
       "notes": [
         {
@@ -933,8 +1027,22 @@
           "octave": 0,
           "duration": 4,
           "lyric": {
-            "poj": "",
-            "hanlo": ""
+            "poj": "ke.",
+            "hanlo": "家。"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "家。",
+              "poj": "ke."
+            },
+            "2": {
+              "hanlo": "開。",
+              "poj": "khui."
+            },
+            "3": {
+              "hanlo": "思。",
+              "poj": "si."
+            }
           }
         }
       ]
@@ -942,7 +1050,7 @@
     {
       "id": "bch_m13",
       "measureNumber": 13,
-      "chord": "B",
+      "chord": "C7",
       "notes": [
         {
           "id": "bch_n13_1",
@@ -962,6 +1070,10 @@
             "2": {
               "hanlo": "聽",
               "poj": "thiaⁿ-"
+            },
+            "3": {
+              "hanlo": "春",
+              "poj": "chhun-"
             }
           }
         },
@@ -980,8 +1092,12 @@
               "poj": "jiân"
             },
             "2": {
-              "hanlo": "kìⁿ",
-              "poj": "見"
+              "hanlo": "見",
+              "poj": "kìⁿ"
+            },
+            "3": {
+              "hanlo": "風",
+              "poj": "hong"
             }
           }
         },
@@ -1002,6 +1118,10 @@
             "2": {
               "hanlo": "外",
               "poj": "gōa-"
+            },
+            "3": {
+              "hanlo": "微",
+              "poj": "bî-"
             }
           }
         },
@@ -1010,7 +1130,6 @@
           "pitch": 2,
           "octave": 0,
           "duration": 0.5,
-          "slurToNext": true,
           "lyric": {
             "poj": "tì",
             "hanlo": "緻"
@@ -1023,6 +1142,10 @@
             "2": {
               "hanlo": "面",
               "poj": "bīn"
+            },
+            "3": {
+              "hanlo": "微",
+              "poj": "bî"
             }
           }
         },
@@ -1043,6 +1166,10 @@
             "2": {
               "hanlo": "有",
               "poj": "ū"
+            },
+            "3": {
+              "hanlo": "對",
+              "poj": "tùi"
             }
           }
         }
@@ -1051,7 +1178,7 @@
     {
       "id": "bch_m14",
       "measureNumber": 14,
-      "chord": "E",
+      "chord": "F",
       "isLineBreak": true,
       "notes": [
         {
@@ -1070,8 +1197,12 @@
               "poj": "bah"
             },
             "2": {
-              "hanlo": "lâng",
-              "poj": "人"
+              "hanlo": "人",
+              "poj": "lâng"
+            },
+            "3": {
+              "hanlo": "面",
+              "poj": "bīn"
             }
           }
         },
@@ -1080,6 +1211,7 @@
           "pitch": 5,
           "octave": -1,
           "duration": 0.5,
+          "slurToNext": true,
           "lyric": {
             "poj": "pe̍h,",
             "hanlo": "白，"
@@ -1090,8 +1222,12 @@
               "poj": "pe̍h,"
             },
             "2": {
-              "hanlo": "lâi,",
+              "hanlo": "來，",
               "poj": "lâi,"
+            },
+            "3": {
+              "hanlo": "吹，",
+              "poj": "chhoe,"
             }
           }
         },
@@ -1100,6 +1236,7 @@
           "pitch": 6,
           "octave": -1,
           "duration": 0.5,
+          "slurToNext": true,
           "lyric": {
             "poj": "",
             "hanlo": ""
@@ -1110,6 +1247,7 @@
           "pitch": 1,
           "octave": 0,
           "duration": 1.5,
+          "isDotted": true,
           "lyric": {
             "poj": "",
             "hanlo": ""
@@ -1120,7 +1258,7 @@
     {
       "id": "bch_m15",
       "measureNumber": 15,
-      "chord": "A",
+      "chord": "Bb",
       "notes": [
         {
           "id": "bch_n15_1",
@@ -1129,17 +1267,21 @@
           "duration": 1.5,
           "isDotted": true,
           "lyric": {
-            "poj": "siáⁿ",
+            "poj": "siáⁿ-",
             "hanlo": "誰"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "誰",
-              "poj": "siáⁿ"
+              "poj": "siáⁿ-"
             },
             "2": {
-              "hanlo": "khui",
-              "poj": "開"
+              "hanlo": "開",
+              "poj": "khui-"
+            },
+            "3": {
+              "hanlo": "花",
+              "poj": "hoe-"
             }
           }
         },
@@ -1158,8 +1300,12 @@
               "poj": "ke"
             },
             "2": {
-              "hanlo": "mn̂g",
-              "poj": "門"
+              "hanlo": "門",
+              "poj": "mn̂g"
+            },
+            "3": {
+              "hanlo": "盆",
+              "poj": "phûn"
             }
           }
         },
@@ -1178,8 +1324,12 @@
               "poj": "lâng"
             },
             "2": {
-              "hanlo": "kah",
+              "hanlo": "共",
               "poj": "kah"
+            },
+            "3": {
+              "hanlo": "栽",
+              "poj": "chai"
             }
           }
         },
@@ -1189,17 +1339,21 @@
           "octave": 0,
           "duration": 1,
           "lyric": {
-            "poj": "chú",
+            "poj": "chú-",
             "hanlo": "子"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "子",
-              "poj": "chú"
+              "poj": "chú-"
             },
             "2": {
-              "hanlo": "khòaⁿ",
-              "poj": "看"
+              "hanlo": "看",
+              "poj": "khòaⁿ-"
+            },
+            "3": {
+              "hanlo": "好",
+              "poj": "hó"
             }
           }
         }
@@ -1208,73 +1362,94 @@
     {
       "id": "bch_m16",
       "measureNumber": 16,
-      "chord": "B",
+      "chord": "C7",
+      "isLineBreak": true,
       "notes": [
         {
           "id": "bch_n16_1",
           "pitch": 5,
           "octave": 0,
-          "duration": 1,
+          "duration": 4,
           "lyric": {
-            "poj": "tē",
-            "hanlo": "弟"
+            "poj": "tē?",
+            "hanlo": "弟？"
           },
           "lyricsByVerse": {
             "1": {
-              "hanlo": "弟",
-              "poj": "tē"
+              "hanlo": "弟？",
+              "poj": "tē?"
             },
             "2": {
-              "hanlo": "覓",
-              "poj": "bāi"
+              "hanlo": "覓，",
+              "poj": "bāi,"
+            },
+            "3": {
+              "hanlo": "花，",
+              "poj": "hoe,"
             }
           }
-        },
+        }
+      ]
+    },
+    {
+      "id": "bch_m17",
+      "measureNumber": 17,
+      "chord": "F",
+      "notes": [
         {
-          "id": "bch_n16_2",
+          "id": "bch_n17_1",
           "pitch": 5,
           "octave": 0,
-          "duration": 1,
+          "duration": 1.5,
+          "isDotted": true,
           "lyric": {
-            "poj": "siūⁿ",
+            "poj": "siūⁿ-",
             "hanlo": "想"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "想",
-              "poj": "siūⁿ"
+              "poj": "siūⁿ-"
             },
             "2": {
-              "hanlo": "goe̍h",
-              "poj": "goe̍h"
+              "hanlo": "月",
+              "poj": "goe̍h-"
+            },
+            "3": {
+              "hanlo": "天",
+              "poj": "thiⁿ"
             }
           }
         },
         {
-          "id": "bch_n16_3",
+          "id": "bch_n17_2",
           "pitch": 5,
           "octave": 0,
-          "duration": 1,
+          "duration": 0.25,
           "lyric": {
             "poj": "beh",
-            "hanlo": "要"
+            "hanlo": "欲"
           },
           "lyricsByVerse": {
             "1": {
-              "hanlo": "要",
+              "hanlo": "欲",
               "poj": "beh"
             },
             "2": {
-              "hanlo": "niû",
-              "poj": "娘"
+              "hanlo": "娘",
+              "poj": "niû"
+            },
+            "3": {
+              "hanlo": "賜",
+              "poj": "sù"
             }
           }
         },
         {
-          "id": "bch_n16_4",
-          "pitch": 5,
+          "id": "bch_n17_3",
+          "pitch": 6,
           "octave": 0,
-          "duration": 1,
+          "duration": 0.25,
           "lyric": {
             "poj": "mn̄g",
             "hanlo": "問"
@@ -1285,69 +1460,38 @@
               "poj": "mn̄g"
             },
             "2": {
-              "hanlo": "chhiò",
-              "poj": "笑"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "id": "bch_m17",
-      "measureNumber": 17,
-      "chord": "E",
-      "isLineBreak": true,
-      "notes": [
-        {
-          "id": "bch_n17_1",
-          "pitch": 5,
-          "octave": -1,
-          "duration": 1.5,
-          "isDotted": true,
-          "lyric": {
-            "poj": "i,",
-            "hanlo": "伊，"
-          },
-          "lyricsByVerse": {
-            "1": {
-              "hanlo": "伊，",
-              "poj": "i,"
+              "hanlo": "笑",
+              "poj": "chhiò"
             },
-            "2": {
-              "hanlo": "阮，",
-              "poj": "gún,"
+            "3": {
+              "hanlo": "良",
+              "poj": "liông-"
             }
-          }
-        },
-        {
-          "id": "bch_n17_2",
-          "pitch": 5,
-          "octave": -1,
-          "duration": 0.25,
-          "lyric": {
-            "poj": "",
-            "hanlo": ""
-          }
-        },
-        {
-          "id": "bch_n17_3",
-          "pitch": 6,
-          "octave": -1,
-          "duration": 0.25,
-          "lyric": {
-            "poj": "",
-            "hanlo": ""
           }
         },
         {
           "id": "bch_n17_4",
           "pitch": 5,
-          "octave": -1,
+          "octave": 0,
           "duration": 1,
           "slurToNext": true,
           "lyric": {
-            "poj": "",
-            "hanlo": ""
+            "poj": "i",
+            "hanlo": "伊"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "伊",
+              "poj": "i"
+            },
+            "2": {
+              "hanlo": "阮",
+              "poj": "gún"
+            },
+            "3": {
+              "hanlo": "緣",
+              "poj": "iân"
+            }
           }
         },
         {
@@ -1365,11 +1509,8 @@
     {
       "id": "bch_m18",
       "measureNumber": 18,
-      "chord": "C#m",
-      "voltaEnding": [
-        1,
-        2
-      ],
+      "chord": "Dm",
+      "isLineBreak": true,
       "notes": [
         {
           "id": "bch_n18_1",
@@ -1386,8 +1527,12 @@
               "poj": "kiaⁿ"
             },
             "2": {
-              "hanlo": "gong",
-              "poj": "憨"
+              "hanlo": "戇",
+              "poj": "gōng-"
+            },
+            "3": {
+              "hanlo": "好",
+              "poj": "hó"
             }
           }
         },
@@ -1398,17 +1543,21 @@
           "duration": 0.5,
           "slurToNext": true,
           "lyric": {
-            "poj": "pháiⁿ",
+            "poj": "pháiⁿ-",
             "hanlo": "歹"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "歹",
-              "poj": "pháiⁿ"
+              "poj": "pháiⁿ-"
             },
             "2": {
-              "hanlo": "tōa",
-              "poj": "tōa"
+              "hanlo": "大",
+              "poj": "tōa-"
+            },
+            "3": {
+              "hanlo": "機",
+              "poj": "ki-"
             }
           }
         },
@@ -1428,17 +1577,21 @@
           "octave": -1,
           "duration": 2,
           "lyric": {
-            "poj": "sè",
-            "hanlo": "勢"
+            "poj": "sè,",
+            "hanlo": "勢，"
           },
           "lyricsByVerse": {
             "1": {
-              "hanlo": "勢",
-              "poj": "sè"
+              "hanlo": "勢，",
+              "poj": "sè,"
             },
             "2": {
-              "hanlo": "tai",
-              "poj": "tai"
+              "hanlo": "呆，",
+              "poj": "tai,"
+            },
+            "3": {
+              "hanlo": "會，",
+              "poj": "hōe,"
             }
           }
         }
@@ -1447,10 +1600,10 @@
     {
       "id": "bch_m19",
       "measureNumber": 19,
-      "chord": "A",
-      "voltaEnding": [
-        1,
-        2
+      "chord": "Bb",
+      "chords": [
+        "Bb",
+        "C7"
       ],
       "notes": [
         {
@@ -1460,17 +1613,21 @@
           "duration": 1.5,
           "isDotted": true,
           "lyric": {
-            "poj": "sim",
+            "poj": "sim-",
             "hanlo": "心"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "心",
-              "poj": "sim"
+              "poj": "sim-"
             },
             "2": {
-              "hanlo": "hō͘",
-              "poj": "予"
+              "hanlo": "予",
+              "poj": "hō͘"
+            },
+            "3": {
+              "hanlo": "兩",
+              "poj": "nn̄g-"
             }
           }
         },
@@ -1489,8 +1646,12 @@
               "poj": "lāi"
             },
             "2": {
-              "hanlo": "hong",
-              "poj": "風"
+              "hanlo": "風",
+              "poj": "hong"
+            },
+            "3": {
+              "hanlo": "人",
+              "poj": "lâng"
             }
           }
         },
@@ -1509,8 +1670,12 @@
               "poj": "tôaⁿ"
             },
             "2": {
-              "hanlo": "phiàn",
-              "poj": "騙"
+              "hanlo": "騙",
+              "poj": "phiàn"
+            },
+            "3": {
+              "hanlo": "來",
+              "poj": "lâi"
             }
           }
         },
@@ -1521,17 +1686,21 @@
           "duration": 0.5,
           "slurToNext": true,
           "lyric": {
-            "poj": "pî",
+            "poj": "pî-",
             "hanlo": "琵"
           },
           "lyricsByVerse": {
             "1": {
               "hanlo": "琵",
-              "poj": "pî"
+              "poj": "pî-"
             },
             "2": {
-              "hanlo": "put",
-              "poj": "不"
+              "hanlo": "毋",
+              "poj": "m̄-"
+            },
+            "3": {
+              "hanlo": "做",
+              "poj": "chò-"
             }
           }
         },
@@ -1540,6 +1709,7 @@
           "pitch": 3,
           "octave": 0,
           "duration": 0.5,
+          "slurToNext": true,
           "lyric": {
             "poj": "",
             "hanlo": ""
@@ -1551,18 +1721,8 @@
           "octave": 0,
           "duration": 0.5,
           "lyric": {
-            "poj": "pê",
-            "hanlo": "琶"
-          },
-          "lyricsByVerse": {
-            "1": {
-              "hanlo": "琶",
-              "poj": "pê"
-            },
-            "2": {
-              "hanlo": "ti",
-              "poj": "ti"
-            }
+            "poj": "",
+            "hanlo": ""
           }
         }
       ]
@@ -1570,12 +1730,8 @@
     {
       "id": "bch_m20",
       "measureNumber": 20,
-      "chord": "E",
-      "voltaEnding": [
-        1,
-        2
-      ],
-      "barlineType": "repeat_end",
+      "chord": "F",
+      "barlineType": "end",
       "isLineBreak": true,
       "notes": [
         {
@@ -1584,132 +1740,22 @@
           "octave": 0,
           "duration": 4,
           "lyric": {
-            "poj": "",
-            "hanlo": ""
-          }
-        }
-      ]
-    },
-    {
-      "id": "bch_m21",
-      "measureNumber": 21,
-      "chord": "A",
-      "voltaEnding": [
-        3
-      ],
-      "notes": [
-        {
-          "id": "bch_n21_1",
-          "pitch": 5,
-          "octave": 0,
-          "duration": 1.5,
-          "isDotted": true,
-          "lyric": {
-            "poj": "sim",
-            "hanlo": "心"
+            "poj": "pê.",
+            "hanlo": "琶。"
           },
           "lyricsByVerse": {
             "1": {
-              "hanlo": "心",
-              "poj": "sim"
+              "hanlo": "琶。",
+              "poj": "pê."
+            },
+            "2": {
+              "hanlo": "知。",
+              "poj": "chai."
+            },
+            "3": {
+              "hanlo": "伙。",
+              "poj": "hóe."
             }
-          }
-        },
-        {
-          "id": "bch_n21_2",
-          "pitch": 3,
-          "octave": 0,
-          "duration": 0.5,
-          "lyric": {
-            "poj": "lāi",
-            "hanlo": "內"
-          },
-          "lyricsByVerse": {
-            "1": {
-              "hanlo": "內",
-              "poj": "lāi"
-            }
-          }
-        },
-        {
-          "id": "bch_n21_3",
-          "pitch": 3,
-          "octave": 0,
-          "duration": 0.5,
-          "lyric": {
-            "poj": "tôaⁿ",
-            "hanlo": "彈"
-          },
-          "lyricsByVerse": {
-            "1": {
-              "hanlo": "彈",
-              "poj": "tôaⁿ"
-            }
-          }
-        },
-        {
-          "id": "bch_n21_4",
-          "pitch": 2,
-          "octave": 0,
-          "duration": 0.5,
-          "slurToNext": true,
-          "lyric": {
-            "poj": "pî",
-            "hanlo": "琵"
-          },
-          "lyricsByVerse": {
-            "1": {
-              "hanlo": "琵",
-              "poj": "pî"
-            }
-          }
-        },
-        {
-          "id": "bch_n21_5",
-          "pitch": 3,
-          "octave": 0,
-          "duration": 0.5,
-          "lyric": {
-            "poj": "",
-            "hanlo": ""
-          }
-        },
-        {
-          "id": "bch_n21_6",
-          "pitch": 2,
-          "octave": 0,
-          "duration": 0.5,
-          "lyric": {
-            "poj": "pê",
-            "hanlo": "琶"
-          },
-          "lyricsByVerse": {
-            "1": {
-              "hanlo": "琶",
-              "poj": "pê"
-            }
-          }
-        }
-      ]
-    },
-    {
-      "id": "bch_m22",
-      "measureNumber": 22,
-      "chord": "E",
-      "voltaEnding": [
-        3
-      ],
-      "barlineType": "end",
-      "isLineBreak": true,
-      "notes": [
-        {
-          "id": "bch_n22_1",
-          "pitch": 1,
-          "octave": 0,
-          "duration": 4,
-          "lyric": {
-            "poj": "",
-            "hanlo": ""
           }
         }
       ]

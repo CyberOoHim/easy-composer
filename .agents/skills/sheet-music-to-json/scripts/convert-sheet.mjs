@@ -210,6 +210,7 @@ Agent Workflow:
  * Universal Post-Processor: sanitizes, formats, fixes IDs, and checks rhythm
  */
 function sanitizeAndFormatSong(rawSong, options = {}) {
+  const order = typeof rawSong.order === 'number' ? rawSong.order : undefined;
   const songId = rawSong.id && typeof rawSong.id === 'string' ? rawSong.id : `song-${Date.now()}`;
   const title = (options.title || rawSong.title || 'Untitled Song').trim();
   const subtitle = rawSong.subtitle || '';
@@ -218,7 +219,7 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
   const notator = rawSong.notator || undefined;
   const catalogNumber = rawSong.catalogNumber || undefined;
   const footnote = rawSong.footnote || undefined;
-  const orientation = rawSong.orientation === 'landscape' ? 'landscape' : 'portrait';
+  const orientation = rawSong.orientation === 'landscape' ? 'landscape' : (rawSong.orientation === 'portrait' ? 'portrait' : undefined);
   const verseCount = typeof rawSong.verseCount === 'number' && rawSong.verseCount >= 1 && rawSong.verseCount <= 5 ? rawSong.verseCount : undefined;
   const verseDisplayOption = rawSong.verseDisplayOption || undefined;
   const verseSettings = rawSong.verseSettings && typeof rawSong.verseSettings === 'object' ? rawSong.verseSettings : undefined;
@@ -242,7 +243,7 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
     const mTimeSig = m.timeSignature ? normalizeTimeSig(m.timeSignature) : undefined;
     const section = typeof m.section === 'string' && m.section.trim() ? m.section.trim() : undefined;
     const barlineType = m.barlineType || undefined;
-    const isLineBreak = Boolean(m.isLineBreak);
+    const isLineBreak = m.isLineBreak ? true : undefined;
     const voltaEnding = Array.isArray(m.voltaEnding) ? m.voltaEnding.map(Number).filter(n => !isNaN(n)) : undefined;
     const isPrelude = typeof m.isPrelude === 'boolean' ? m.isPrelude : undefined;
     const obbligatoText = typeof m.obbligatoText === 'string' && m.obbligatoText.trim() ? m.obbligatoText.trim() : undefined;
@@ -268,13 +269,13 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
       const isTriplet = Boolean(n.isTriplet || duration === 0.333 || duration === 0.667);
 
       const rawLyric = n.lyric || {};
-      const hanlo = rawLyric.hanlo || rawLyric.hanji || rawLyric.custom || undefined;
-      const poj = rawLyric.poj || rawLyric.tl || undefined;
+      const hanlo = rawLyric.hanlo ?? rawLyric.hanji ?? rawLyric.custom ?? '';
+      const poj = rawLyric.poj ?? rawLyric.tl ?? '';
       const lyric = {
-        hanlo,
         poj,
-        hanji: hanlo,
-        custom: hanlo,
+        hanlo,
+        ...(rawLyric.hanji !== undefined ? { hanji: rawLyric.hanji } : {}),
+        ...(rawLyric.custom !== undefined ? { custom: rawLyric.custom } : {}),
       };
 
       const lyricsByVerse = n.lyricsByVerse && typeof n.lyricsByVerse === 'object' ? n.lyricsByVerse : undefined;
@@ -308,7 +309,7 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
         octave: 0,
         accidental: '',
         duration: expectedBeats,
-        lyric: {},
+        lyric: { poj: '', hanlo: '' },
       });
     }
 
@@ -331,7 +332,7 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
         accidental: '',
         duration: deficit,
         isDotted: deficit === 1.5 || deficit === 0.75 || deficit === 3.0 || undefined,
-        lyric: {},
+        lyric: { poj: '', hanlo: '' },
       });
       autoFixedMeasures++;
     } else if (diff > 0.05 && !section?.includes('前奏') && !section?.includes('Pickup')) {
@@ -357,14 +358,14 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
 
   return {
     song: {
+      ...(order !== undefined ? { order } : {}),
       id: songId,
       title,
       subtitle: subtitle || undefined,
-      composer: composer || undefined,
-      lyricist: lyricist || undefined,
-      notator,
       catalogNumber,
-      footnote,
+      lyricist: lyricist || undefined,
+      composer: composer || undefined,
+      notator,
       key,
       timeSignature,
       bpm,
@@ -373,8 +374,9 @@ function sanitizeAndFormatSong(rawSong, options = {}) {
       verseCount,
       verseDisplayOption,
       verseSettings,
-      measures,
       description: rawSong.description || `Transcribed score for ${title}.`,
+      footnote,
+      measures,
     },
     rhythmWarnings,
     autoFixedMeasures,

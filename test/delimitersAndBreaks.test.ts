@@ -325,14 +325,14 @@ describe('Enhanced Delimiter List & Zero-Beat Empty Note Conversion', () => {
       const { PRESET_SONGS } = await import('../lib/presets.ts');
       const { groupMeasuresIntoSystems } = await import('../lib/numberedNotationEngraver.ts');
 
-      // 1. 望春風: 9 short, meaningful systems: [4, 2, 2, 2, 2, 2, 3, 3, 2]
+      // 1. 望春風: 9 short, meaningful systems: [4, 2, 2, 2, 2, 2, 2, 2, 2]
       const bch = PRESET_SONGS[0];
       const bchSystems = groupMeasuresIntoSystems(bch.measures, bch.timeSignature, 4, 'no_wrap');
       assert.equal(bchSystems.length, 9, '望春風 should produce exactly 9 systems in no_wrap mode');
       assert.deepEqual(
         bchSystems.map(s => s.measures.length),
-        [4, 2, 2, 2, 2, 2, 3, 3, 2],
-        '望春風 measures per system should match [4, 2, 2, 2, 2, 2, 3, 3, 2]'
+        [4, 2, 2, 2, 2, 2, 2, 2, 2],
+        '望春風 measures per system should match [4, 2, 2, 2, 2, 2, 2, 2, 2]'
       );
 
       // 2. 雨夜花: 16 systems of 2 measures each, zero fake empty newline notes

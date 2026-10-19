@@ -33,8 +33,8 @@ describe('Lyrics Export Utility', () => {
     });
 
     assert.ok(output.includes('望春風'));
-    assert.ok(output.includes('李臨秋 曲'));
-    assert.ok(output.includes('Key: 1=E'));
+    assert.ok(output.includes('鄧雨賢 曲'));
+    assert.ok(output.includes('Key: 1=F'));
     assert.ok(output.includes('獨夜無伴守燈下，'));
     assert.ok(output.includes('清風對面吹'));
     assert.ok(output.includes('見著少年家'));
@@ -48,7 +48,7 @@ describe('Lyrics Export Utility', () => {
     });
 
     // Header excluded
-    assert.ok(!output.includes('Key: 1=E'));
+    assert.ok(!output.includes('Key: 1=F'));
     // POJ words with proper spacing and punctuation
     assert.ok(output.includes('To̍k') || output.includes('to̍k'));
     assert.ok(output.includes('teng-ē,') || output.includes('ē,'));
@@ -81,7 +81,7 @@ describe('Lyrics Export Utility', () => {
     assert.ok(output.includes('[Verse 1]'));
     assert.ok(output.includes('[Verse 2]'));
     assert.ok(output.includes('獨夜無伴守燈下，'));
-    assert.ok(output.includes('做恁婿') || output.includes('恁婿'));
+    assert.ok(output.includes('做尪婿') || output.includes('尪婿'));
   });
 
   it('handles empty songs or songs without lyrics gracefully', () => {
