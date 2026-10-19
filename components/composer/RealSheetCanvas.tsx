@@ -56,30 +56,14 @@ import {
   ZoomOut,
   Maximize2,
   Edit2,
-  Check,
-  X,
-  Play,
-  Square,
-  Plus,
-  Trash2,
-  Music,
-  Bookmark,
   Sun,
   Moon,
-  Keyboard,
-  KeyboardOff,
-  Sliders,
-  Shuffle,
   AlertCircle,
   WrapText,
   AlignJustify,
   AlignLeft,
-  Sparkles,
-  Send,
   RectangleHorizontal,
   RectangleVertical,
-  ArrowRightLeft,
-  ExternalLink,
   Wand2,
   Search,
   SlidersHorizontal,
@@ -130,7 +114,6 @@ import {
   distributeLyricsAcrossNotes,
   splitTaigiLyricSyllables,
   applyLyricTokensToSong,
-  extractLyricsFromScope,
   autoRearrangeSongMeasures,
   autoWrapSongMeasures,
   getSongVerseCount,
@@ -679,15 +662,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   // Section Badge Editing State
   const [editingSectionMeasureIdx, setEditingSectionMeasureIdx] = useState<number | null>(null);
   const [editingSectionValue, setEditingSectionValue] = useState<string>('');
-  const sectionInputRef = useRef<HTMLInputElement>(null);
 
   const handleOpenSectionEditor = useCallback((measureIndex: number, currentText: string) => {
     setEditingSectionMeasureIdx(measureIndex);
     setEditingSectionValue(currentText || '');
-    setTimeout(() => {
-      sectionInputRef.current?.focus();
-      sectionInputRef.current?.select();
-    }, 50);
   }, []);
 
   const handleSaveSection = useCallback((measureIndex: number, text: string) => {
@@ -703,18 +681,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     }
     setEditingSectionMeasureIdx(null);
   }, [onUpdateMeasureSection, song, onUpdateSong]);
-
-  // Close section badge editor on Escape key
-  useEffect(() => {
-    if (editingSectionMeasureIdx === null) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        setEditingSectionMeasureIdx(null);
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [editingSectionMeasureIdx]);
 
   // Listen for global settings reset, sheet zoom change, and virtual keyboard events
   useEffect(() => {
@@ -962,118 +928,18 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
 
   // Inline Lyric Spreader Popover State (MOD-5 / MOD-3)
   const [isLyricSpreaderOpen, setIsLyricSpreaderOpen] = useState(false);
-  const [lyricSpreaderMode, setLyricSpreaderMode] = useState<'dual' | 'single'>('dual');
   const [lyricSpreaderScope, setLyricSpreaderScope] = useState<'cursor' | 'bar' | 'line' | 'range'>('cursor');
-  const [lyricSpreaderSkipRestsAndTies, setLyricSpreaderSkipRestsAndTies] = useState<boolean>(true);
-  const [lyricSpreaderHanlo, setLyricSpreaderHanlo] = useState('');
-  const [lyricSpreaderPoj, setLyricSpreaderPoj] = useState('');
-  const [lyricSpreaderInput, setLyricSpreaderInput] = useState('');
-  const [lyricSpreaderField, setLyricSpreaderField] = useState<'auto' | 'roman' | 'hanlo'>('auto');
-  const [lyricSpreaderVerse, setLyricSpreaderVerse] = useState<number>(1);
-
-  const computeSpreaderBounds = useCallback(
-    (scope: 'cursor' | 'bar' | 'line' | 'range') => {
-      if (scope === 'bar') {
-        return {
-          startMeasureIdx: currentMIdx,
-          startNoteIdx: 0,
-          endMeasureIdx: currentMIdx,
-          endNoteIdx: undefined as number | undefined,
-          label: `Bar #${currentMIdx + 1} Only`,
-        };
-      }
-      if (scope === 'line') {
-        const sysRange = smartFindSystemRange(song, currentMIdx);
-        return {
-          startMeasureIdx: sysRange.startMeasureIndex,
-          startNoteIdx: 0,
-          endMeasureIdx: sysRange.endMeasureIndex,
-          endNoteIdx: undefined as number | undefined,
-          label: `Current Line (Bars #${sysRange.startMeasureIndex + 1}–#${sysRange.endMeasureIndex + 1})`,
-        };
-      }
-      if (scope === 'range') {
-        const rStart = abRange ? abRange.startMeasureIndex : batchMeasureRange.start;
-        const rEnd = abRange ? abRange.endMeasureIndex : batchMeasureRange.end;
-        return {
-          startMeasureIdx: Math.min(rStart, rEnd),
-          startNoteIdx: 0,
-          endMeasureIdx: Math.max(rStart, rEnd),
-          endNoteIdx: undefined as number | undefined,
-          label: `Selected Range (Bars #${Math.min(rStart, rEnd) + 1}–#${Math.max(rStart, rEnd) + 1})`,
-        };
-      }
-      return {
-        startMeasureIdx: currentMIdx,
-        startNoteIdx: currentNIdx,
-        endMeasureIdx: undefined as number | undefined,
-        endNoteIdx: undefined as number | undefined,
-        label: `From Bar #${currentMIdx + 1}, Note #${currentNIdx + 1} to End`,
-      };
-    },
-    [currentMIdx, currentNIdx, song, abRange, batchMeasureRange]
-  );
-
-  const handleLoadScopeLyricsToSpreader = useCallback(
-    (
-      targetScope: 'cursor' | 'bar' | 'line' | 'range' = lyricSpreaderScope,
-      targetVerse: number = lyricSpreaderVerse,
-      skipFlag: boolean = lyricSpreaderSkipRestsAndTies
-    ) => {
-      const bounds = computeSpreaderBounds(targetScope);
-      const extracted = extractLyricsFromScope(song, {
-        startMeasureIdx: bounds.startMeasureIdx,
-        startNoteIdx: bounds.startNoteIdx,
-        endMeasureIdx: bounds.endMeasureIdx,
-        endNoteIdx: bounds.endNoteIdx,
-        verseIndex: targetVerse,
-        skipRests: skipFlag,
-        skipTiedNotes: skipFlag,
-      });
-      setLyricSpreaderHanlo(extracted.hanloText);
-      setLyricSpreaderPoj(extracted.romanText);
-      const combined = [extracted.hanloText, extracted.romanText].filter(Boolean).join('\n');
-      setLyricSpreaderInput(combined);
-    },
-    [lyricSpreaderScope, lyricSpreaderVerse, lyricSpreaderSkipRestsAndTies, computeSpreaderBounds, song]
-  );
 
   const openLyricSpreaderWithScope = useCallback(
     (
       initialScope: 'cursor' | 'bar' | 'line' | 'range' = 'cursor',
-      verseNum: number = activeVerseRow
+      _verseNum: number = activeVerseRow
     ) => {
-      setLyricSpreaderVerse(verseNum);
       setLyricSpreaderScope(initialScope);
-      if (initialScope !== 'cursor') {
-        const bounds = computeSpreaderBounds(initialScope);
-        const extracted = extractLyricsFromScope(song, {
-          startMeasureIdx: bounds.startMeasureIdx,
-          startNoteIdx: bounds.startNoteIdx,
-          endMeasureIdx: bounds.endMeasureIdx,
-          endNoteIdx: bounds.endNoteIdx,
-          verseIndex: verseNum,
-          skipRests: lyricSpreaderSkipRestsAndTies,
-          skipTiedNotes: lyricSpreaderSkipRestsAndTies,
-        });
-        if (extracted.hanloText || extracted.romanText) {
-          setLyricSpreaderHanlo(extracted.hanloText);
-          setLyricSpreaderPoj(extracted.romanText);
-          setLyricSpreaderInput([extracted.hanloText, extracted.romanText].filter(Boolean).join('\n'));
-        }
-      }
       setIsLyricSpreaderOpen(true);
     },
-    [activeVerseRow, computeSpreaderBounds, song, lyricSpreaderSkipRestsAndTies]
+    [activeVerseRow]
   );
-
-  const handleSwapSpreaderLines = useCallback(() => {
-    setLyricSpreaderHanlo((prevHanlo) => {
-      const curPoj = lyricSpreaderPoj;
-      setLyricSpreaderPoj(prevHanlo);
-      return curPoj;
-    });
-  }, [lyricSpreaderPoj]);
 
   // Pad measure deficit rests (MOD-5 / MOD-3)
   const handlePadMeasureRest = useCallback((mIdx: number) => {
@@ -1084,96 +950,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
     newMeasures[mIdx] = filledM;
     onUpdateSong({ ...song, measures: newMeasures });
   }, [song, onUpdateSong]);
-
-  // Apply inline lyric spread (MOD-5 / MOD-3)
-  const handleApplyInlineLyricSpread = useCallback(() => {
-    const bounds = computeSpreaderBounds(lyricSpreaderScope);
-    if (lyricSpreaderMode === 'dual') {
-      if (!lyricSpreaderHanlo.trim() && !lyricSpreaderPoj.trim()) return;
-      const tokens = parseAndPairBilingualLyrics(
-        lyricSpreaderHanlo,
-        lyricSpreaderPoj,
-        song.language || 'taigi',
-        { preserveHyphens: true }
-      );
-      const updated = applyLyricTokensToSong(song, tokens, {
-        startMeasureIdx: bounds.startMeasureIdx,
-        startNoteIdx: bounds.startNoteIdx,
-        endMeasureIdx: bounds.endMeasureIdx,
-        endNoteIdx: bounds.endNoteIdx,
-        verseIndex: lyricSpreaderVerse,
-        skipRests: lyricSpreaderSkipRestsAndTies,
-        skipTiedNotes: lyricSpreaderSkipRestsAndTies,
-      });
-      onUpdateSong(updated);
-      setIsLyricSpreaderOpen(false);
-      setLyricSpreaderHanlo('');
-      setLyricSpreaderPoj('');
-      setLyricSpreaderInput('');
-      return;
-    }
-
-    if (!lyricSpreaderInput.trim()) return;
-    const lines = lyricSpreaderInput.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    if (lines.length >= 2) {
-      const sep = separateDualLineLyrics(lyricSpreaderInput);
-      if (sep.hanloText && sep.romanText) {
-        const tokens = parseAndPairBilingualLyrics(
-          sep.hanloText,
-          sep.romanText,
-          song.language || 'taigi',
-          { preserveHyphens: true }
-        );
-        const updated = applyLyricTokensToSong(song, tokens, {
-          startMeasureIdx: bounds.startMeasureIdx,
-          startNoteIdx: bounds.startNoteIdx,
-          endMeasureIdx: bounds.endMeasureIdx,
-          endNoteIdx: bounds.endNoteIdx,
-          verseIndex: lyricSpreaderVerse,
-          skipRests: lyricSpreaderSkipRestsAndTies,
-          skipTiedNotes: lyricSpreaderSkipRestsAndTies,
-        });
-        onUpdateSong(updated);
-        setIsLyricSpreaderOpen(false);
-        setLyricSpreaderInput('');
-        setLyricSpreaderHanlo('');
-        setLyricSpreaderPoj('');
-        return;
-      }
-    }
-
-    const updated = distributeLyricsAcrossNotes(
-      lyricSpreaderInput,
-      song,
-      bounds.startMeasureIdx,
-      bounds.startNoteIdx,
-      lyricSpreaderVerse,
-      lyricSpreaderField,
-      {
-        endMeasureIdx: bounds.endMeasureIdx,
-        endNoteIdx: bounds.endNoteIdx,
-        skipRests: lyricSpreaderSkipRestsAndTies,
-        skipTiedNotes: lyricSpreaderSkipRestsAndTies,
-      }
-    );
-    onUpdateSong(updated);
-    setIsLyricSpreaderOpen(false);
-    setLyricSpreaderInput('');
-    setLyricSpreaderHanlo('');
-    setLyricSpreaderPoj('');
-  }, [
-    computeSpreaderBounds,
-    lyricSpreaderScope,
-    lyricSpreaderMode,
-    lyricSpreaderHanlo,
-    lyricSpreaderPoj,
-    lyricSpreaderInput,
-    lyricSpreaderSkipRestsAndTies,
-    song,
-    lyricSpreaderVerse,
-    lyricSpreaderField,
-    onUpdateSong,
-  ]);
 
   // Dynamic real-time height tracking of the floating score HUD stack
   const [hudStackHeight, setHudStackHeight] = useState<number>(56);

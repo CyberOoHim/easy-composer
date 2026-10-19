@@ -57,21 +57,9 @@ import {
   SETTINGS_RESET_EVENT,
 } from '@/lib/storage';
 import { SongMetadataHeader } from './composer/SongMetadataHeader';
-import { SectionRail } from './composer/SectionRail';
 import { RealSheetCanvas } from './composer/RealSheetCanvas';
 import { InSongSearchBar } from './composer/InSongSearchBar';
 import { InSongMatchLocation } from '@/lib/lyricSearch';
-import {
-  Plus,
-  Undo2,
-  Redo2,
-  AlignLeft,
-  Sparkles,
-  Wand2,
-  Keyboard,
-  Trash2,
-  Search,
-} from 'lucide-react';
 
 interface ComposerEditorProps {
   song: Song;
@@ -209,7 +197,6 @@ export const ComposerEditor: React.FC<ComposerEditorProps> = ({
   const [activePlaybackNoteId, setActivePlaybackNoteId] = useState<string | null>(null);
   const [isInSongSearchOpen, setIsInSongSearchOpen] = useState<boolean>(false);
   const [isSongSettingsModalOpen, setIsSongSettingsModalOpen] = useState<boolean>(false);
-  const [showRhythmTools, setShowRhythmTools] = useState<boolean>(false);
   const [inSongActiveMatch, setInSongActiveMatch] = useState<InSongMatchLocation | null>(null);
 
   // Incomplete / Over-beat measures count for whole song

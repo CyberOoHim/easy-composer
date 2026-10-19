@@ -13,38 +13,26 @@ import {
   ZoomOut,
   Maximize2,
   Sparkles,
-  ChevronDown,
   Music,
   Trash2,
   Sun,
   Moon,
   Undo2,
   Redo2,
-  Scissors,
-  Copy,
   Shuffle,
-  AlertCircle,
-  Settings2,
   Sliders,
-  Layers,
   ArrowRight,
   ArrowLeft,
-  ArrowRightToLine,
-  ArrowLeftToLine,
-  Check,
   X,
-  Disc,
   Command,
   Keyboard,
   KeyboardOff,
   Piano,
-  RotateCw,
   WrapText,
   AlignJustify,
   AlignLeft,
   RectangleHorizontal,
   RectangleVertical,
-  Bookmark,
   LayoutGrid,
   Lightbulb,
 } from 'lucide-react';
@@ -65,7 +53,6 @@ import {
   getStoredPentatonicMode,
   setStoredPentatonicMode,
 } from '@/lib/storage';
-import { CHORD_PROGRESSION_PRESETS } from '@/lib/creativityEngine';
 import { audioEngine } from '@/lib/audioEngine';
 
 export type HudDrawerType = 'none' | 'piano' | 'ornaments' | 'chords' | 'edit' | 'creativity';
@@ -1109,17 +1096,17 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
           {/* Verse Selector when in Lyric mode */}
           {activeField === 'lyric' && (
-            <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 px-2 py-1 rounded-xl border border-zinc-200 dark:border-zinc-700 text-xs font-bold shrink-0">
-              <span className="text-zinc-500 text-[11px]">Verse:</span>
+            <div className="flex items-center gap-1 bg-zinc-900 px-2 py-0.5 rounded-lg border border-zinc-800 text-xs font-bold h-8 shrink-0">
+              <span className="text-zinc-400 text-[11px]">Verse:</span>
               {availableVerseRows.map(row => (
                 <button
                   key={`hud-vrow-${row}`}
                   type="button"
                   onClick={() => onChangeVerseRow(row)}
-                  className={`w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                  className={`w-6 h-6 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                     selectedVerseRow === row
                       ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                      : 'text-zinc-300 hover:bg-zinc-800'
                   }`}
                   title={`Select Verse ${row}`}
                 >
@@ -1130,7 +1117,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 <button
                   type="button"
                   onClick={onAddVerse}
-                  className="w-6 h-6 rounded-lg text-xs font-black flex items-center justify-center bg-zinc-200/90 dark:bg-zinc-700/80 hover:bg-amber-500 hover:text-zinc-950 text-zinc-700 dark:text-zinc-300 transition-all cursor-pointer"
+                  className="w-6 h-6 rounded-md text-xs font-black flex items-center justify-center bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-300 transition-all cursor-pointer"
                   title="Add parallel verse (up to 5 verses allowed)"
                 >
                   +
@@ -1140,7 +1127,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 <button
                   type="button"
                   onClick={() => onRemoveVerse(selectedVerseRow)}
-                  className="w-6 h-6 rounded-lg text-xs font-bold flex items-center justify-center text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
+                  className="w-6 h-6 rounded-md text-xs font-bold flex items-center justify-center text-rose-400 hover:bg-rose-950/60 transition-all cursor-pointer"
                   title={`Delete Verse ${selectedVerseRow}`}
                 >
                   ×
@@ -1151,13 +1138,13 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
           {/* Step Prev / Next note navigation when in Lyric mode */}
           {activeField === 'lyric' && (onStepPrevNote || onStepNextNote) && (
-            <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+            <div className="flex items-center gap-0.5 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 shrink-0">
               {onStepPrevNote && (
                 <button
                   id="floating-hud-lyric-prev-note-btn"
                   type="button"
                   onClick={onStepPrevNote}
-                  className="px-2.5 h-7 sm:h-8 rounded-lg font-sans font-bold text-xs flex items-center justify-center text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all cursor-pointer touch-manipulation"
+                  className="px-2.5 h-7 rounded-md font-sans font-bold text-xs flex items-center justify-center text-zinc-300 hover:bg-zinc-800 transition-all cursor-pointer touch-manipulation"
                   title="Previous Note"
                 >
                   ←
@@ -1168,7 +1155,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                   id="floating-hud-lyric-next-note-btn"
                   type="button"
                   onClick={onStepNextNote}
-                  className="px-2.5 h-7 sm:h-8 rounded-lg font-sans font-bold text-xs flex items-center justify-center bg-amber-500 text-zinc-950 font-bold hover:bg-amber-400 transition-all cursor-pointer touch-manipulation shadow-2xs"
+                  className="px-2.5 h-7 rounded-md font-sans font-bold text-xs flex items-center justify-center bg-amber-500 text-zinc-950 font-bold hover:bg-amber-400 transition-all cursor-pointer touch-manipulation shadow-2xs"
                   title="Next Note"
                 >
                   Next →
@@ -1179,14 +1166,14 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
           {/* Pitch Palette: 1-7, 0, - */}
           {activeField === 'pitch' && !showTactileQuickPad && (
-            <div className="flex items-center gap-0.5 sm:gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+            <div className="flex items-center gap-0.5 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 shrink-0">
               {([1, 2, 3, 4, 5, 6, 7] as PitchNumber[]).map(p => (
                 <button
                   key={`hud-pitch-${p}`}
                   id={`floating-hud-pitch-${p}-btn`}
                   type="button"
                   onClick={() => onSetPitch(p)}
-                  className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-mono font-black text-sm sm:text-base flex items-center justify-center text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
+                  className="w-7 h-7 rounded-md font-mono font-black text-sm flex items-center justify-center text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
                   title={`Pitch ${p} (Key ${p})`}
                 >
                   {p}
@@ -1196,7 +1183,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-pitch-rest-btn"
                 type="button"
                 onClick={() => onSetPitch(0)}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-mono font-black text-sm sm:text-base flex items-center justify-center text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
+                className="w-7 h-7 rounded-md font-mono font-black text-sm flex items-center justify-center text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
                 title="Rest note (0) [Key 0]"
               >
                 0
@@ -1205,7 +1192,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-pitch-empty-btn"
                 type="button"
                 onClick={() => onSetPitch('empty')}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-mono font-black text-sm sm:text-base flex items-center justify-center text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
+                className="w-7 h-7 rounded-md font-mono font-black text-sm flex items-center justify-center text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
                 title="Empty / Zero-beat spacer (␣) [0 beats] (Key `)"
               >
                 ␣
@@ -1214,7 +1201,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-pitch-dash-btn"
                 type="button"
                 onClick={onSetDash}
-                className="w-7 h-7 sm:w-8 sm:h-8 rounded-lg font-mono font-black text-sm sm:text-base flex items-center justify-center text-zinc-800 dark:text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
+                className="w-7 h-7 rounded-md font-mono font-black text-sm flex items-center justify-center text-zinc-100 hover:bg-amber-500 hover:text-zinc-950 transition-all active:scale-90 cursor-pointer"
                 title="Sustain Dash (-) extend note duration"
               >
                 -
@@ -1224,15 +1211,15 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
           {/* Octave Controls */}
           {activeField === 'pitch' && !showTactileQuickPad && (
-            <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+            <div className="flex items-center gap-0.5 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 shrink-0">
               <button
                 id="floating-hud-octave-down-btn"
                 type="button"
                 onClick={() => onSetOctave(-1)}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   currentOctave < 0
                     ? 'bg-amber-500 text-zinc-950 font-black'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Octave Down (• below) (Key _)"
               >
@@ -1242,10 +1229,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-octave-up-btn"
                 type="button"
                 onClick={() => onSetOctave(1)}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   currentOctave > 0
                     ? 'bg-amber-500 text-zinc-950 font-black'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Octave Up (• above) (Key +)"
               >
@@ -1256,15 +1243,15 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
           {/* Duration Selector */}
           {activeField === 'pitch' && !showTactileQuickPad && (
-            <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+            <div className="flex items-center gap-0.5 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 shrink-0">
               <button
                 id="floating-hud-dur-quarter-btn"
                 type="button"
                 onClick={() => onSetDuration(1)}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   currentDuration === 1
                     ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Quarter note (1 beat)"
               >
@@ -1274,10 +1261,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-dur-eighth-btn"
                 type="button"
                 onClick={() => onSetDuration(0.5)}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   currentDuration === 0.5
                     ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="8th note (1/2 beat - single beam) (Key /)"
               >
@@ -1287,10 +1274,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-dur-sixteenth-btn"
                 type="button"
                 onClick={() => onSetDuration(0.25)}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   currentDuration === 0.25
                     ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="16th note (1/4 beat - double beam)"
               >
@@ -1300,10 +1287,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-dur-half-btn"
                 type="button"
                 onClick={() => onSetDuration(2)}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   currentDuration === 2
                     ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Half note (2 beats)"
               >
@@ -1313,10 +1300,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-dur-whole-btn"
                 type="button"
                 onClick={() => onSetDuration(4)}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   currentDuration === 4
                     ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Whole note (4 beats)"
               >
@@ -1327,15 +1314,15 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
           {/* Dotted, Slur, Tie, Accidentals */}
           {activeField === 'pitch' && !showTactileQuickPad && (
-            <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700">
+            <div className="flex items-center gap-0.5 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 shrink-0">
               <button
                 id="floating-hud-toggle-dot-btn"
                 type="button"
                 onClick={onToggleDotted}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   isDotted
                     ? 'bg-amber-500 text-zinc-950 font-black'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Toggle Dotted Note (Key .)"
               >
@@ -1345,10 +1332,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-toggle-slur-btn"
                 type="button"
                 onClick={onToggleSlur}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   isSlur
                     ? 'bg-purple-600 text-white font-black'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Toggle Slur arc across notes (Key S)"
               >
@@ -1358,10 +1345,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-toggle-tie-btn"
                 type="button"
                 onClick={onToggleTie}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   isTie
                     ? 'bg-amber-500 text-zinc-950 font-black'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Toggle Tie sustain same pitch (Key T)"
               >
@@ -1371,10 +1358,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-toggle-sharp-btn"
                 type="button"
                 onClick={() => onSetAccidental('#')}
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`w-7 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   currentAccidental === '#'
                     ? 'bg-amber-500 text-zinc-950 font-black'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Sharp accidental (Key #)"
               >
@@ -1384,10 +1371,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-toggle-flat-btn"
                 type="button"
                 onClick={() => onSetAccidental('b')}
-                className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
+                className={`w-7 h-7 rounded-md text-xs font-bold flex items-center justify-center transition-all cursor-pointer ${
                   currentAccidental === 'b'
                     ? 'bg-amber-500 text-zinc-950 font-black'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Flat accidental (Key b)"
               >
@@ -1397,7 +1384,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           )}
 
           {/* Popovers, Piano Bed, Recorder & Tools (Mutually Exclusive) */}
-          <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 shrink-0">
+          <div className="flex items-center gap-0.5 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 shrink-0">
             {/* iPad / Virtual Soft Keyboard Toggle */}
             {onToggleVirtualKeyboard && (
               <button
@@ -1575,16 +1562,16 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             )}
           </div>
 
-          <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block mx-0.5" />
+          <div className="h-5 w-px bg-zinc-800 hidden sm:block mx-0.5" />
 
           {/* Quick Note Operations Group */}
-          <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 shrink-0">
+          <div className="flex items-center gap-0.5 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 shrink-0">
             {onInsertNoteAfter && (
               <button
                 id="floating-hud-quick-add-note-btn"
                 type="button"
                 onClick={onInsertNoteAfter}
-                className="flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer"
+                className="flex items-center gap-1 px-2 h-7 rounded-md text-xs font-bold text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer"
                 title="Insert note after current note (Shift+Plus / +)"
               >
                 <Plus className="w-3.5 h-3.5 shrink-0" />
@@ -1596,7 +1583,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-quick-del-note-btn"
                 type="button"
                 onClick={onDeleteCurrentNote}
-                className="p-1 h-7 sm:h-8 w-7 sm:w-8 rounded-lg text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center transition-all cursor-pointer shrink-0"
+                className="p-1 h-7 w-7 rounded-md text-rose-400 hover:bg-rose-950/60 flex items-center justify-center transition-all cursor-pointer shrink-0"
                 title="Delete current note (Backspace / Delete)"
               >
                 <Trash2 className="w-3.5 h-3.5 shrink-0" />
@@ -1607,7 +1594,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-paste-lyrics-btn"
                 type="button"
                 onClick={onOpenLyricSpreader}
-                className="flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer shrink-0"
+                className="flex items-center gap-1 px-2 h-7 rounded-md text-xs font-bold text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer shrink-0"
                 title="Paste Line / Spread Lyrics across consecutive notes (MOD-3/MOD-5)"
               >
                 <AlignLeft className="w-3.5 h-3.5 text-amber-500 shrink-0" />
@@ -1616,15 +1603,15 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             )}
           </div>
 
-          <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block mx-0.5" />
+          <div className="h-5 w-px bg-zinc-800 hidden sm:block mx-0.5" />
 
           {/* Measure Level Controls: Add Measure After, Line Break, Prelude, Voltas, Auto-Rearrange */}
-          <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 shrink-0">
+          <div className="flex items-center gap-0.5 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 shrink-0">
             <button
               id="floating-hud-append-measure-btn"
               type="button"
               onClick={onAddMeasureAfter || onAddMeasure}
-              className="flex items-center gap-1 px-2.5 h-7 sm:h-8 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer"
+              className="flex items-center gap-1 px-2.5 h-7 rounded-md text-xs font-bold text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer"
               title="Add Measure after current measure"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -1635,10 +1622,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               id="floating-hud-toggle-break-btn"
               type="button"
               onClick={onToggleLineBreak}
-              className={`flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+              className={`flex items-center gap-1 px-2 h-7 rounded-md text-xs font-bold transition-all cursor-pointer ${
                 isLineBreak
                   ? 'bg-amber-500 text-zinc-950 font-black'
-                  : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                  : 'text-zinc-300 hover:bg-zinc-800'
               }`}
               title="Force line break at current measure (splits staff system)"
             >
@@ -1651,10 +1638,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-toggle-prelude-btn"
                 type="button"
                 onClick={onTogglePrelude}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold transition-all cursor-pointer ${
                   isPrelude
                     ? 'bg-indigo-600 text-white font-black'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Toggle instrumental prelude parentheses ( ... )"
               >
@@ -1667,10 +1654,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-toggle-volta-btn"
                 type="button"
                 onClick={onToggleVoltaEnding}
-                className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`px-2 h-7 rounded-md text-xs font-bold transition-all cursor-pointer ${
                   voltaEnding && voltaEnding.length > 0
                     ? 'bg-amber-500 text-zinc-950 font-black'
-                    : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    : 'text-zinc-300 hover:bg-zinc-800'
                 }`}
                 title="Toggle Volta repeat ending bracket ┌ 1. 2. ──┐"
               >
@@ -1683,7 +1670,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-rearrange-measures-btn"
                 type="button"
                 onClick={onAutoRearrangeMeasures}
-                className="flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold text-indigo-700 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-950/50 transition-all cursor-pointer"
+                className="flex items-center gap-1 px-2 h-7 rounded-md text-xs font-bold text-indigo-300 hover:bg-indigo-950/60 transition-all cursor-pointer"
                 title="Auto-Rearrange all measures in song to match time signature"
               >
                 <Shuffle className="w-3.5 h-3.5" />
@@ -1696,12 +1683,12 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-wrap-mode-btn"
                 type="button"
                 onClick={onRotateWrapMode}
-                className={`flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                className={`flex items-center gap-1 px-2 h-7 rounded-md text-xs font-bold transition-all cursor-pointer border ${
                   sheetWrapMode === 'auto_wrap'
-                    ? 'bg-amber-100 dark:bg-amber-500/20 border-amber-400 dark:border-amber-500/50 text-amber-900 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-500/30'
+                    ? 'bg-amber-500/20 border-amber-500/50 text-amber-300 hover:bg-amber-500/30'
                     : sheetWrapMode === 'auto_fit'
-                    ? 'bg-sky-100 dark:bg-sky-500/20 border-sky-400 dark:border-sky-500/50 text-sky-900 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-500/30'
-                    : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    ? 'bg-sky-500/20 border-sky-500/50 text-sky-300 hover:bg-sky-500/30'
+                    : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'
                 }`}
                 title={`Layout mode: ${
                   sheetWrapMode === 'no_wrap'
@@ -1711,9 +1698,9 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                     : 'Auto Fix (Forced measures per line). Click to rotate to No Wrap.'
                 }`}
               >
-                {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />}
-                {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5 text-amber-800 dark:text-amber-400" />}
-                {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5 text-sky-800 dark:text-sky-400" />}
+                {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5 text-zinc-400" />}
+                {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5 text-amber-400" />}
+                {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5 text-sky-400" />}
                 <span className="inline font-mono text-[11px]">
                   {sheetWrapMode === 'no_wrap' ? 'No Wrap' : sheetWrapMode === 'auto_wrap' ? 'Auto Wrap' : 'Auto Fix'}
                 </span>
@@ -1723,7 +1710,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-auto-wrap-measures-btn"
                 type="button"
                 onClick={onAutoWrapMeasures}
-                className="flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-950/50 transition-all cursor-pointer"
+                className="flex items-center gap-1 px-2 h-7 rounded-md text-xs font-bold text-amber-300 hover:bg-amber-950/50 transition-all cursor-pointer"
                 title="Auto-wrap measures to ensure all measures fit within the realistic sheet"
               >
                 <WrapText className="w-3.5 h-3.5" />
@@ -1736,10 +1723,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-orientation-btn"
                 type="button"
                 onClick={onToggleOrientation}
-                className={`flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold transition-all cursor-pointer border ${
+                className={`flex items-center gap-1 px-2 h-7 rounded-md text-xs font-bold transition-all cursor-pointer border ${
                   sheetOrientation === 'landscape'
-                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
-                    : 'bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700 text-zinc-600 dark:text-zinc-400 hover:bg-zinc-200 dark:hover:bg-zinc-700'
+                    ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/25'
+                    : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:bg-zinc-700'
                 }`}
                 title={`Sheet Orientation: ${
                   sheetOrientation === 'portrait'
@@ -1748,7 +1735,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 }`}
               >
                 {sheetOrientation === 'portrait' ? (
-                  <RectangleVertical className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
+                  <RectangleVertical className="w-3.5 h-3.5 text-zinc-400" />
                 ) : (
                   <RectangleHorizontal className="w-3.5 h-3.5 text-emerald-500" />
                 )}
@@ -1763,7 +1750,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-auto-rest-btn"
                 type="button"
                 onClick={onAutoFillRest}
-                className="flex items-center gap-1 px-2 h-7 sm:h-8 rounded-lg text-xs font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 transition-all cursor-pointer shadow-2xs"
+                className="flex items-center gap-1 px-2 h-7 rounded-md text-xs font-bold bg-amber-500 hover:bg-amber-400 text-zinc-950 transition-all cursor-pointer shadow-2xs"
                 title="Auto-fill missing beats with rest notes (0)"
               >
                 <Wand2 className="w-3.5 h-3.5" />
@@ -1776,7 +1763,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-delete-measure-btn"
                 type="button"
                 onClick={onDeleteSelectedMeasure}
-                className="p-1 h-7 sm:h-8 w-7 sm:w-8 rounded-lg text-rose-600 hover:bg-rose-100 dark:hover:bg-rose-950/50 flex items-center justify-center transition-all cursor-pointer"
+                className="p-1 h-7 w-7 rounded-md text-rose-400 hover:bg-rose-950/60 flex items-center justify-center transition-all cursor-pointer"
                 title="Delete current measure"
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -1784,15 +1771,15 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
             )}
           </div>
 
-          <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block mx-0.5" />
+          <div className="h-5 w-px bg-zinc-800 hidden sm:block mx-0.5" />
 
           {/* Zoom & Print */}
-          <div className="flex items-center gap-0.5 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 shrink-0">
+          <div className="flex items-center gap-0.5 bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 shrink-0">
             <button
               id="floating-hud-zoom-out-btn"
               type="button"
               onClick={onZoomOut}
-              className="p-1 h-7 sm:h-8 w-7 sm:w-8 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 flex items-center justify-center transition-all cursor-pointer"
+              className="p-1 h-7 w-7 rounded-md text-zinc-300 hover:bg-zinc-800 flex items-center justify-center transition-all cursor-pointer"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
@@ -1801,7 +1788,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               id="floating-hud-reset-zoom-btn"
               type="button"
               onClick={onResetZoom}
-              className="px-1.5 h-7 sm:h-8 rounded-lg text-[11px] font-mono font-bold text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 flex items-center justify-center transition-all cursor-pointer"
+              className="px-1.5 h-7 rounded-md text-[11px] font-mono font-bold text-zinc-300 hover:bg-zinc-800 flex items-center justify-center transition-all cursor-pointer"
               title="Reset Zoom to 100%"
             >
               {Math.round(zoomScale * 100)}%
@@ -1810,7 +1797,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               id="floating-hud-zoom-in-btn"
               type="button"
               onClick={onZoomIn}
-              className="p-1 h-7 sm:h-8 w-7 sm:w-8 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700 flex items-center justify-center transition-all cursor-pointer"
+              className="p-1 h-7 w-7 rounded-md text-zinc-300 hover:bg-zinc-800 flex items-center justify-center transition-all cursor-pointer"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
@@ -1819,7 +1806,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               id="floating-hud-print-btn"
               type="button"
               onClick={onPrint}
-              className="p-1 h-7 sm:h-8 w-7 sm:w-8 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-amber-500 hover:text-zinc-950 flex items-center justify-center transition-all cursor-pointer"
+              className="p-1 h-7 w-7 rounded-md text-zinc-300 hover:bg-amber-500 hover:text-zinc-950 flex items-center justify-center transition-all cursor-pointer"
               title="Print Sheet Music (WYSIWYG)"
             >
               <Printer className="w-3.5 h-3.5" />
@@ -1829,7 +1816,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 id="floating-hud-toggle-theme-btn"
                 type="button"
                 onClick={onToggleSheetTheme}
-                className="p-1 h-7 sm:h-8 w-7 sm:w-8 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-amber-500 hover:text-zinc-950 flex items-center justify-center transition-all cursor-pointer"
+                className="p-1 h-7 w-7 rounded-md text-zinc-300 hover:bg-amber-500 hover:text-zinc-950 flex items-center justify-center transition-all cursor-pointer"
                 title={sheetTheme === 'dark' ? 'Switch score paper to Light Parchment' : 'Switch score paper to Dark Stage Mode'}
               >
                 {sheetTheme === 'dark' ? (
@@ -1844,7 +1831,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               id="floating-hud-shortcuts-btn"
               type="button"
               onClick={() => setShowShortcutsModal(true)}
-              className="p-1 h-7 sm:h-8 w-7 sm:w-8 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-amber-500 hover:text-zinc-950 flex items-center justify-center transition-all cursor-pointer"
+              className="p-1 h-7 w-7 rounded-md text-zinc-300 hover:bg-amber-500 hover:text-zinc-950 flex items-center justify-center transition-all cursor-pointer"
               title="Keyboard Shortcuts Guide"
             >
               <Command className="w-3.5 h-3.5 text-amber-500" />
