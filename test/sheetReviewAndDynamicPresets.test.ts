@@ -169,32 +169,37 @@ test('Automated Song Review & Validation Engine', async (t) => {
 });
 
 test('Dynamic Preset Folder & Manifest Integration', async (t) => {
-  await t.test('SHEET_FILE_REGISTRY contains all 4 default sheets with correct metadata', () => {
-    assert.ok(SHEET_FILE_REGISTRY.length >= 4, `Expected at least 4 sheets, got ${SHEET_FILE_REGISTRY.length}`);
+  await t.test('SHEET_FILE_REGISTRY contains all default sheets with correct metadata', () => {
+    assert.ok(SHEET_FILE_REGISTRY.length >= 5, `Expected at least 5 sheets, got ${SHEET_FILE_REGISTRY.length}`);
     const bch = SHEET_FILE_REGISTRY.find(s => s.id === 'bang-chhun-hong');
     const uia = SHEET_FILE_REGISTRY.find(s => s.id === 'u-ia-hoe');
     const skh = SHEET_FILE_REGISTRY.find(s => s.id === 'su-ki-hong');
     const ttg = SHEET_FILE_REGISTRY.find(s => s.id === 'taiwan-the-green');
+    const isl = SHEET_FILE_REGISTRY.find(s => s.id === 'i-si-lan-e-po-poe');
 
     assert.ok(bch, 'bang-chhun-hong must be present in registry');
     assert.ok(uia, 'u-ia-hoe must be present in registry');
     assert.ok(skh, 'su-ki-hong must be present in registry');
     assert.ok(ttg, 'taiwan-the-green must be present in registry');
+    assert.ok(isl, 'i-si-lan-e-po-poe must be present in registry');
 
     assert.equal(bch?.isTaigi, true);
     assert.equal(bch?.order, 1);
     assert.equal(uia?.order, 2);
     assert.equal(skh?.order, 3);
     assert.equal(ttg?.order, 4);
+    assert.equal(isl?.order, 5);
   });
 
   await t.test('PRESET_SONGS retains exact expected ordering and song details', () => {
-    assert.ok(PRESET_SONGS.length >= 4);
+    assert.ok(PRESET_SONGS.length >= 5);
     assert.equal(PRESET_SONGS[0].id, 'bang-chhun-hong');
     assert.equal(PRESET_SONGS[0].title, '望春風');
     assert.equal(PRESET_SONGS[1].id, 'u-ia-hoe');
     assert.equal(PRESET_SONGS[2].id, 'su-ki-hong');
     assert.equal(PRESET_SONGS[3].id, 'taiwan-the-green');
+    assert.equal(PRESET_SONGS[4].id, 'i-si-lan-e-po-poe');
+    assert.equal(PRESET_SONGS[4].title, '伊是咱的寶貝');
 
     assert.equal(TAIWAN_THE_GREEN.id, 'taiwan-the-green');
     assert.equal(TAIWAN_THE_GREEN.title, '台灣翠青');

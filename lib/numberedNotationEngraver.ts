@@ -74,6 +74,12 @@ export interface EngravedSystem {
   totalRequiredWidth: number;
 }
 
+export interface EngravingZoomOptions {
+  noteZoom?: number;
+  lyricZoom?: number;
+  hasMultipleVerses?: boolean;
+}
+
 /**
  * Parse time signature into beats per measure and beat unit duration.
  */
@@ -136,7 +142,8 @@ export function engraveMeasure(
   measure: Measure,
   measureIndex: number,
   timeSignature: TimeSignature,
-  allMeasures?: Measure[]
+  allMeasures?: Measure[],
+  zoomOptions?: EngravingZoomOptions
 ): EngravedMeasure {
   const { beatsPerMeasure, groupingBeatLength } = parseTimeSignature(timeSignature);
   const expectedBeats = beatsPerMeasure * (timeSignature === '6/8' ? 1.5 : 1.0);
@@ -318,12 +325,12 @@ export function engraveMeasure(
   // Compute collision-free required width for each note and the whole measure
   const noteWidths: number[] = [];
   engravedNotes.forEach((engNote) => {
-    const reqW = calculateNoteRequiredWidth(engNote.note, { dashCount: engNote.dashCount });
+    const reqW = calculateNoteRequiredWidth(engNote.note, { dashCount: engNote.dashCount }, zoomOptions);
     engNote.requiredWidth = reqW;
     noteWidths.push(reqW);
   });
 
-  const requiredWidth = calculateMeasureRequiredWidth(measure, engravedNotes, chordText, sectionText);
+  const requiredWidth = calculateMeasureRequiredWidth(measure, engravedNotes, chordText, sectionText, zoomOptions);
 
   return {
     measure,
@@ -354,21 +361,27 @@ export function engraveMeasure(
  */
 export function calculateNoteRequiredWidth(
   note: NumberedNotationNote,
-  raw?: { dashCount?: number }
+  raw?: { dashCount?: number },
+  zoomOptions?: EngravingZoomOptions
 ): number {
+  const noteZoom = zoomOptions?.noteZoom ?? 1.0;
+  const lyricZoom = zoomOptions?.lyricZoom ?? 1.0;
+  // Effective lyric zoom aligns with CSS globals.css and useScoreZoom (zoom * 1.2)
+  const effectiveLyricZoom = Number((lyricZoom * 1.2).toFixed(4));
+
   const dashCount = raw?.dashCount ?? getDashCountForDuration(Number(note.duration) || 0, note.isDotted);
   const graceCount = (note.preGraceNotes?.length || 0) + (note.postGraceNotes?.length || 0);
   const hasAccidental = Boolean(note.accidental);
   const isDotted = Boolean(note.isDotted);
   const isTriplet = Boolean(note.isTriplet);
 
-  // Pitch element widths (compact baseline)
-  let pitchWidth = 15 + dashCount * 8 + graceCount * 8;
-  if (hasAccidental) pitchWidth += 6;
-  if (isDotted) pitchWidth += 5;
-  if (isTriplet) pitchWidth += 5;
+  // Pitch element widths (scaled by noteZoom)
+  let pitchWidth = (18 + dashCount * 12 + graceCount * 10) * noteZoom;
+  if (hasAccidental) pitchWidth += 8 * noteZoom;
+  if (isDotted) pitchWidth += 6 * noteZoom;
+  if (isTriplet) pitchWidth += 6 * noteZoom;
 
-  // Syllable text width across all verse layers
+  // Syllable text width across all verse layers (scaled by effectiveLyricZoom)
   let maxLyricWidth = 0;
 
   const checkLyric = (hanlo?: string, poj?: string) => {
@@ -380,24 +393,25 @@ export function calculateNoteRequiredWidth(
     if (h) {
       for (const ch of h) {
         if (/[，。、！？,.!?…]/.test(ch)) {
-          hWidth += 6;
+          hWidth += 8;
         } else {
-          hWidth += 12;
+          hWidth += 15;
         }
       }
     }
 
     let pWidth = 0;
     if (p) {
-      pWidth = p.length * 7.0;
+      pWidth = p.length * 8.2;
       // Snug word boundary margin if not continuing with hyphen to next syllable
       if (!p.endsWith('-') && !p.endsWith('--')) {
-        pWidth += 2;
+        pWidth += 5;
       }
     }
 
-    const w = Math.max(hWidth, pWidth);
-    if (w > maxLyricWidth) maxLyricWidth = w;
+    const rawW = Math.max(hWidth, pWidth);
+    const scaledW = rawW * effectiveLyricZoom;
+    if (scaledW > maxLyricWidth) maxLyricWidth = scaledW;
   };
 
   // Check direct lyric
@@ -422,45 +436,56 @@ export function calculateNoteRequiredWidth(
     }
   }
 
-  return Math.max(16, Math.round(Math.max(pitchWidth, maxLyricWidth + 2)));
+  return Math.max(20, Math.round(Math.max(pitchWidth, maxLyricWidth) + 4));
 }
 
 /**
- * Computes the minimum required width (in px) for a measure to display without text collisions.
+ * Computes the minimum required width (in px) for a measure to display without text collisions or barline overflow.
  */
 export function calculateMeasureRequiredWidth(
   measure: Measure,
   engravedNotes: EngravedNote[],
   chordText: string,
-  sectionText: string
+  sectionText: string,
+  zoomOptions?: EngravingZoomOptions
 ): number {
-  let baseWidth = 24; // Barlines, measure number, default margins
-  if (chordText && chordText.length > 2) {
-    baseWidth += (chordText.length - 2) * 7;
+  // Base padding: measure padding plus right barline clearance margin (pl-1.5 pr-3)
+  let baseWidth = 24;
+
+  // Header floor: ensure short measures (1 note) have space for measure number, chords, and section badges
+  let headerFloor = 20 + 32; // measure number + beat indicators
+  if (chordText && chordText.length > 0) {
+    headerFloor += chordText.length * 7 + 8;
   }
-  if (sectionText) {
-    baseWidth += Math.max(24, sectionText.length * 7);
+  if (sectionText && sectionText.length > 0) {
+    headerFloor += Math.max(24, sectionText.length * 7 + 18);
   }
   if (measure.voltaEnding && measure.voltaEnding.length > 0) {
-    baseWidth += 20;
+    headerFloor += 24;
   }
   if (measure.isPrelude) {
     baseWidth += 14;
   }
 
+  // If song has multiple verses, reserve space for verse numbering prefix column (1. / 2.)
+  if (zoomOptions?.hasMultipleVerses) {
+    const lyricZoom = zoomOptions.lyricZoom ?? 1.0;
+    baseWidth += Math.round(18 * (lyricZoom * 1.2));
+  }
+
   let notesWidth = 0;
   if (engravedNotes && engravedNotes.length > 0) {
-    notesWidth = engravedNotes.reduce((sum, n) => sum + (n.requiredWidth || 24), 0);
+    notesWidth = engravedNotes.reduce((sum, n) => sum + (n.requiredWidth || 20), 0);
   } else {
     notesWidth = 50;
   }
 
   if (measure.obbligato && measure.obbligato.length > 0) {
-    const obWidth = measure.obbligato.length * 22;
+    const obWidth = measure.obbligato.length * 22 * (zoomOptions?.noteZoom ?? 1.0);
     notesWidth = Math.max(notesWidth, obWidth);
   }
 
-  return Math.max(75, Math.round(baseWidth + notesWidth));
+  return Math.max(headerFloor, Math.max(75, Math.round(baseWidth + notesWidth)));
 }
 
 /**
@@ -558,7 +583,8 @@ export function groupMeasuresIntoSystems(
   defaultMeasuresPerSystem = 4,
   wrapMode: SheetWrapMode = 'no_wrap',
   orientation: SheetOrientation = 'portrait',
-  maxLineWidth?: number
+  maxLineWidth?: number,
+  zoomOptions?: EngravingZoomOptions
 ): EngravedSystem[] {
   const systems: EngravedSystem[] = [];
 
@@ -566,13 +592,13 @@ export function groupMeasuresIntoSystems(
   let currentSystemWidth = 0;
   // Content line width budgets: ~760px for Portrait (A4 896px minus padding), ~980px for Landscape (A4 1240px minus padding)
   const MAX_SYSTEM_LINE_WIDTH = maxLineWidth
-    ? Math.max(300, maxLineWidth - 10)
+    ? Math.max(300, maxLineWidth)
     : (orientation === 'landscape' ? 980 : 760);
   const effectiveDefaultMeasures =
     defaultMeasuresPerSystem || (orientation === 'landscape' ? 5 : 4);
 
   measures.forEach((measure, idx) => {
-    const engraved = engraveMeasure(measure, idx, timeSignature, measures);
+    const engraved = engraveMeasure(measure, idx, timeSignature, measures, zoomOptions);
     const mWidth = engraved.requiredWidth || 100;
 
     let shouldBreakBefore = false;

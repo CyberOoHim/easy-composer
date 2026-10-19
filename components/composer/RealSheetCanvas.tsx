@@ -37,6 +37,7 @@ import {
   smartFindRepeatRange,
 } from '@/lib/abOperations';
 import { PianoKeyboard } from '@/components/PianoKeyboard';
+import { useScoreZoom } from '@/hooks/useScoreZoom';
 import { AudioEngine, audioEngine as defaultAudioEngine } from '@/lib/audioEngine';
 import { autoArrangeSongChords, getDiatonicCandidateChords } from '@/lib/chordArranger';
 import {
@@ -408,6 +409,9 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   pastCount = 0,
   futureCount = 0,
 }) => {
+  // Reactive Note and Lyric zoom levels
+  const { noteZoom, lyricZoom } = useScoreZoom();
+
   // Theme state: light (parchment) vs dark (studio stage)
   const [internalSheetTheme, setInternalSheetTheme] = useState<RealSheetTheme>(() => getStoredRealSheetTheme('dark'));
   const sheetTheme = propSheetTheme ?? internalSheetTheme;
@@ -1145,13 +1149,24 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       song.notesPerLine || (sheetOrientation === 'landscape' ? 5 : 4),
       sheetWrapMode,
       sheetOrientation,
-      effectiveContentWidth
+      effectiveContentWidth,
+      { noteZoom, lyricZoom, hasMultipleVerses }
     );
-  }, [song.measures, song.timeSignature, song.notesPerLine, sheetWrapMode, sheetOrientation, effectiveContentWidth]);
+  }, [
+    song.measures,
+    song.timeSignature,
+    song.notesPerLine,
+    sheetWrapMode,
+    sheetOrientation,
+    effectiveContentWidth,
+    noteZoom,
+    lyricZoom,
+    hasMultipleVerses,
+  ]);
 
   // Natural measure width for no_wrap mode (spacious, collision-free, unstretched)
   const getNaturalMeasureWidth = useCallback((engravedM: EngravedMeasure) => {
-    return Math.max(160, Math.round((engravedM.requiredWidth || 160) * 1.08));
+    return Math.max(160, Math.round(engravedM.requiredWidth || 160));
   }, []);
 
   // Compute required width for longest system line
@@ -3933,18 +3948,20 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                       flex: sheetWrapMode === 'no_wrap'
                         ? '0 0 auto'
                         : sheetWrapMode === 'auto_wrap'
-                        ? `${Math.max(1, Math.round(engravedM.requiredWidth || 75))}`
-                        : 1,
+                        ? `${Math.max(1, Math.round(engravedM.requiredWidth || 75))} 1 auto`
+                        : `${Math.max(1, Math.round(engravedM.requiredWidth || 75))} 1 0px`,
                       width: sheetWrapMode === 'no_wrap'
-                        ? `${getNaturalMeasureWidth(engravedM)}px`
+                        ? 'auto'
                         : undefined,
                       minWidth: sheetWrapMode === 'no_wrap'
-                        ? `${Math.max(120, Math.round((engravedM.requiredWidth || 120) * 1.02))}px`
+                        ? `${getNaturalMeasureWidth(engravedM)}px`
+                        : sheetWrapMode === 'auto_wrap'
+                        ? `${Math.max(75, Math.round((engravedM.requiredWidth || 75) * 0.85))}px`
                         : 0,
                     }}
                     className={`relative ${
                       sheetWrapMode === 'no_wrap' ? 'flex-none' : 'flex-1 min-w-0'
-                    } flex flex-col justify-between px-1 sm:px-1.5 pt-1 pb-0.5 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
+                    } flex flex-col justify-between pl-1.5 pr-3 sm:pl-2 sm:pr-3.5 pt-1 pb-0.5 transition-colors cursor-pointer group measure-containment touch-manipulation print:bg-transparent ${
                       isMeasureInAb
                         ? sheetTheme === 'dark'
                           ? 'bg-amber-500/15 ring-2 ring-amber-400/80 rounded-md'
@@ -4236,8 +4253,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                               }}
                               style={{
                                 zoom: 'var(--note-zoom, 1)',
-                                flex: `${Math.max(1, Math.round((engNote.requiredWidth || 16) / 10))} 1 auto`,
-                                minWidth: `${Math.max(16, Math.round((engNote.requiredWidth || 16) * 0.85))}px`,
+                                flex: `${Math.max(1, Math.round((engNote.requiredWidth || 20) / 4))} 1 0px`,
+                                minWidth: `${Math.max(16, Math.round((engNote.requiredWidth || 20) / (noteZoom || 1)))}px`,
                               }}
                               className={`relative flex flex-col items-center justify-center p-0 px-0.5 rounded-sm transition-all cursor-pointer touch-manipulation select-none min-h-[28px] print:ring-0 print:bg-transparent ${
                                 isSelectedNote
@@ -4564,8 +4581,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                                     }}
                                     style={{
                                       zoom: 'var(--lyric-zoom, 1)',
-                                      flex: `${Math.max(1, Math.round((engNote.requiredWidth || 16) / 10))} 1 auto`,
-                                      minWidth: `${Math.max(16, Math.round((engNote.requiredWidth || 16) * 0.85))}px`,
+                                      flex: `${Math.max(1, Math.round((engNote.requiredWidth || 20) / 4))} 1 0px`,
+                                      minWidth: `${Math.max(14, Math.round((engNote.requiredWidth || 20) / ((lyricZoom || 1) * 1.2)))}px`,
                                     }}
                                     className={`flex-1 text-center min-h-[20px] sm:min-h-[24px] flex items-center ${
                                       connectsToNextWithSemiHyphen

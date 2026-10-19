@@ -1,0 +1,1469 @@
+{
+  "order": 5,
+  "id": "i-si-lan-e-po-poe",
+  "title": "伊是咱的寶貝",
+  "subtitle": "I Sī Lán ê Pó-pòe (降E調 4/4・陳明章 詞曲)",
+  "catalogNumber": "TW-1993-ISL",
+  "lyricist": "陳明章 (Chân Bêng-chiong)",
+  "composer": "陳明章 (Chân Bêng-chiong)",
+  "notator": "原譜簡譜精確對齊排版",
+  "key": "Eb",
+  "timeSignature": "4/4",
+  "bpm": 76,
+  "notesPerLine": 4,
+  "orientation": "portrait",
+  "verseCount": 2,
+  "description": "陳明章作詞作曲經典臺灣歌謠《伊是咱ㄟ寶貝》（亦作《你是咱的寶貝》），降E調 (1=Eb, 4/4拍，♩=76)。依據原版簡譜（16小節、每行4小節）逐音精確採譜，完整對齊白話字 (POJ) 與漢羅歌詞。",
+  "footnote": "作曲、詞：陳明章 (Chân Bêng-chiong, 1993) / 降E調 4/4\n第1段採用原譜漢字（伊是咱ㄟ寶貝），第2段採用教育部推薦用字（你是咱的寶貝）。",
+  "measures": [
+    {
+      "id": "isl_m1",
+      "measureNumber": 1,
+      "chord": "Eb",
+      "chords": [
+        "Eb",
+        "Fm"
+      ],
+      "section": "主歌 A1 (Verse 1)",
+      "notes": [
+        {
+          "id": "isl_n1_1",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 1.5,
+          "isDotted": true,
+          "lyric": {
+            "poj": "Chi̍t",
+            "hanlo": "一"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "一",
+              "poj": "Chi̍t"
+            },
+            "2": {
+              "hanlo": "一",
+              "poj": "Chi̍t"
+            }
+          }
+        },
+        {
+          "id": "isl_n1_2",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "lúi",
+            "hanlo": "蕊"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "蕊",
+              "poj": "lúi"
+            },
+            "2": {
+              "hanlo": "蕊",
+              "poj": "lúi"
+            }
+          }
+        },
+        {
+          "id": "isl_n1_3",
+          "pitch": 2,
+          "octave": 0,
+          "duration": 2,
+          "lyric": {
+            "poj": "hoe",
+            "hanlo": "花"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "花",
+              "poj": "hoe"
+            },
+            "2": {
+              "hanlo": "花",
+              "poj": "hoe"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m2",
+      "measureNumber": 2,
+      "chord": "Cm",
+      "chords": [
+        "Cm",
+        "Bb"
+      ],
+      "notes": [
+        {
+          "id": "isl_n2_1",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 1.5,
+          "isDotted": true,
+          "lyric": {
+            "poj": "seⁿ",
+            "hanlo": "生"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "生",
+              "poj": "seⁿ"
+            },
+            "2": {
+              "hanlo": "生",
+              "poj": "seⁿ"
+            }
+          }
+        },
+        {
+          "id": "isl_n2_2",
+          "pitch": 6,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "lo̍h",
+            "hanlo": "落"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "落",
+              "poj": "lo̍h"
+            },
+            "2": {
+              "hanlo": "落",
+              "poj": "lo̍h"
+            }
+          }
+        },
+        {
+          "id": "isl_n2_3",
+          "pitch": 7,
+          "octave": -1,
+          "duration": 2,
+          "lyric": {
+            "poj": "tē,\n",
+            "hanlo": "地，\n"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "地，\n",
+              "poj": "tē,\n"
+            },
+            "2": {
+              "hanlo": "地，\n",
+              "poj": "tē,\n"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m3",
+      "measureNumber": 3,
+      "chord": "Ab",
+      "chords": [
+        "Ab",
+        "Fm"
+      ],
+      "notes": [
+        {
+          "id": "isl_n3_1",
+          "pitch": 4,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "Pá",
+            "hanlo": "爸"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "爸",
+              "poj": "Pá"
+            },
+            "2": {
+              "hanlo": "爸",
+              "poj": "Pá"
+            }
+          }
+        },
+        {
+          "id": "isl_n3_2",
+          "pitch": 5,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "pah",
+            "hanlo": "爸"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "爸",
+              "poj": "pah"
+            },
+            "2": {
+              "hanlo": "爸",
+              "poj": "pah"
+            }
+          }
+        },
+        {
+          "id": "isl_n3_3",
+          "pitch": 6,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "má",
+            "hanlo": "媽"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "媽",
+              "poj": "má"
+            },
+            "2": {
+              "hanlo": "媽",
+              "poj": "má"
+            }
+          }
+        },
+        {
+          "id": "isl_n3_4",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "mah",
+            "hanlo": "媽"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "媽",
+              "poj": "mah"
+            },
+            "2": {
+              "hanlo": "媽",
+              "poj": "mah"
+            }
+          }
+        },
+        {
+          "id": "isl_n3_5",
+          "pitch": 2,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "poj": "thiàⁿ",
+            "hanlo": "疼"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "疼",
+              "poj": "thiàⁿ"
+            },
+            "2": {
+              "hanlo": "疼",
+              "poj": "thiàⁿ"
+            }
+          }
+        },
+        {
+          "id": "isl_n3_6",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "poj": "siōng",
+            "hanlo": "尚"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "尚",
+              "poj": "siōng"
+            },
+            "2": {
+              "hanlo": "上",
+              "poj": "siōng"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m4",
+      "measureNumber": 4,
+      "chord": "Bb7",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "isl_n4_1",
+          "pitch": 2,
+          "octave": 0,
+          "duration": 4,
+          "lyric": {
+            "poj": "chē.",
+            "hanlo": "多。"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "多。",
+              "poj": "chē."
+            },
+            "2": {
+              "hanlo": "濟。",
+              "poj": "chē."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m5",
+      "measureNumber": 5,
+      "chord": "Eb",
+      "section": "主歌 A2 (Verse 2)",
+      "notes": [
+        {
+          "id": "isl_n5_1",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 1.5,
+          "isDotted": true,
+          "lyric": {
+            "poj": "Hong",
+            "hanlo": "風"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "風",
+              "poj": "Hong"
+            },
+            "2": {
+              "hanlo": "風",
+              "poj": "Hong"
+            }
+          }
+        },
+        {
+          "id": "isl_n5_2",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "nā",
+            "hanlo": "那"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "那",
+              "poj": "nā"
+            },
+            "2": {
+              "hanlo": "若",
+              "poj": "nā"
+            }
+          }
+        },
+        {
+          "id": "isl_n5_3",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 2,
+          "lyric": {
+            "poj": "chhoe,",
+            "hanlo": "吹，"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "吹，",
+              "poj": "chhoe,"
+            },
+            "2": {
+              "hanlo": "吹，",
+              "poj": "chhoe,"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m6",
+      "measureNumber": 6,
+      "chord": "Gm",
+      "chords": [
+        "Bb",
+        "Gm"
+      ],
+      "notes": [
+        {
+          "id": "isl_n6_1",
+          "pitch": 2,
+          "octave": 0,
+          "duration": 1.5,
+          "isDotted": true,
+          "lyric": {
+            "poj": "ài",
+            "hanlo": "愛"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "愛",
+              "poj": "ài"
+            },
+            "2": {
+              "hanlo": "愛",
+              "poj": "ài"
+            }
+          }
+        },
+        {
+          "id": "isl_n6_2",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "kah",
+            "hanlo": "甲"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "甲",
+              "poj": "kah"
+            },
+            "2": {
+              "hanlo": "蓋",
+              "poj": "kah"
+            }
+          }
+        },
+        {
+          "id": "isl_n6_3",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 2,
+          "lyric": {
+            "poj": "phē,\n",
+            "hanlo": "被，\n"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "被，\n",
+              "poj": "phē,\n"
+            },
+            "2": {
+              "hanlo": "被，\n",
+              "poj": "phē,\n"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m7",
+      "measureNumber": 7,
+      "chord": "Ab",
+      "chords": [
+        "Ab",
+        "Eb"
+      ],
+      "notes": [
+        {
+          "id": "isl_n7_1",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "M̄",
+            "hanlo": "嘸"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "嘸",
+              "poj": "M̄"
+            },
+            "2": {
+              "hanlo": "毋",
+              "poj": "M̄"
+            }
+          }
+        },
+        {
+          "id": "isl_n7_2",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "thang",
+            "hanlo": "通"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "通",
+              "poj": "thang"
+            },
+            "2": {
+              "hanlo": "通",
+              "poj": "thang"
+            }
+          }
+        },
+        {
+          "id": "isl_n7_3",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "hō͘",
+            "hanlo": "予"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "予",
+              "poj": "hō͘"
+            },
+            "2": {
+              "hanlo": "予",
+              "poj": "hō͘"
+            }
+          }
+        },
+        {
+          "id": "isl_n7_4",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "i",
+            "hanlo": "伊"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "伊",
+              "poj": "i"
+            },
+            "2": {
+              "hanlo": "伊",
+              "poj": "i"
+            }
+          }
+        },
+        {
+          "id": "isl_n7_5",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "tūi",
+            "hanlo": "墮"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "墮",
+              "poj": "tūi"
+            },
+            "2": {
+              "hanlo": "墜",
+              "poj": "tūi"
+            }
+          }
+        },
+        {
+          "id": "isl_n7_6",
+          "pitch": 2,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "lo̍h",
+            "hanlo": "落"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "落",
+              "poj": "lo̍h"
+            },
+            "2": {
+              "hanlo": "落",
+              "poj": "lo̍h"
+            }
+          }
+        },
+        {
+          "id": "isl_n7_7",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "o͘",
+            "hanlo": "黑"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "黑",
+              "poj": "o͘"
+            },
+            "2": {
+              "hanlo": "烏",
+              "poj": "o͘"
+            }
+          }
+        },
+        {
+          "id": "isl_n7_8",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "àm",
+            "hanlo": "暗"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "暗",
+              "poj": "àm"
+            },
+            "2": {
+              "hanlo": "暗",
+              "poj": "àm"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m8",
+      "measureNumber": 8,
+      "chord": "Bb7",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "isl_n8_1",
+          "pitch": 2,
+          "octave": 0,
+          "duration": 4,
+          "lyric": {
+            "poj": "tē.",
+            "hanlo": "地。"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "地。",
+              "poj": "tē."
+            },
+            "2": {
+              "hanlo": "地。",
+              "poj": "tē."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m9",
+      "measureNumber": 9,
+      "chord": "Ab",
+      "chords": [
+        "Gm",
+        "Ab"
+      ],
+      "section": "過門 B (Bridge)",
+      "notes": [
+        {
+          "id": "isl_n9_1",
+          "pitch": 5,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "Bē",
+            "hanlo": "勿會"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "勿會",
+              "poj": "Bē"
+            },
+            "2": {
+              "hanlo": "未",
+              "poj": "Bē"
+            }
+          }
+        },
+        {
+          "id": "isl_n9_2",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "khui",
+            "hanlo": "開"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "開",
+              "poj": "khui"
+            },
+            "2": {
+              "hanlo": "開",
+              "poj": "khui"
+            }
+          }
+        },
+        {
+          "id": "isl_n9_3",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "ê",
+            "hanlo": "ㄟ"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "ㄟ",
+              "poj": "ê"
+            },
+            "2": {
+              "hanlo": "的",
+              "poj": "ê"
+            }
+          }
+        },
+        {
+          "id": "isl_n9_4",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "hoe,\n",
+            "hanlo": "花，\n"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "花，\n",
+              "poj": "hoe,\n"
+            },
+            "2": {
+              "hanlo": "花，\n",
+              "poj": "hoe,\n"
+            }
+          }
+        },
+        {
+          "id": "isl_n9_5",
+          "pitch": 2,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "su",
+            "hanlo": "需"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "需",
+              "poj": "su"
+            },
+            "2": {
+              "hanlo": "需",
+              "poj": "su"
+            }
+          }
+        },
+        {
+          "id": "isl_n9_6",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "iàu",
+            "hanlo": "要"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "要",
+              "poj": "iàu"
+            },
+            "2": {
+              "hanlo": "要",
+              "poj": "iàu"
+            }
+          }
+        },
+        {
+          "id": "isl_n9_7",
+          "pitch": 7,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "lí",
+            "hanlo": "你"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "你",
+              "poj": "lí"
+            },
+            "2": {
+              "hanlo": "你",
+              "poj": "lí"
+            }
+          }
+        },
+        {
+          "id": "isl_n9_8",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "góa",
+            "hanlo": "我"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "我",
+              "poj": "góa"
+            },
+            "2": {
+              "hanlo": "我",
+              "poj": "góa"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m10",
+      "measureNumber": 10,
+      "chord": "Eb",
+      "chords": [
+        "Eb",
+        "Bb"
+      ],
+      "notes": [
+        {
+          "id": "isl_n10_1",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "poj": "ê",
+            "hanlo": "ㄟ"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "ㄟ",
+              "poj": "ê"
+            },
+            "2": {
+              "hanlo": "的",
+              "poj": "ê"
+            }
+          }
+        },
+        {
+          "id": "isl_n10_2",
+          "pitch": 6,
+          "octave": -1,
+          "duration": 1,
+          "lyric": {
+            "poj": "koan",
+            "hanlo": "關"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "關",
+              "poj": "koan"
+            },
+            "2": {
+              "hanlo": "關",
+              "poj": "koan"
+            }
+          }
+        },
+        {
+          "id": "isl_n10_3",
+          "pitch": 5,
+          "octave": -1,
+          "duration": 2,
+          "lyric": {
+            "poj": "sim,\n",
+            "hanlo": "心，\n"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "心，\n",
+              "poj": "sim,\n"
+            },
+            "2": {
+              "hanlo": "心，\n",
+              "poj": "sim,\n"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m11",
+      "measureNumber": 11,
+      "chord": "Fm",
+      "chords": [
+        "Fm",
+        "Ab"
+      ],
+      "notes": [
+        {
+          "id": "isl_n11_1",
+          "pitch": 6,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "Hō͘",
+            "hanlo": "予"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "予",
+              "poj": "Hō͘"
+            },
+            "2": {
+              "hanlo": "予",
+              "poj": "Hō͘"
+            }
+          }
+        },
+        {
+          "id": "isl_n11_2",
+          "pitch": 7,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "i",
+            "hanlo": "伊"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "伊",
+              "poj": "i"
+            },
+            "2": {
+              "hanlo": "伊",
+              "poj": "i"
+            }
+          }
+        },
+        {
+          "id": "isl_n11_3",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "chi̍t",
+            "hanlo": "一"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "一",
+              "poj": "chi̍t"
+            },
+            "2": {
+              "hanlo": "一",
+              "poj": "chi̍t"
+            }
+          }
+        },
+        {
+          "id": "isl_n11_4",
+          "pitch": 6,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "phìⁿ",
+            "hanlo": "片"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "片",
+              "poj": "phìⁿ"
+            },
+            "2": {
+              "hanlo": "片",
+              "poj": "phìⁿ"
+            }
+          }
+        },
+        {
+          "id": "isl_n11_5",
+          "pitch": 7,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "seng",
+            "hanlo": "生"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "生",
+              "poj": "seng"
+            },
+            "2": {
+              "hanlo": "生",
+              "poj": "seng"
+            }
+          }
+        },
+        {
+          "id": "isl_n11_6",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "tióng",
+            "hanlo": "長"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "長",
+              "poj": "tióng"
+            },
+            "2": {
+              "hanlo": "長",
+              "poj": "tióng"
+            }
+          }
+        },
+        {
+          "id": "isl_n11_7",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "ê",
+            "hanlo": "的"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "的",
+              "poj": "ê"
+            },
+            "2": {
+              "hanlo": "的",
+              "poj": "ê"
+            }
+          }
+        },
+        {
+          "id": "isl_n11_8",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "thó͘",
+            "hanlo": "土"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "土",
+              "poj": "thó͘"
+            },
+            "2": {
+              "hanlo": "土",
+              "poj": "thó͘"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m12",
+      "measureNumber": 12,
+      "chord": "Bb7",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "isl_n12_1",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 4,
+          "lyric": {
+            "poj": "tē.",
+            "hanlo": "地。"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "地。",
+              "poj": "tē."
+            },
+            "2": {
+              "hanlo": "地。",
+              "poj": "tē."
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m13",
+      "measureNumber": 13,
+      "chord": "Eb",
+      "chords": [
+        "Eb",
+        "Ab"
+      ],
+      "section": "副歌 (Chorus)",
+      "notes": [
+        {
+          "id": "isl_n13_1",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "Chhiú",
+            "hanlo": "手"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "手",
+              "poj": "Chhiú"
+            },
+            "2": {
+              "hanlo": "手",
+              "poj": "Chhiú"
+            }
+          }
+        },
+        {
+          "id": "isl_n13_2",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "khan",
+            "hanlo": "牽"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "牽",
+              "poj": "khan"
+            },
+            "2": {
+              "hanlo": "牽",
+              "poj": "khan"
+            }
+          }
+        },
+        {
+          "id": "isl_n13_3",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "poj": "chhiú,",
+            "hanlo": "手，"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "手，",
+              "poj": "chhiú,"
+            },
+            "2": {
+              "hanlo": "手，",
+              "poj": "chhiú,"
+            }
+          }
+        },
+        {
+          "id": "isl_n13_4",
+          "pitch": 4,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "sim",
+            "hanlo": "心"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "心",
+              "poj": "sim"
+            },
+            "2": {
+              "hanlo": "心",
+              "poj": "sim"
+            }
+          }
+        },
+        {
+          "id": "isl_n13_5",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "liân",
+            "hanlo": "連"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "連",
+              "poj": "liân"
+            },
+            "2": {
+              "hanlo": "連",
+              "poj": "liân"
+            }
+          }
+        },
+        {
+          "id": "isl_n13_6",
+          "pitch": 6,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "poj": "sim,",
+            "hanlo": "心，"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "心，",
+              "poj": "sim,"
+            },
+            "2": {
+              "hanlo": "心，",
+              "poj": "sim,"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m14",
+      "measureNumber": 14,
+      "chord": "Cm",
+      "chords": [
+        "Eb",
+        "Cm"
+      ],
+      "notes": [
+        {
+          "id": "isl_n14_1",
+          "pitch": 5,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "poj": "lán",
+            "hanlo": "咱"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "咱",
+              "poj": "lán"
+            },
+            "2": {
+              "hanlo": "咱",
+              "poj": "lán"
+            }
+          }
+        },
+        {
+          "id": "isl_n14_2",
+          "pitch": 3,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "khiā",
+            "hanlo": "倚"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "倚",
+              "poj": "khiā"
+            },
+            "2": {
+              "hanlo": "徛",
+              "poj": "khiā"
+            }
+          }
+        },
+        {
+          "id": "isl_n14_3",
+          "pitch": 2,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "chò",
+            "hanlo": "作"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "作",
+              "poj": "chò"
+            },
+            "2": {
+              "hanlo": "做",
+              "poj": "chò"
+            }
+          }
+        },
+        {
+          "id": "isl_n14_4",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 2,
+          "lyric": {
+            "poj": "hóe,\n",
+            "hanlo": "伙，\n"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "伙，\n",
+              "poj": "hóe,\n"
+            },
+            "2": {
+              "hanlo": "伙，\n",
+              "poj": "hóe,\n"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m15",
+      "measureNumber": 15,
+      "chord": "Fm",
+      "chords": [
+        "Fm",
+        "Bb7"
+      ],
+      "notes": [
+        {
+          "id": "isl_n15_1",
+          "pitch": 6,
+          "octave": -1,
+          "duration": 1,
+          "lyric": {
+            "poj": "I",
+            "hanlo": "伊"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "伊",
+              "poj": "I"
+            },
+            "2": {
+              "hanlo": "你",
+              "poj": "Lí"
+            }
+          }
+        },
+        {
+          "id": "isl_n15_2",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "poj": "sī",
+            "hanlo": "是"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "是",
+              "poj": "sī"
+            },
+            "2": {
+              "hanlo": "是",
+              "poj": "sī"
+            }
+          }
+        },
+        {
+          "id": "isl_n15_3",
+          "pitch": 7,
+          "octave": -1,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "lán",
+            "hanlo": "咱"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "咱",
+              "poj": "lán"
+            },
+            "2": {
+              "hanlo": "咱",
+              "poj": "lán"
+            }
+          }
+        },
+        {
+          "id": "isl_n15_4",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 1,
+          "lyric": {
+            "poj": "ê",
+            "hanlo": "ㄟ"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "ㄟ",
+              "poj": "ê"
+            },
+            "2": {
+              "hanlo": "的",
+              "poj": "ê"
+            }
+          }
+        },
+        {
+          "id": "isl_n15_5",
+          "pitch": 2,
+          "octave": 0,
+          "duration": 0.5,
+          "lyric": {
+            "poj": "pó",
+            "hanlo": "寶"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "寶",
+              "poj": "pó"
+            },
+            "2": {
+              "hanlo": "寶",
+              "poj": "pó"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "isl_m16",
+      "measureNumber": 16,
+      "chord": "Eb",
+      "barlineType": "end",
+      "isLineBreak": true,
+      "notes": [
+        {
+          "id": "isl_n16_1",
+          "pitch": 1,
+          "octave": 0,
+          "duration": 4,
+          "lyric": {
+            "poj": "pòe.",
+            "hanlo": "貝。"
+          },
+          "lyricsByVerse": {
+            "1": {
+              "hanlo": "貝。",
+              "poj": "pòe."
+            },
+            "2": {
+              "hanlo": "貝。",
+              "poj": "pòe."
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

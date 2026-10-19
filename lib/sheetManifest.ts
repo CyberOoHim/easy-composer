@@ -9,6 +9,7 @@ import bangChhunHong from '../data/sheets/bang-chhun-hong.taigi.json' with { typ
 import uIaHoe from '../data/sheets/u-ia-hoe.taigi.json' with { type: 'json' };
 import suKiHong from '../data/sheets/su-ki-hong.taigi.json' with { type: 'json' };
 import taiwanTheGreen from '../data/sheets/taiwan-the-green.taigi.json' with { type: 'json' };
+import iSiLanEPoPoe from '../data/sheets/i-si-lan-e-po-poe.taigi.json' with { type: 'json' };
 
 export interface SheetFileMeta {
   filename: string;
@@ -23,6 +24,7 @@ export const SHEET_FILE_REGISTRY: SheetFileMeta[] = [
   { filename: 'u-ia-hoe.taigi.json', id: 'u-ia-hoe', title: "雨夜花 (Ú-iā-hoe)", isTaigi: true, order: 2 },
   { filename: 'su-ki-hong.taigi.json', id: 'su-ki-hong', title: "四季紅", isTaigi: true, order: 3 },
   { filename: 'taiwan-the-green.taigi.json', id: 'taiwan-the-green', title: "台灣翠青", isTaigi: true, order: 4 },
+  { filename: 'i-si-lan-e-po-poe.taigi.json', id: 'i-si-lan-e-po-poe', title: "伊是咱的寶貝", isTaigi: true, order: 5 },
 ];
 
 export const RAW_PRESET_SHEETS: Song[] = [
@@ -30,4 +32,5 @@ export const RAW_PRESET_SHEETS: Song[] = [
   uIaHoe as unknown as Song,
   suKiHong as unknown as Song,
   taiwanTheGreen as unknown as Song,
+  iSiLanEPoPoe as unknown as Song,
 ];

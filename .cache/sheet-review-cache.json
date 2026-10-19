@@ -32,6 +32,14 @@
       "songId": "u-ia-hoe",
       "title": "雨夜花 (Ú-iā-hoe)",
       "isTaigi": true
+    },
+    "/app/applet/data/sheets/i-si-lan-e-po-poe.taigi.json": {
+      "sha256": "66e58db02c0bca6323e4fef87687c3b7e1adf7a3207dde4e518aacf034659b75",
+      "mtime": 1792419169231.3093,
+      "status": "valid",
+      "songId": "i-si-lan-e-po-poe",
+      "title": "伊是咱的寶貝",
+      "isTaigi": true
     }
   }
 }
