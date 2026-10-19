@@ -1,6 +1,6 @@
 {
-  "summary": "Detailed root-cause analysis and implementation plan to eliminate the half-transparent overlapping floating lyric buttons and selection drift on click, consolidating lyric typing and spreading controls into the bottom Contextual Edit Deck and locking lyric cell layout geometry.",
-  "updatedAt": "2026-10-18T14:11:20.910369340Z",
+  "summary": "Full-application architectural audit and deep structural refactoring blueprint decomposing monolithic UI and library modules into focused, testable domain subsystems while preserving all existing composition, engraving, audio synthesis, and Taigi lyric workflows.",
+  "updatedAt": "2026-10-19T05:02:23.595629310Z",
   "requestFeedback": true,
   "userFacing": true
 }

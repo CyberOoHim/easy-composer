@@ -51,6 +51,10 @@ import {
 import { NoteDuration, PitchNumber, ArticulationType, NoteInputMode, VerseDisplayOption, SheetWrapMode, SheetOrientation, KeySignature, TimeSignature } from '@/types/song';
 import { KeyboardShortcutsModal } from './KeyboardShortcutsModal';
 import { COMMON_PUNCTUATIONS, COMMON_ANNOTATIONS } from '@/lib/taigiUtils';
+import { OrnamentsDrawer } from './hud/OrnamentsDrawer';
+import { ChordsDrawer } from './hud/ChordsDrawer';
+import { EditSuiteDrawer } from './hud/EditSuiteDrawer';
+import { CreativityStudioDrawer } from './hud/CreativityStudioDrawer';
 import {
   type AccompanimentStyle,
   getStoredAccompanimentStyle,
@@ -475,706 +479,76 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
         id="floating-score-hud-container"
         className="fixed bottom-0 sm:bottom-1 left-1/2 -translate-x-1/2 z-40 w-full max-w-[calc(100vw-0.75rem)] sm:max-w-[calc(100vw-1rem)] md:max-w-5xl px-1 sm:px-2 pointer-events-none print:hidden flex flex-col items-center gap-1 safe-px"
       >
-        {/* Wide Bar for Ornaments & Articulations (Minimal Height, Horizontal Toolbar) */}
-        {currentDrawer === 'ornaments' && (
-          <div
-            id="floating-score-hud-ornaments-bar"
-            className="pointer-events-auto w-full max-w-full min-w-0 bg-white/95 dark:bg-[#151921]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 text-sm overflow-x-auto whitespace-nowrap no-scrollbar touch-momentum touch-pan-x animate-in fade-in slide-in-from-bottom-1 duration-150"
-          >
-            {/* Title / Icon */}
-            <div className="flex items-center gap-1.5 text-amber-500 shrink-0 font-bold">
-              <Sparkles className="w-4 h-4" />
-              <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-100 hidden sm:inline">Ornaments:</span>
-            </div>
+        {/* Wide Bar for Ornaments & Articulations */}
+        <OrnamentsDrawer
+          isOpen={currentDrawer === 'ornaments'}
+          onClose={handleCloseDrawer}
+          onInsertPunctuation={onInsertPunctuation}
+          onInsertPunctuationAfter={onInsertPunctuationAfter}
+          isAddDelimiterActive={isAddDelimiterActive}
+          onToggleAddDelimiterActive={() =>
+            setAddDelimiterActiveKey(prev =>
+              prev === currentSelectionKey ? null : currentSelectionKey
+            )
+          }
+          onClearAddDelimiterActive={() => setAddDelimiterActiveKey(null)}
+          currentArticulation={currentArticulation}
+          onSetArticulation={onSetArticulation}
+          isTriplet={isTriplet}
+          onToggleTriplet={onToggleTriplet}
+          onAddGraceNote={onAddGraceNote}
+          hasGraceNotes={hasGraceNotes}
+          onClearGraceNotes={onClearGraceNotes}
+          onInsertAnnotation={onInsertAnnotation}
+        />
 
-            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 hidden sm:block" />
+        {/* Wide Bar for Measure Chords */}
+        <ChordsDrawer
+          isOpen={currentDrawer === 'chords'}
+          onClose={handleCloseDrawer}
+          selectedMeasureNumber={selectedMeasureNumber}
+          currentMeasureChord={currentMeasureChord}
+          onUpdateMeasureChord={onUpdateMeasureChord}
+          chordSuggestions={chordSuggestions}
+          currentMeasureSection={currentMeasureSection}
+          onUpdateMeasureSection={onUpdateMeasureSection}
+          onAutoHarmonize={onAutoHarmonize}
+        />
 
-            {/* Delimiters & Punctuation (at the beginning of Ornaments bar) */}
-            {onInsertPunctuation && (
-              <div className="flex items-center gap-1 shrink-0">
-                <span className="text-xs font-bold text-zinc-400 uppercase hidden xl:inline mr-0.5">Delim:</span>
-                {/* Combinational "Add" Button: click first, then click delimiter to insert after cursor. Click twice to cancel. */}
-                <button
-                  id="floating-hud-add-delimiter-btn"
-                  type="button"
-                  onClick={() =>
-                    setAddDelimiterActiveKey(prev =>
-                      prev === currentSelectionKey ? null : currentSelectionKey
-                    )
-                  }
-                  className={`px-2 h-7 sm:h-8 rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-all shrink-0 ${
-                    isAddDelimiterActive
-                      ? 'bg-amber-500 text-zinc-950 font-black shadow-sm ring-2 ring-amber-400 dark:ring-amber-500'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                  }`}
-                  title={
-                    isAddDelimiterActive
-                      ? 'Add Delimiter active: Click any delimiter to insert after cursor (Click again to cancel)'
-                      : 'Insert Delimiter After Cursor (Click then select delimiter; click twice to cancel)'
-                  }
-                  aria-pressed={isAddDelimiterActive}
-                >
-                  <Plus className={`w-3.5 h-3.5 ${isAddDelimiterActive ? 'stroke-[3]' : 'stroke-2'}`} />
-                  <span>Add</span>
-                </button>
+        {/* Wide Bar for Comprehensive Edit Suite */}
+        <EditSuiteDrawer
+          isOpen={currentDrawer === 'edit'}
+          onClose={handleCloseDrawer}
+          noteInputMode={noteInputMode}
+          onChangeNoteInputMode={onChangeNoteInputMode}
+          onInsertNoteAfter={onInsertNoteAfter}
+          onInsertNoteBefore={onInsertNoteBefore}
+          onDuplicateCurrentNote={onDuplicateCurrentNote}
+          onDeleteCurrentNote={onDeleteCurrentNote}
+          onDeleteNoteAfter={onDeleteNoteAfter}
+          onShiftNotesToPrevMeasure={onShiftNotesToPrevMeasure}
+          onPushNotesToNextMeasure={onPushNotesToNextMeasure}
+          onAddMeasureAfter={onAddMeasureAfter}
+          onAddMeasureBefore={onAddMeasureBefore}
+          onDuplicateMeasure={onDuplicateMeasure}
+          onDeleteSelectedMeasure={onDeleteSelectedMeasure}
+          onAutoRearrangeMeasures={onAutoRearrangeMeasures}
+          showRhythmWarnings={showRhythmWarnings}
+          onToggleShowRhythmWarnings={onToggleShowRhythmWarnings}
+        />
 
-                <div className="h-4 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
-
-                {COMMON_PUNCTUATIONS.map(p => (
-                  <button
-                    key={p.label}
-                    type="button"
-                    onClick={() => {
-                      if (isAddDelimiterActive) {
-                        if (onInsertPunctuationAfter) {
-                          onInsertPunctuationAfter(p.value);
-                        } else {
-                          onInsertPunctuation(p.value, true);
-                        }
-                        setAddDelimiterActiveKey(null);
-                      } else {
-                        onInsertPunctuation(p.value, false);
-                      }
-                    }}
-                    className={`w-7 h-7 sm:w-8 sm:h-8 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 text-sm sm:text-base font-bold flex items-center justify-center cursor-pointer transition-all shrink-0 ${
-                      isAddDelimiterActive ? 'ring-1 ring-amber-400/60' : ''
-                    }`}
-                    title={
-                      isAddDelimiterActive
-                        ? `Insert "${p.label}" after current note`
-                        : p.title
-                    }
-                  >
-                    {p.label}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Articulations */}
-            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
-            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-              {(['none', 'staccato', 'tenuto', 'accent', 'fermata'] as ArticulationType[]).map(art => (
-                <button
-                  key={art}
-                  type="button"
-                  onClick={() => onSetArticulation?.(art)}
-                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold capitalize cursor-pointer transition-all ${
-                    currentArticulation === art
-                      ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                  }`}
-                  title={`Articulation: ${art}`}
-                >
-                  {art === 'none' ? 'Natural' : art}
-                </button>
-              ))}
-              {onToggleTriplet && (
-                <button
-                  type="button"
-                  onClick={onToggleTriplet}
-                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all ${
-                    isTriplet
-                      ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                  }`}
-                  title="Toggle Triplet (3 notes in 2 beats time)"
-                >
-                  Triplet (3)
-                </button>
-              )}
-            </div>
-
-            {/* Grace Notes */}
-            {onAddGraceNote && (
-              <>
-                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-xs font-bold text-zinc-400 uppercase hidden lg:inline">Grace:</span>
-                  <button
-                    type="button"
-                    onClick={() => onAddGraceNote('pre', 5, 0)}
-                    className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all"
-                    title="Add Pre-Grace Note"
-                  >
-                    + Pre
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => onAddGraceNote('post', 6, 0)}
-                    className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all"
-                    title="Add Post-Grace Note"
-                  >
-                    + Post
-                  </button>
-                  {hasGraceNotes && onClearGraceNotes && (
-                    <button
-                      type="button"
-                      onClick={onClearGraceNotes}
-                      className="px-2 py-1 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all"
-                      title="Clear Grace Notes"
-                    >
-                      Clear
-                    </button>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* Annotations */}
-            {onInsertAnnotation && (
-              <>
-                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {COMMON_ANNOTATIONS.map(a => (
-                    <button
-                      key={a}
-                      type="button"
-                      onClick={() => onInsertAnnotation(a)}
-                      className="px-2.5 py-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 font-serif italic font-bold text-xs sm:text-sm cursor-pointer transition-all shrink-0"
-                      title={`Insert annotation ${a}`}
-                    >
-                      {a}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={handleCloseDrawer}
-              className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0 ml-auto cursor-pointer"
-              title="Close Ornaments Bar (Esc)"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="w-2 shrink-0" aria-hidden="true" />
-          </div>
-        )}
-
-        {/* Wide Bar for Measure Chords (Minimal Height, Horizontal Toolbar) */}
-        {currentDrawer === 'chords' && (
-          <div
-            id="floating-score-hud-chords-bar"
-            className="pointer-events-auto w-full max-w-full min-w-0 bg-white/95 dark:bg-[#151921]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 text-sm overflow-x-auto whitespace-nowrap no-scrollbar touch-momentum touch-pan-x animate-in fade-in slide-in-from-bottom-1 duration-150"
-          >
-            {/* Title / Measure Info */}
-            <div className="flex items-center gap-1.5 text-amber-500 shrink-0 font-bold">
-              <Music className="w-4 h-4" />
-              <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-100 shrink-0">
-                {selectedMeasureNumber ? `Bar #${selectedMeasureNumber} Chord:` : 'Chord:'}
-              </span>
-            </div>
-
-            {/* Chord Input */}
-            <input
-              type="text"
-              value={currentMeasureChord}
-              onChange={e => onUpdateMeasureChord?.(e.target.value)}
-              placeholder="e.g. C, G7, Am"
-              className="w-22 sm:w-28 px-3 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-750 rounded-lg text-sm font-mono font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500 shrink-0"
-            />
-
-            {/* Suggested Chords */}
-            {chordSuggestions.length > 0 && (
-              <>
-                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5 hidden sm:block" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-xs font-bold text-zinc-400 uppercase hidden md:inline shrink-0">Suggestions:</span>
-                  {chordSuggestions.map(ch => (
-                    <button
-                      key={ch}
-                      type="button"
-                      onClick={() => onUpdateMeasureChord?.(ch)}
-                      className={`px-2.5 sm:px-3 py-1 rounded-lg font-mono font-bold text-xs sm:text-sm cursor-pointer transition-all shrink-0 ${
-                        currentMeasureChord === ch
-                          ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                          : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500/20 text-zinc-800 dark:text-zinc-200'
-                      }`}
-                      title={`Set measure chord to ${ch}`}
-                    >
-                      {ch}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            {/* Section Badge Input */}
-            {onUpdateMeasureSection && (
-              <>
-                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5 hidden sm:block" />
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <span className="text-xs font-bold text-zinc-400 uppercase flex items-center gap-1 shrink-0">
-                    <Bookmark className="w-3.5 h-3.5 text-amber-500" />
-                    <span className="hidden md:inline">Section:</span>
-                  </span>
-                  <input
-                    type="text"
-                    value={currentMeasureSection}
-                    onChange={e => onUpdateMeasureSection(e.target.value)}
-                    placeholder="e.g. Intro, Interlude, Outro, [A]"
-                    className="w-24 sm:w-28 px-2.5 py-1 bg-zinc-100 dark:bg-zinc-800 border border-zinc-300 dark:border-zinc-750 rounded-lg text-xs sm:text-sm font-mono font-bold text-zinc-900 dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-500 shrink-0"
-                    title="Section badge name for current measure (English)"
-                  />
-                  <div className="flex items-center gap-1 shrink-0 hidden lg:flex">
-                    {['Intro', 'Interlude', 'Outro', '[A]', 'Chorus'].map(preset => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => onUpdateMeasureSection(preset)}
-                        title={`Set section badge to ${preset}`}
-                        className={`px-2 py-0.5 rounded text-xs font-mono font-bold transition-all cursor-pointer ${
-                          currentMeasureSection === preset
-                            ? 'bg-amber-500 text-zinc-950 font-black'
-                            : 'bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500/20 text-zinc-700 dark:text-zinc-300'
-                        }`}
-                      >
-                        {preset}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </>
-            )}
-
-            {/* Auto Harmonize Button */}
-            {onAutoHarmonize && (
-              <>
-                <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0 mx-0.5 hidden sm:block" />
-                <button
-                  type="button"
-                  onClick={() => {
-                    onAutoHarmonize();
-                    handleCloseDrawer();
-                  }}
-                  className="flex items-center gap-1.5 py-1 px-3 sm:px-3.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-zinc-950 font-bold text-xs sm:text-sm shadow-2xs transition-all cursor-pointer shrink-0"
-                  title="Auto-harmonize chords for all measures in song"
-                >
-                  <Wand2 className="w-3.5 h-3.5" />
-                  <span>Auto-Harmonize</span>
-                </button>
-              </>
-            )}
-
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={handleCloseDrawer}
-              className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0 ml-auto cursor-pointer"
-              title="Close Chords Bar (Esc)"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="w-2 shrink-0" aria-hidden="true" />
-          </div>
-        )}
-
-        {/* Wide Bar for Comprehensive Edit Suite (Minimal Height, Horizontal Toolbar) */}
-        {currentDrawer === 'edit' && (
-          <div
-            id="floating-score-hud-edit-bar"
-            className="pointer-events-auto w-full max-w-full min-w-0 bg-white/95 dark:bg-[#151921]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 text-sm overflow-x-auto whitespace-nowrap no-scrollbar touch-momentum touch-pan-x animate-in fade-in slide-in-from-bottom-1 duration-150"
-          >
-            {/* Title / Icon */}
-            <div className="flex items-center gap-1.5 text-amber-500 shrink-0 font-bold">
-              <Sliders className="w-4 h-4" />
-              <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-100">Edit Suite:</span>
-            </div>
-
-            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
-
-            {/* Note Input Mode Segment */}
-            {onChangeNoteInputMode && (
-              <div className="flex items-center gap-1 bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-lg border border-zinc-200 dark:border-zinc-700 shrink-0">
-                <span className="text-xs font-bold text-zinc-400 uppercase px-1 hidden sm:inline">Input Mode:</span>
-                <button
-                  type="button"
-                  onClick={() => onChangeNoteInputMode('replace')}
-                  className={`px-2.5 py-1 sm:py-1.5 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                    noteInputMode === 'replace'
-                      ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
-                  title="Replace Current Note: Modifies current note pitch without advancing cursor"
-                >
-                  Replace
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChangeNoteInputMode('progressive_replace')}
-                  className={`px-2.5 py-1 sm:py-1.5 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                    noteInputMode === 'progressive_replace'
-                      ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
-                  title="Progressive Replace: Modifies current note pitch and auto-steps to next note"
-                >
-                  Prog Replace
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onChangeNoteInputMode('progressive_insert')}
-                  className={`px-2.5 py-1 sm:py-1.5 rounded text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                    noteInputMode === 'progressive_insert'
-                      ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                      : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-200'
-                  }`}
-                  title="Progressive Insertion: Inserts a new note after current note and advances cursor"
-                >
-                  Prog Insert
-                </button>
-              </div>
-            )}
-
-            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
-
-            {/* Note Operations Group */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-xs font-bold text-zinc-400 uppercase hidden md:inline">Note:</span>
-              {onInsertNoteAfter && (
-                <button
-                  type="button"
-                  onClick={onInsertNoteAfter}
-                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
-                  title="Add / Insert a note after current note"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Note After</span>
-                </button>
-              )}
-              {onInsertNoteBefore && (
-                <button
-                  type="button"
-                  onClick={onInsertNoteBefore}
-                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
-                  title="Insert a note before current note"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Note Before</span>
-                </button>
-              )}
-              {onDuplicateCurrentNote && (
-                <button
-                  type="button"
-                  onClick={onDuplicateCurrentNote}
-                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
-                  title="Duplicate current note"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Duplicate</span>
-                </button>
-              )}
-              {onDeleteCurrentNote && (
-                <button
-                  type="button"
-                  onClick={onDeleteCurrentNote}
-                  className="px-2.5 py-1 sm:py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
-                  title="Delete current note"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Del Note</span>
-                </button>
-              )}
-              {onDeleteNoteAfter && (
-                <button
-                  type="button"
-                  onClick={onDeleteNoteAfter}
-                  className="px-2.5 py-1 sm:py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
-                  title="Delete note after current note"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Del After</span>
-                </button>
-              )}
-              {onShiftNotesToPrevMeasure && (
-                <button
-                  id="floating-hud-shift-notes-prev-bar-btn"
-                  type="button"
-                  onClick={onShiftNotesToPrevMeasure}
-                  className="px-2.5 py-1 sm:py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-500 hover:text-zinc-950 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-2xs"
-                  title="Shift notes from start of measure up to & including current note into preceding measure (Alt+Shift+Left)"
-                >
-                  <ArrowLeftToLine className="w-3.5 h-3.5" />
-                  <span>Shift to Prev Bar (⇤)</span>
-                </button>
-              )}
-              {onPushNotesToNextMeasure && (
-                <button
-                  id="floating-hud-push-notes-next-bar-btn"
-                  type="button"
-                  onClick={onPushNotesToNextMeasure}
-                  className="px-2.5 py-1 sm:py-1.5 bg-indigo-50 dark:bg-indigo-950/60 hover:bg-indigo-500 hover:text-zinc-950 text-indigo-900 dark:text-indigo-200 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-2xs"
-                  title="Push current note & all subsequent notes in measure into next measure (Alt+Shift+Right)"
-                >
-                  <ArrowRightToLine className="w-3.5 h-3.5" />
-                  <span>Push to Next Bar (⇥)</span>
-                </button>
-              )}
-            </div>
-
-            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
-
-            {/* Measure Operations Group */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span className="text-xs font-bold text-zinc-400 uppercase hidden md:inline">Measure:</span>
-              {onAddMeasureAfter && (
-                <button
-                  type="button"
-                  onClick={onAddMeasureAfter}
-                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
-                  title="Add a measure after current measure"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Bar After</span>
-                </button>
-              )}
-              {onAddMeasureBefore && (
-                <button
-                  type="button"
-                  onClick={onAddMeasureBefore}
-                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
-                  title="Add a measure before current measure"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>Bar Before</span>
-                </button>
-              )}
-              {onDuplicateMeasure && (
-                <button
-                  type="button"
-                  onClick={onDuplicateMeasure}
-                  className="px-2.5 py-1 sm:py-1.5 bg-zinc-100 dark:bg-zinc-800 hover:bg-amber-500 hover:text-zinc-950 text-zinc-800 dark:text-zinc-200 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
-                  title="Duplicate current measure"
-                >
-                  <Copy className="w-3.5 h-3.5" />
-                  <span>Dup Bar</span>
-                </button>
-              )}
-              {onDeleteSelectedMeasure && (
-                <button
-                  type="button"
-                  onClick={onDeleteSelectedMeasure}
-                  className="px-2.5 py-1 sm:py-1.5 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-950/40 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5"
-                  title="Delete current measure"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                  <span>Del Bar</span>
-                </button>
-              )}
-            </div>
-
-            <div className="h-5 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
-
-            {/* Rhythm Alignment & Warnings Group */}
-            <div className="flex items-center gap-1.5 shrink-0">
-              {onAutoRearrangeMeasures && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    onAutoRearrangeMeasures();
-                  }}
-                  className="px-3 py-1 sm:py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 shadow-2xs"
-                  title="Auto Rearrange Measures: Redistribute notes across barlines to strictly conform to time signature"
-                >
-                  <Shuffle className="w-3.5 h-3.5" />
-                  <span>Auto-Rearrange Bars</span>
-                </button>
-              )}
-              {onToggleShowRhythmWarnings && (
-                <button
-                  type="button"
-                  onClick={onToggleShowRhythmWarnings}
-                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs sm:text-sm font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
-                    showRhythmWarnings
-                      ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/40'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200'
-                  }`}
-                  title="Toggle Measure Beat Notices (⚠️ warnings on incomplete / overbeat measures; never printed)"
-                >
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  <span>Notice: {showRhythmWarnings ? 'ON' : 'OFF'}</span>
-                </button>
-              )}
-            </div>
-
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={handleCloseDrawer}
-              className="p-1.5 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0 ml-auto cursor-pointer"
-              title="Close Edit Suite (Esc)"
-            >
-              <X className="w-4 h-4" />
-            </button>
-            <div className="w-2 shrink-0" aria-hidden="true" />
-          </div>
-        )}
-
-        {/* Creativity Studio Drawer (MOD-4 & MOD-6) */}
-        {currentDrawer === 'creativity' && (
-          <div
-            id="floating-score-hud-creativity-bar"
-            className="pointer-events-auto w-full max-w-full min-w-0 bg-white/95 dark:bg-[#151921]/95 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl px-3 sm:px-4 py-2 sm:py-2.5 flex items-center gap-2 sm:gap-3 text-sm overflow-x-auto whitespace-nowrap no-scrollbar touch-momentum touch-pan-x animate-in fade-in slide-in-from-bottom-1 duration-150"
-          >
-            {/* Title / Studio Header */}
-            <div className="flex items-center gap-1.5 text-amber-500 shrink-0 font-bold">
-              <Wand2 className="w-4 h-4" />
-              <span className="text-xs sm:text-sm font-bold text-zinc-800 dark:text-zinc-100 shrink-0">
-                Creativity Studio:
-              </span>
-            </div>
-
-            {/* Accompaniment Styles Group (MOD-4) */}
-            <div className="flex items-center gap-1 shrink-0 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
-              <span className="text-2xs font-extrabold text-zinc-500 uppercase px-1 hidden md:inline">
-                Style:
-              </span>
-              {(
-                [
-                  { id: 'block', label: 'Block', desc: 'Block Chords (Steady 4-beat piano)' },
-                  { id: 'arpeggio', label: 'Arpeggio', desc: 'Rolling 8th-note Arpeggios' },
-                  { id: 'folk', label: 'Folk', desc: 'Folk Boom-Chick (Bass + offbeat strum)' },
-                  { id: 'waltz', label: 'Waltz', desc: 'Waltz 3/4 (Bass + dual chords)' },
-                ] as const
-              ).map(st => (
-                <button
-                  key={st.id}
-                  id={`floating-hud-style-${st.id}-btn`}
-                  type="button"
-                  onClick={() => handleSelectAccompanimentStyle(st.id)}
-                  className={`min-h-[44px] px-3 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center ${
-                    effectiveAccompanimentStyle === st.id
-                      ? 'bg-amber-500 text-zinc-950 font-black shadow-xs'
-                      : 'text-zinc-700 dark:text-zinc-300 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                  }`}
-                  title={`${st.desc} · Click to select and audition preview`}
-                >
-                  {st.label}
-                </button>
-              ))}
-            </div>
-
-            <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
-
-            {/* Pentatonic Scale Mode Toggle (MOD-6) */}
-            <div className="flex items-center gap-1 shrink-0">
-              <button
-                id="floating-hud-pentatonic-toggle-btn"
-                type="button"
-                onClick={handleTogglePentatonic}
-                className={`min-h-[44px] px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 border ${
-                  effectivePentatonicMode
-                    ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/60 font-black shadow-xs'
-                    : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 border-zinc-200 dark:border-zinc-700 hover:bg-zinc-200 dark:hover:bg-zinc-700'
-                }`}
-                title="Toggle Pentatonic Mode: Highlights Gong/Yu 5-tone degrees (1, 2, 3, 5, 6) across HUD and dims 4 & 7"
-              >
-                <Lightbulb className={`w-4 h-4 ${effectivePentatonicMode ? 'text-amber-500' : 'text-zinc-400'}`} />
-                <span>Pentatonic: {effectivePentatonicMode ? 'ON' : 'OFF'}</span>
-              </button>
-            </div>
-
-            <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
-
-            {/* Melodic Motif Variations Group (MOD-6) */}
-            <div className="flex items-center gap-1 shrink-0 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
-              <span className="text-2xs font-extrabold text-zinc-500 uppercase px-1 hidden lg:inline">
-                Bar #{selectedMeasureNumber || 1} Motif:
-              </span>
-              <button
-                id="floating-hud-motif-invert-btn"
-                type="button"
-                onClick={() => onApplyMotifTool?.('invert')}
-                className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer flex items-center gap-1"
-                title="Invert Motif: Diatonically flip pitch contours across first note axis"
-              >
-                Invert
-              </button>
-              <button
-                id="floating-hud-motif-retrograde-btn"
-                type="button"
-                onClick={() => onApplyMotifTool?.('retrograde')}
-                className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer flex items-center gap-1"
-                title="Retrograde: Reverse pitch order while preserving durations and lyrics"
-              >
-                Retrograde
-              </button>
-              <button
-                id="floating-hud-motif-seq-up-btn"
-                type="button"
-                onClick={() => onApplyMotifTool?.('seq_up')}
-                className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer flex items-center gap-1"
-                title="Sequence +1: Diatonic transpose scale degrees up by 1 step"
-              >
-                Seq +1
-              </button>
-              <button
-                id="floating-hud-motif-seq-down-btn"
-                type="button"
-                onClick={() => onApplyMotifTool?.('seq_down')}
-                className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer flex items-center gap-1"
-                title="Sequence -1: Diatonic transpose scale degrees down by 1 step"
-              >
-                Seq -1
-              </button>
-              <button
-                id="floating-hud-motif-ornaments-btn"
-                type="button"
-                onClick={() => onApplyMotifTool?.('ornaments')}
-                className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all cursor-pointer flex items-center gap-1"
-                title="Folk Ornaments: Embellish notes ≥ 0.5 beat with authentic Taiwanese grace notes"
-              >
-                Folk Ornaments
-              </button>
-              <button
-                id="floating-hud-motif-spark-btn"
-                type="button"
-                onClick={() => onApplyMotifTool?.('spark')}
-                className="min-h-[44px] px-3 bg-amber-500 text-zinc-950 font-black rounded-lg text-xs hover:bg-amber-400 transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
-                title="Melody Spark: Generate a 1-measure pentatonic melodic motif matching current chord"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>⚡ Spark</span>
-              </button>
-            </div>
-
-            <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-750 shrink-0" />
-
-            {/* Chord Progression Presets Group (MOD-6) */}
-            <div className="flex items-center gap-1 shrink-0 bg-zinc-100 dark:bg-zinc-800/80 p-1 rounded-xl border border-zinc-200 dark:border-zinc-700/80">
-              <span className="text-2xs font-extrabold text-zinc-500 uppercase px-1 hidden xl:inline">
-                Harmonic Presets:
-              </span>
-              {CHORD_PROGRESSION_PRESETS.map(preset => (
-                <button
-                  key={preset.id}
-                  id={`floating-hud-preset-${preset.id}-btn`}
-                  type="button"
-                  onClick={() => onApplyChordProgressionPreset?.(preset.id)}
-                  className="min-h-[44px] px-2.5 rounded-lg text-xs font-bold text-zinc-800 dark:text-zinc-200 hover:bg-indigo-600 hover:text-white transition-all cursor-pointer flex flex-col justify-center items-start leading-tight"
-                  title={`${preset.name}: ${preset.degrees.join(' - ')} · ${preset.description}`}
-                >
-                  <span className="font-extrabold">{preset.name.split(' (')[0]}</span>
-                  <span className="text-[10px] text-zinc-500 dark:text-zinc-400">{preset.degrees.slice(0, 4).join('-')}</span>
-                </button>
-              ))}
-            </div>
-
-            {/* Close Button */}
-            <button
-              type="button"
-              onClick={handleCloseDrawer}
-              className="min-h-[44px] min-w-[44px] hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200 shrink-0 ml-auto cursor-pointer flex items-center justify-center"
-              title="Close Creativity Studio (Esc)"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            <div className="w-2 shrink-0" aria-hidden="true" />
-          </div>
-        )}
+        {/* Creativity Studio Drawer */}
+        <CreativityStudioDrawer
+          isOpen={currentDrawer === 'creativity'}
+          onClose={handleCloseDrawer}
+          effectiveAccompanimentStyle={effectiveAccompanimentStyle}
+          onSelectAccompanimentStyle={handleSelectAccompanimentStyle}
+          effectivePentatonicMode={effectivePentatonicMode}
+          onTogglePentatonic={handleTogglePentatonic}
+          selectedMeasureNumber={selectedMeasureNumber}
+          onApplyMotifTool={onApplyMotifTool}
+          onApplyChordProgressionPreset={onApplyChordProgressionPreset}
+        />
 
         {/* Docked Piano Bed Slot (Mutually Exclusive) */}
         {currentDrawer === 'piano' && pianoBedSlot && (
