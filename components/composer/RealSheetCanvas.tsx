@@ -80,6 +80,9 @@ import {
   RectangleVertical,
   ArrowRightLeft,
   ExternalLink,
+  Wand2,
+  Search,
+  SlidersHorizontal,
 } from 'lucide-react';
 import {
   getStoredRealSheetTheme,
@@ -138,6 +141,8 @@ import {
   isPunctuationDelimiterOrBreak,
   halveNoteDuration,
   doubleNoteDuration,
+  transposeSongChords,
+  smartRebarSong,
 } from '@/lib/taigiUtils';
 import {
   separateDualLineLyrics,
@@ -213,8 +218,16 @@ export interface RealSheetCanvasProps {
   onUpdateMeasureChord?: (measureIndex: number, chord: string) => void;
   onUpdateMeasureSection?: (measureIndex: number, section: string) => void;
 
-  // Display mode
+  // Display mode & Studio header actions
   displayMode?: LyricDisplayMode;
+  setDisplayMode?: (mode: LyricDisplayMode) => void;
+  onOpenSongSettings?: () => void;
+  onOpenInSongSearch?: () => void;
+  isInSongSearchOpen?: boolean;
+  incompleteMeasuresCount?: number;
+  onBatchFixAllIncompleteMeasures?: () => void;
+  playingMeasureIdx?: number | null;
+  onJumpToMeasure?: (measureIdx: number) => void;
 
   // Sheet Theme (Parchment Light vs Studio Dark)
   sheetTheme?: RealSheetTheme;
@@ -277,15 +290,15 @@ function hasActualLyricWord(note: NumberedNotationNote, verseIndex: number): boo
  */
 function scrollLineIntoSafeZone(
   lineEl: HTMLElement,
-  fallbackHudHeight: number = 180,
+  fallbackHudHeight: number = 64,
   options?: { isInitialOrTopSystem?: boolean }
 ): void {
   if (typeof window === 'undefined') return;
   try {
     const hudEl = document.getElementById('floating-score-hud-container');
-    const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 120) : fallbackHudHeight;
+    const currentHudHeight = hudEl ? Math.max(hudEl.getBoundingClientRect().height, 48) : fallbackHudHeight;
     const headerEl = document.getElementById('header-bar') || document.querySelector('header');
-    const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 52;
+    const headerHeight = headerEl ? headerEl.getBoundingClientRect().height : 44;
 
     const viewport = {
       viewportHeight: window.innerHeight,
@@ -380,6 +393,14 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   onUpdateMeasureChord,
   onUpdateMeasureSection,
   displayMode = 'hanlo_major_roman',
+  setDisplayMode,
+  onOpenSongSettings,
+  onOpenInSongSearch,
+  isInSongSearchOpen = false,
+  incompleteMeasuresCount = 0,
+  onBatchFixAllIncompleteMeasures,
+  playingMeasureIdx = null,
+  onJumpToMeasure,
   sheetTheme: propSheetTheme,
   onToggleSheetTheme: propOnToggleSheetTheme,
   // A-B Section Suite Props
@@ -599,9 +620,24 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   const [editingHeaderField, setEditingHeaderField] = useState<string | null>(null);
   const [headerDraftText, setHeaderDraftText] = useState<string>('');
 
-  // Dropdown states for Key / Meter (mutually exclusive to avoid overlap)
-  const [activeSheetPicker, setActiveSheetPicker] = useState<'key' | 'time' | 'bpm' | null>(null);
+  // Dropdown states for Key / Meter / Lyric format (mutually exclusive to avoid overlap)
+  const [activeSheetPicker, setActiveSheetPicker] = useState<'key' | 'time' | 'bpm' | 'lyrics' | null>(null);
   const [draftBpm, setDraftBpm] = useState<number>(song.bpm || 88);
+  const [autoTransposeChordsOnSheet, setAutoTransposeChordsOnSheet] = useState<boolean>(true);
+  const [smartRebarOnSheet, setSmartRebarOnSheet] = useState<boolean>(true);
+
+  const songSections = useMemo(() => {
+    const list: { label: string; measureIdx: number; endMeasureIdx: number }[] = [];
+    song.measures.forEach((m, idx) => {
+      if (m.section && m.section.trim()) {
+        if (list.length > 0) {
+          list[list.length - 1].endMeasureIdx = idx - 1;
+        }
+        list.push({ label: m.section.trim(), measureIdx: idx, endMeasureIdx: song.measures.length - 1 });
+      }
+    });
+    return list;
+  }, [song.measures]);
 
   // Close sheet paper pickers on Escape key
   useEffect(() => {
@@ -755,8 +791,8 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   );
   const currentNote = currentMeasure?.notes[currentNIdx];
 
-  // Contextual Edit Suite State
-  const [isContextualEditActive, setIsContextualEditActive] = useState<boolean>(true);
+  // Contextual Edit Suite State (Strictly on-demand — never auto-popped on note/bar click)
+  const [isContextualEditActive, setIsContextualEditActive] = useState<boolean>(false);
   const [contextualEditTarget, setContextualEditTarget] = useState<EditTarget>('measure');
   const [isBatchMode, setIsBatchMode] = useState<boolean>(false);
   const [customBatchMeasureRange, setCustomBatchMeasureRange] = useState<BatchMeasureRange | null>(null);
@@ -1140,7 +1176,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
   ]);
 
   // Dynamic real-time height tracking of the floating score HUD stack
-  const [hudStackHeight, setHudStackHeight] = useState<number>(180);
+  const [hudStackHeight, setHudStackHeight] = useState<number>(56);
 
   useEffect(() => {
     let resizeObs: ResizeObserver | null = null;
@@ -1459,7 +1495,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       }
       setActiveField(targetField);
       setContextualEditTarget(targetField === 'lyric' ? 'syllable' : 'note');
-      setIsContextualEditActive(true);
       if (targetField === 'lyric') {
         setActiveVerseRow(verseRow);
         if (subField) {
@@ -3351,12 +3386,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
       id="real-sheet-viewport-container"
       ref={canvasWrapperRef}
       style={{
-        paddingBottom: `${Math.max(200, hudStackHeight + 80)}px`,
+        paddingBottom: `${Math.max(96, hudStackHeight + 40)}px`,
       }}
-      className={`relative w-full min-h-screen flex flex-col items-start pt-1 sm:pt-1.5 px-2 sm:px-4 md:px-6 select-none print:p-0 print:m-0 print:min-h-0 print:bg-white print:overflow-visible print:w-full print:block overflow-x-auto transition-colors duration-150 touch-momentum ${
+      className={`relative w-full min-h-screen flex flex-col items-start pt-1 sm:pt-2 px-1.5 sm:px-4 md:px-6 select-none print:p-0 print:m-0 print:min-h-0 print:bg-white print:overflow-visible print:w-full print:block overflow-x-auto transition-colors duration-150 touch-momentum ${
         sheetTheme === 'dark'
-          ? 'bg-[#0c0e15] dark:bg-[#0c0e15] text-zinc-100 dark:text-zinc-100'
-          : 'bg-[#ede8de] dark:bg-[#ede8de] text-zinc-900 dark:text-zinc-900'
+          ? 'bg-[#0A0C10] dark:bg-[#0A0C10] text-zinc-100 dark:text-zinc-100'
+          : 'bg-[#EDE8DF] dark:bg-[#EDE8DF] text-zinc-900 dark:text-zinc-900'
       }`}
     >
       {/* Top-level Dynamic @page orientation for WYSIWYG Print / PDF Export (fully parsed by WebKit Mobile Safari & Chromium) */}
@@ -3367,121 +3402,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
         }}
       />
 
-      {/* Top Floating Paper Control Bar */}
-      <div
-        id="sheet-top-action-bar"
-        style={{
-          width: '100%',
-          maxWidth: `${standardSheetWidth}px`,
-        }}
-        className="flex items-center justify-between mb-2 sm:mb-2.5 px-2 print:hidden"
-      >
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-serif tracking-wider font-bold text-zinc-500 uppercase">
-            Sheet Music Canvas
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Theme Toggle Button */}
-          <button
-            id="sheet-theme-toggle-btn"
-            type="button"
-            onClick={handleToggleSheetTheme}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs cursor-pointer ${
-              sheetTheme === 'dark'
-                ? 'bg-zinc-800 border-zinc-700 text-amber-400 hover:bg-zinc-700'
-                : 'bg-white border-zinc-200 text-zinc-800 hover:bg-amber-500 hover:text-zinc-950'
-            }`}
-            title={sheetTheme === 'dark' ? 'Switch Real Sheet to Light Parchment Paper' : 'Switch Real Sheet to Studio Dark Mode'}
-          >
-            {sheetTheme === 'dark' ? (
-              <>
-                <Sun className="w-3.5 h-3.5 text-amber-400" />
-                <span>Light Sheet</span>
-              </>
-            ) : (
-              <>
-                <Moon className="w-3.5 h-3.5 text-zinc-600" />
-                <span>Dark Sheet</span>
-              </>
-            )}
-          </button>
-
-          {/* Sheet Orientation Toggle Button */}
-          <button
-            id="sheet-orientation-toggle-btn"
-            type="button"
-            onClick={handleToggleOrientation}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs cursor-pointer ${
-              sheetOrientation === 'landscape'
-                ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
-                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-            }`}
-            title={`Sheet Orientation: ${
-              sheetOrientation === 'portrait'
-                ? 'Portrait (210×297mm). Click to switch to Landscape (297×210mm).'
-                : 'Landscape (297×210mm). Click to switch to Portrait (210×297mm).'
-            }`}
-          >
-            {sheetOrientation === 'portrait' ? (
-              <>
-                <RectangleVertical className="w-3.5 h-3.5 text-zinc-500 dark:text-zinc-400" />
-                <span>Portrait</span>
-              </>
-            ) : (
-              <>
-                <RectangleHorizontal className="w-3.5 h-3.5 text-emerald-500" />
-                <span>Landscape</span>
-              </>
-            )}
-          </button>
-
-          <button
-            id="sheet-top-wrap-mode-btn"
-            type="button"
-            onClick={handleRotateWrapMode}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition-all shadow-xs cursor-pointer ${
-              sheetWrapMode === 'auto_wrap'
-                ? 'bg-amber-100 dark:bg-amber-500/20 border-amber-400 dark:border-amber-500/50 text-amber-900 dark:text-amber-300 hover:bg-amber-200 dark:hover:bg-amber-500/30'
-                : sheetWrapMode === 'auto_fit'
-                ? 'bg-sky-100 dark:bg-sky-500/20 border-sky-400 dark:border-sky-500/50 text-sky-900 dark:text-sky-300 hover:bg-sky-200 dark:hover:bg-sky-500/30'
-                : 'bg-white dark:bg-zinc-900 border-zinc-200 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-800'
-            }`}
-            title={`Layout Mode: ${
-              sheetWrapMode === 'no_wrap'
-                ? 'No Wrap (Lines spread naturally without forced extension; wraps only at delimiters & breaks). Click to switch to Auto Wrap.'
-                : sheetWrapMode === 'auto_wrap'
-                ? 'Auto Wrap (Dynamic collision-free spacing). Click to switch to Auto Fix.'
-                : 'Auto Fix (Forced measures per line). Click to switch to No Wrap.'
-            }`}
-          >
-            {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3.5 h-3.5 text-zinc-600 dark:text-zinc-400" />}
-            {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3.5 h-3.5 text-amber-800 dark:text-amber-400" />}
-            {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3.5 h-3.5 text-sky-800 dark:text-sky-400" />}
-            <span>
-              {sheetWrapMode === 'no_wrap'
-                ? 'No Wrap'
-                : sheetWrapMode === 'auto_wrap'
-                ? 'Auto Wrap'
-                : 'Auto Fix'}
-            </span>
-          </button>
-
-          <button
-            id="sheet-top-print-btn"
-            type="button"
-            onClick={handlePrint}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-800 dark:text-zinc-200 hover:bg-amber-500 hover:text-zinc-950 transition-all shadow-xs cursor-pointer"
-            title="Print or Export PDF"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Print Score</span>
-          </button>
-        </div>
-      </div>
-
-      {/* The Physical Sheet Paper Canvas */}
+      {/* The Physical Sheet Paper Canvas — Starts flush at top of viewport */}
       <div
         id="real-sheet-paper-stage"
         data-sheet-orientation={sheetOrientation}
@@ -3507,10 +3428,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             : 'max-w-4xl'
         } ${
           sheetOrientation === 'landscape' ? 'min-h-[640px]' : 'min-h-[960px]'
-        } rounded-xs p-3.5 sm:p-6 md:p-8 transition-all duration-150 print:shadow-none print:border-none print:p-0 print:max-w-none print:rounded-none select-none ${
+        } rounded-xs p-3 sm:p-5 md:p-7 transition-all duration-150 print:shadow-none print:border-none print:p-0 print:max-w-none print:rounded-none select-none ${
           sheetTheme === 'dark'
-            ? 'bg-[#14161f] text-zinc-100 border border-zinc-800 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.7),0_0_0_1px_rgba(255,255,255,0.06)]'
-            : 'bg-[#FCFAF6] text-zinc-900 border border-[#E7E2D8] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.18),0_0_0_1px_rgba(0,0,0,0.06)]'
+            ? 'bg-[#13161F] text-zinc-100 border border-zinc-800/90 shadow-[0_20px_50px_-15px_rgba(0,0,0,0.75),0_0_0_1px_rgba(255,255,255,0.05)]'
+            : 'bg-[#FCFAF6] text-zinc-900 border border-[#E5DFD3] shadow-[0_20px_50px_-15px_rgba(0,0,0,0.14),0_0_0_1px_rgba(0,0,0,0.05)]'
         } print:bg-white print:text-black`}
       >
         {/* Realistic Sheet Right Edge Vertical Boundary (when extended in No Wrap mode) */}
@@ -3538,28 +3459,28 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
           </div>
         )}
         {/* Subtle physical paper watermark / registration corner marks */}
-        <div className={`absolute top-3 left-3 font-mono text-[10px] select-none pointer-events-none print:hidden ${
+        <div className={`absolute top-2.5 left-2.5 font-mono text-[10px] select-none pointer-events-none print:hidden ${
           sheetTheme === 'dark' ? 'text-zinc-700' : 'text-zinc-300'
         }`}>
           ┌
         </div>
-        <div className={`absolute top-3 right-3 font-mono text-[10px] select-none pointer-events-none print:hidden ${
+        <div className={`absolute top-2.5 right-2.5 font-mono text-[10px] select-none pointer-events-none print:hidden ${
           sheetTheme === 'dark' ? 'text-zinc-700' : 'text-zinc-300'
         }`}>
           ┐
         </div>
-        <div className={`absolute bottom-3 left-3 font-mono text-[10px] select-none pointer-events-none print:hidden ${
+        <div className={`absolute bottom-2.5 left-2.5 font-mono text-[10px] select-none pointer-events-none print:hidden ${
           sheetTheme === 'dark' ? 'text-zinc-700' : 'text-zinc-300'
         }`}>
           └
         </div>
-        <div className={`absolute bottom-3 right-3 font-mono text-[10px] select-none pointer-events-none print:hidden ${
+        <div className={`absolute bottom-2.5 right-2.5 font-mono text-[10px] select-none pointer-events-none print:hidden ${
           sheetTheme === 'dark' ? 'text-zinc-700' : 'text-zinc-300'
         }`}>
           ┘
         </div>
 
-        {/* Paper Header: Catalog ID, Title, Credits, Key & Meter */}
+        {/* Paper Header: Catalog ID, Section Breadcrumbs, Studio Utilities, Title, Key/Meter & Credits */}
         <header
           id="real-sheet-header"
           style={
@@ -3570,43 +3491,292 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 }
               : undefined
           }
-          className={`relative pb-2.5 mb-3 border-b print:max-w-full ${
+          className={`relative pb-2 mb-2.5 border-b print:max-w-full ${
             sheetTheme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/80'
           }`}
         >
-          {/* Top Row: Catalog ID (Left) & Controls (Right) */}
-          <div className={`flex items-center justify-between text-xs font-mono mb-1.5 ${
-            sheetTheme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
-          }`}>
-            <div
-              className={`cursor-pointer transition-colors py-0.5 px-1 rounded font-serif italic ${
-                sheetTheme === 'dark' ? 'hover:text-amber-400 hover:bg-zinc-800' : 'hover:text-amber-700 hover:bg-amber-50'
-              }`}
-              onClick={() => startHeaderEdit('catalogNumber', song.catalogNumber || 'LPDC—JCR1341')}
-              title="Click to edit score catalog ID"
-            >
-              {song.catalogNumber || 'LPDC—JCR1341'}
-            </div>
-            <div className={`text-[11px] font-sans tracking-widest uppercase flex items-center gap-2 ${
-              sheetTheme === 'dark' ? 'text-zinc-500' : 'text-zinc-400'
-            }`}>
-              <span className="hidden sm:inline">Numbered Musical Notation</span>
-              <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold tracking-normal ${
-                sheetOrientation === 'landscape'
-                  ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30'
-                  : 'bg-zinc-200/70 dark:bg-zinc-800 text-zinc-600 dark:text-zinc-400 border border-zinc-300/50 dark:border-zinc-700'
+          {/* Top Row: Catalog ID + Inline Section Jumps (Left) & Compact Studio Utility Cluster (Right) */}
+          <div
+            id="sheet-top-action-bar"
+            className={`flex flex-wrap items-center justify-between gap-1.5 text-xs font-mono mb-1.5 ${
+              sheetTheme === 'dark' ? 'text-zinc-400' : 'text-zinc-500'
+            }`}
+          >
+            {/* Left: Catalog Number + Section Breadcrumb Jumps + Measure Count */}
+            <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+              <div
+                className={`cursor-pointer transition-colors py-0.5 px-1 rounded font-serif italic text-[11px] ${
+                  sheetTheme === 'dark' ? 'hover:text-amber-400 hover:bg-zinc-800' : 'hover:text-amber-700 hover:bg-amber-50'
+                }`}
+                onClick={() => startHeaderEdit('catalogNumber', song.catalogNumber || 'LPDC—JCR1341')}
+                title="Click to edit score catalog ID"
+              >
+                {song.catalogNumber || 'LPDC—JCR1341'}
+              </div>
+
+              <span className="print:hidden text-zinc-400 dark:text-zinc-600 select-none">·</span>
+
+              <span className={`print:hidden text-[10px] font-mono tabular-nums font-bold px-1.5 py-0.5 rounded ${
+                sheetTheme === 'dark' ? 'bg-zinc-800/80 text-zinc-300' : 'bg-zinc-200/60 text-zinc-700'
               }`}>
-                {sheetOrientation === 'landscape' ? 'A4 Landscape · 297×210mm' : 'A4 Portrait · 210×297mm'}
+                {song.measures.length} Bars
               </span>
+
+              {incompleteMeasuresCount > 0 && onBatchFixAllIncompleteMeasures && (
+                <button
+                  type="button"
+                  onClick={onBatchFixAllIncompleteMeasures}
+                  className="print:hidden text-[9px] px-1.5 py-0.5 rounded bg-rose-600 hover:bg-rose-500 text-white font-mono tabular-nums font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                  title="Click to auto-fill rest deficits across all incomplete measures"
+                >
+                  <span>{incompleteMeasuresCount} incomplete</span>
+                  <Wand2 className="w-2.5 h-2.5" />
+                </button>
+              )}
+
+              {/* Compact Section Jump Pills */}
+              {songSections.length > 0 && (
+                <div className="print:hidden flex items-center gap-1 overflow-x-auto no-scrollbar max-w-full">
+                  <span className="text-zinc-400 dark:text-zinc-600 select-none">·</span>
+                  {songSections.map((sec, sIdx) => {
+                    const nextSec = songSections[sIdx + 1];
+                    const isCurrentSec =
+                      currentMIdx >= sec.measureIdx && (!nextSec || currentMIdx < nextSec.measureIdx);
+                    const isPlayingSec =
+                      playingMeasureIdx !== null &&
+                      playingMeasureIdx >= sec.measureIdx &&
+                      (!nextSec || playingMeasureIdx < nextSec.measureIdx);
+                    return (
+                      <button
+                        key={`header-sec-${sec.measureIdx}-${sIdx}`}
+                        type="button"
+                        onClick={() => {
+                          if (onJumpToMeasure) {
+                            onJumpToMeasure(sec.measureIdx);
+                          } else {
+                            onSelectMeasure?.(sec.measureIdx);
+                          }
+                        }}
+                        onDoubleClick={() => {
+                          setAbRange({
+                            startMeasureIndex: sec.measureIdx,
+                            endMeasureIndex: sec.endMeasureIdx,
+                          });
+                        }}
+                        className={`px-1.5 py-0.5 rounded text-[10px] font-sans font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                          isPlayingSec
+                            ? 'bg-emerald-500 text-zinc-950 font-black'
+                            : isCurrentSec
+                            ? 'bg-amber-500 text-zinc-950 font-black'
+                            : sheetTheme === 'dark'
+                            ? 'bg-zinc-800/80 text-zinc-300 hover:bg-zinc-700'
+                            : 'bg-zinc-200/70 text-zinc-700 hover:bg-zinc-300/80'
+                        }`}
+                        title={`Jump to ${sec.label} (Bar ${sec.measureIdx + 1}). Double-click to loop section.`}
+                      >
+                        {sec.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Right: Print-Only A4 Caption + Interactive Studio Controls (print:hidden) */}
+            <div className="flex items-center gap-1 flex-wrap justify-end">
+              <span className="hidden print:inline text-[10px] font-sans tracking-widest uppercase text-zinc-500">
+                Numbered Musical Notation
+              </span>
+
+              <div className="print:hidden flex items-center gap-1 flex-wrap">
+                {/* Align Lyrics */}
+                {onOpenAligner && (
+                  <button
+                    type="button"
+                    onClick={onOpenAligner}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-sans font-bold border transition-all cursor-pointer ${
+                      sheetTheme === 'dark'
+                        ? 'bg-zinc-900 border-zinc-800 text-zinc-200 hover:bg-zinc-800'
+                        : 'bg-white border-zinc-200/90 text-zinc-700 hover:bg-zinc-100'
+                    }`}
+                    title="Open Quick Lyric Aligner & Paste Tool"
+                  >
+                    <AlignLeft className="w-3 h-3 text-amber-500" />
+                    <span className="hidden md:inline">Align Lyrics</span>
+                  </button>
+                )}
+
+                {/* Auto Chords */}
+                {onAutoHarmonize && (
+                  <button
+                    id="composer-score-auto-chords-btn"
+                    type="button"
+                    onClick={onAutoHarmonize}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-sans font-bold border transition-all cursor-pointer ${
+                      sheetTheme === 'dark'
+                        ? 'bg-zinc-900 border-zinc-800 text-zinc-200 hover:bg-zinc-800'
+                        : 'bg-white border-zinc-200/90 text-zinc-700 hover:bg-zinc-100'
+                    }`}
+                    title="Auto-analyze melody and harmonize chords for all measures"
+                  >
+                    <Wand2 className="w-3 h-3 text-amber-500" />
+                    <span className="hidden lg:inline">Auto Chords</span>
+                  </button>
+                )}
+
+                {/* In-Song Find (⌘F) */}
+                {onOpenInSongSearch && (
+                  <button
+                    id="composer-score-search-btn"
+                    type="button"
+                    onClick={onOpenInSongSearch}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-sans font-bold border transition-all cursor-pointer ${
+                      isInSongSearchOpen
+                        ? 'bg-amber-500 border-amber-400 text-zinc-950 font-black'
+                        : sheetTheme === 'dark'
+                        ? 'bg-zinc-900 border-zinc-800 text-zinc-200 hover:bg-zinc-800'
+                        : 'bg-white border-zinc-200/90 text-zinc-700 hover:bg-zinc-100'
+                    }`}
+                    title="Find in score [Ctrl+F / ⌘F]"
+                  >
+                    <Search className="w-3 h-3 text-amber-500" />
+                    <span className="hidden lg:inline">Find</span>
+                  </button>
+                )}
+
+                {/* Song Info & Metadata Settings Modal Trigger */}
+                {onOpenSongSettings && (
+                  <button
+                    id="sheet-song-settings-btn"
+                    type="button"
+                    onClick={onOpenSongSettings}
+                    className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-sans font-bold border transition-all cursor-pointer ${
+                      sheetTheme === 'dark'
+                        ? 'bg-zinc-900 border-zinc-800 text-zinc-200 hover:bg-zinc-800'
+                        : 'bg-white border-zinc-200/90 text-zinc-700 hover:bg-zinc-100'
+                    }`}
+                    title="Edit Song Info, Credits, Key Transpose & Meter Re-bar"
+                  >
+                    <SlidersHorizontal className="w-3 h-3 text-amber-500" />
+                    <span className="hidden xl:inline">Song Info</span>
+                  </button>
+                )}
+
+                {/* Theme Toggle Button */}
+                <button
+                  id="sheet-theme-toggle-btn"
+                  type="button"
+                  onClick={handleToggleSheetTheme}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-sans font-bold border transition-all cursor-pointer ${
+                    sheetTheme === 'dark'
+                      ? 'bg-zinc-900 border-zinc-800 text-amber-400 hover:bg-zinc-800'
+                      : 'bg-white border-zinc-200/90 text-zinc-700 hover:bg-zinc-100'
+                  }`}
+                  title={sheetTheme === 'dark' ? 'Switch Real Sheet to Light Parchment Paper' : 'Switch Real Sheet to Studio Dark Mode'}
+                >
+                  {sheetTheme === 'dark' ? (
+                    <>
+                      <Sun className="w-3 h-3 text-amber-400" />
+                      <span className="hidden md:inline">Light</span>
+                    </>
+                  ) : (
+                    <>
+                      <Moon className="w-3 h-3 text-zinc-600" />
+                      <span className="hidden md:inline">Dark</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Sheet Orientation Toggle Button */}
+                <button
+                  id="sheet-orientation-toggle-btn"
+                  type="button"
+                  onClick={handleToggleOrientation}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-sans font-bold border transition-all cursor-pointer ${
+                    sheetOrientation === 'landscape'
+                      ? 'bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25'
+                      : sheetTheme === 'dark'
+                      ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'
+                      : 'bg-white border-zinc-200/90 text-zinc-700 hover:bg-zinc-100'
+                  }`}
+                  title={`Sheet Orientation: ${
+                    sheetOrientation === 'portrait'
+                      ? 'Portrait (210×297mm). Click to switch to Landscape (297×210mm).'
+                      : 'Landscape (297×210mm). Click to switch to Portrait (210×297mm).'
+                  }`}
+                >
+                  {sheetOrientation === 'portrait' ? (
+                    <>
+                      <RectangleVertical className="w-3 h-3 text-zinc-500 dark:text-zinc-400" />
+                      <span className="hidden sm:inline">Portrait</span>
+                    </>
+                  ) : (
+                    <>
+                      <RectangleHorizontal className="w-3 h-3 text-emerald-500" />
+                      <span className="hidden sm:inline">Landscape</span>
+                    </>
+                  )}
+                </button>
+
+                {/* Wrap Mode Cycle Button */}
+                <button
+                  id="sheet-top-wrap-mode-btn"
+                  type="button"
+                  onClick={handleRotateWrapMode}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-sans font-bold border transition-all cursor-pointer ${
+                    sheetWrapMode === 'auto_wrap'
+                      ? 'bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300'
+                      : sheetWrapMode === 'auto_fit'
+                      ? 'bg-sky-500/15 border-sky-500/40 text-sky-700 dark:text-sky-300'
+                      : sheetTheme === 'dark'
+                      ? 'bg-zinc-900 border-zinc-800 text-zinc-300 hover:bg-zinc-800'
+                      : 'bg-white border-zinc-200/90 text-zinc-700 hover:bg-zinc-100'
+                  }`}
+                  title={`Layout Mode: ${
+                    sheetWrapMode === 'no_wrap'
+                      ? 'No Wrap. Click to switch to Auto Wrap.'
+                      : sheetWrapMode === 'auto_wrap'
+                      ? 'Auto Wrap. Click to switch to Auto Fix.'
+                      : 'Auto Fix. Click to switch to No Wrap.'
+                  }`}
+                >
+                  {sheetWrapMode === 'no_wrap' && <AlignJustify className="w-3 h-3 text-zinc-500" />}
+                  {sheetWrapMode === 'auto_wrap' && <WrapText className="w-3 h-3 text-amber-500" />}
+                  {sheetWrapMode === 'auto_fit' && <Maximize2 className="w-3 h-3 text-sky-500" />}
+                  <span className="hidden sm:inline">
+                    {sheetWrapMode === 'no_wrap'
+                      ? 'No Wrap'
+                      : sheetWrapMode === 'auto_wrap'
+                      ? 'Auto Wrap'
+                      : 'Auto Fix'}
+                  </span>
+                </button>
+
+                {/* Print Button */}
+                <button
+                  id="sheet-top-print-btn"
+                  type="button"
+                  onClick={handlePrint}
+                  className={`flex items-center gap-1 px-2 py-1 rounded-md text-[10px] font-sans font-bold border transition-all cursor-pointer ${
+                    sheetTheme === 'dark'
+                      ? 'bg-zinc-900 border-zinc-800 text-zinc-200 hover:bg-amber-500 hover:text-zinc-950'
+                      : 'bg-white border-zinc-200/90 text-zinc-800 hover:bg-amber-500 hover:text-zinc-950'
+                  }`}
+                  title="Print or Export PDF"
+                >
+                  <Printer className="w-3 h-3" />
+                  <span className="hidden sm:inline">Print</span>
+                </button>
+              </div>
             </div>
           </div>
 
           {/* Centered Song Title & Subtitle */}
-          <div className="text-center my-1.5 sm:my-2">
+          <div className="text-center my-1 sm:my-1.5">
             <h1
               id="sheet-song-title-display"
               onClick={() => startHeaderEdit('title', song.title)}
-              className={`font-serif tracking-[0.25em] text-2xl sm:text-3xl md:text-4xl font-black cursor-pointer hover:opacity-80 transition-opacity ${
+              className={`font-serif tracking-[0.22em] text-xl sm:text-2xl md:text-3xl font-black cursor-pointer hover:opacity-80 transition-opacity ${
                 sheetTheme === 'dark' ? 'text-zinc-50' : 'text-zinc-950'
               }`}
               title="Click to edit song title"
@@ -3618,7 +3788,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
               <p
                 id="sheet-song-subtitle-display"
                 onClick={() => startHeaderEdit('subtitle', song.subtitle || '')}
-                className={`font-serif text-xs sm:text-sm mt-1 cursor-pointer hover:opacity-80 ${
+                className={`font-serif text-xs sm:text-sm mt-0.5 cursor-pointer hover:opacity-80 ${
                   sheetTheme === 'dark' ? 'text-zinc-400' : 'text-zinc-600'
                 }`}
                 title="Click to edit subtitle"
@@ -3628,12 +3798,12 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
             )}
           </div>
 
-          {/* Key / Time Signature / Tempo (Left) & Credits (Right) */}
-          <div className={`flex flex-wrap items-end justify-between mt-2.5 pt-1.5 gap-3 border-t ${
-            sheetTheme === 'dark' ? 'border-zinc-800' : 'border-zinc-100'
+          {/* Key / Time Signature / Tempo / Lyric Format (Left) & Editorial Credits (Right) */}
+          <div className={`flex flex-wrap items-end justify-between mt-1.5 pt-1.5 gap-3 border-t ${
+            sheetTheme === 'dark' ? 'border-zinc-800' : 'border-zinc-200/60'
           }`}>
             {/* Left Musical Meter Block */}
-            <div className={`flex items-center gap-5 font-serif font-bold text-base sm:text-lg ${
+            <div className={`flex items-center gap-4 sm:gap-5 font-serif font-bold text-base sm:text-lg ${
               sheetTheme === 'dark' ? 'text-zinc-100' : 'text-zinc-900'
             }`}>
               {/* Click-away backdrop for active sheet picker */}
@@ -3651,10 +3821,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                   id="sheet-key-signature-btn"
                   type="button"
                   onClick={() => setActiveSheetPicker(activeSheetPicker === 'key' ? null : 'key')}
-                  className={`flex items-center gap-1 cursor-pointer px-1 py-0.5 rounded transition-colors ${
+                  className={`flex items-center gap-1 cursor-pointer px-1 py-0.5 rounded transition-colors tabular-nums ${
                     sheetTheme === 'dark' ? 'hover:text-amber-400 hover:bg-zinc-800' : 'hover:text-amber-700 hover:bg-amber-50'
                   }`}
-                  title="Click to change Key signature"
+                  title="Click to change Key signature (with optional chord auto-transpose)"
                 >
                   <span>1</span>
                   <span>=</span>
@@ -3664,26 +3834,40 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 </button>
 
                 {activeSheetPicker === 'key' && (
-                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-2 grid grid-cols-4 gap-1 z-50 text-xs font-mono print:hidden ${
+                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-2.5 flex flex-col gap-2 z-50 text-xs font-mono min-w-[200px] print:hidden ${
                     sheetTheme === 'dark' ? 'bg-zinc-900 border-zinc-700 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'
                   }`}>
-                    {ALL_KEYS.map(k => (
-                      <button
-                        key={`key-opt-${k}`}
-                        type="button"
-                        onClick={() => {
-                          onUpdateSong({ ...song, key: k });
-                          setActiveSheetPicker(null);
-                        }}
-                        className={`px-2 py-1 rounded cursor-pointer ${
-                          song.key === k
-                            ? 'bg-amber-500 text-zinc-950 font-bold'
-                            : sheetTheme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'
-                        }`}
-                      >
-                        {k}
-                      </button>
-                    ))}
+                    <label className="flex items-center gap-1.5 text-[10px] font-sans font-semibold cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={autoTransposeChordsOnSheet}
+                        onChange={e => setAutoTransposeChordsOnSheet(e.target.checked)}
+                        className="accent-amber-500 rounded"
+                      />
+                      <span>Auto-transpose chords</span>
+                    </label>
+                    <div className="grid grid-cols-4 gap-1">
+                      {ALL_KEYS.map(k => (
+                        <button
+                          key={`key-opt-${k}`}
+                          type="button"
+                          onClick={() => {
+                            const updated = autoTransposeChordsOnSheet
+                              ? transposeSongChords(song, k)
+                              : { ...song, key: k };
+                            onUpdateSong(updated);
+                            setActiveSheetPicker(null);
+                          }}
+                          className={`px-2 py-1 rounded cursor-pointer tabular-nums ${
+                            song.key === k
+                              ? 'bg-amber-500 text-zinc-950 font-bold'
+                              : sheetTheme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'
+                          }`}
+                        >
+                          {k}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -3694,10 +3878,10 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                   id="sheet-time-signature-btn"
                   type="button"
                   onClick={() => setActiveSheetPicker(activeSheetPicker === 'time' ? null : 'time')}
-                  className={`flex flex-col items-center justify-center leading-none cursor-pointer px-1 py-0.5 rounded transition-colors ${
+                  className={`flex flex-col items-center justify-center leading-none cursor-pointer px-1 py-0.5 rounded transition-colors tabular-nums ${
                     sheetTheme === 'dark' ? 'hover:text-amber-400 hover:bg-zinc-800' : 'hover:text-amber-700 hover:bg-amber-50'
                   }`}
-                  title="Click to change Time signature"
+                  title="Click to change Time signature (with optional smart re-bar)"
                 >
                   <span className="text-sm sm:text-base font-black">
                     {(song.timeSignature || '4/4').split('/')[0]}
@@ -3709,26 +3893,40 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                 </button>
 
                 {activeSheetPicker === 'time' && (
-                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-1.5 flex flex-col gap-1 z-50 text-xs font-mono print:hidden ${
+                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-2 flex flex-col gap-1.5 z-50 text-xs font-mono min-w-[170px] print:hidden ${
                     sheetTheme === 'dark' ? 'bg-zinc-900 border-zinc-700 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'
                   }`}>
-                    {TIME_SIGNATURES.map(ts => (
-                      <button
-                        key={`ts-opt-${ts}`}
-                        type="button"
-                        onClick={() => {
-                          onUpdateSong({ ...song, timeSignature: ts });
-                          setActiveSheetPicker(null);
-                        }}
-                        className={`px-3 py-1.5 rounded text-left cursor-pointer ${
-                          song.timeSignature === ts
-                            ? 'bg-amber-500 text-zinc-950 font-bold'
-                            : sheetTheme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'
-                        }`}
-                      >
-                        {ts}
-                      </button>
-                    ))}
+                    <label className="flex items-center gap-1.5 text-[10px] font-sans font-semibold cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={smartRebarOnSheet}
+                        onChange={e => setSmartRebarOnSheet(e.target.checked)}
+                        className="accent-amber-500 rounded"
+                      />
+                      <span>Smart re-bar measures</span>
+                    </label>
+                    <div className="flex flex-col gap-1">
+                      {TIME_SIGNATURES.map(ts => (
+                        <button
+                          key={`ts-opt-${ts}`}
+                          type="button"
+                          onClick={() => {
+                            const updated = smartRebarOnSheet
+                              ? smartRebarSong(song, ts)
+                              : { ...song, timeSignature: ts };
+                            onUpdateSong(updated);
+                            setActiveSheetPicker(null);
+                          }}
+                          className={`px-3 py-1.5 rounded text-left cursor-pointer tabular-nums ${
+                            song.timeSignature === ts
+                              ? 'bg-amber-500 text-zinc-950 font-bold'
+                              : sheetTheme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'
+                          }`}
+                        >
+                          {ts}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 )}
               </div>
@@ -3744,21 +3942,21 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     }
                     setActiveSheetPicker(activeSheetPicker === 'bpm' ? null : 'bpm');
                   }}
-                  className={`flex items-center gap-1 cursor-pointer px-1 py-0.5 rounded transition-colors font-sans text-sm sm:text-base ${
+                  className={`flex items-center gap-1 cursor-pointer px-1 py-0.5 rounded transition-colors font-sans text-sm sm:text-base tabular-nums ${
                     sheetTheme === 'dark' ? 'hover:text-amber-400 hover:bg-zinc-800' : 'hover:text-amber-700 hover:bg-amber-50'
                   }`}
-                  title="Click to adjust Tempo"
+                  title="Click to adjust Tempo (BPM)"
                 >
                   <span className="text-base font-serif">♩</span>
                   <span>=</span>
-                  <span className="font-mono font-bold">{song.bpm || 88}</span>
+                  <span className="font-mono font-bold tabular-nums">{song.bpm || 88}</span>
                 </button>
 
                 {activeSheetPicker === 'bpm' && (
-                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-3 flex flex-col gap-2 z-50 text-xs print:hidden ${
+                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-3 flex flex-col gap-2 z-50 text-xs print:hidden min-w-[200px] ${
                     sheetTheme === 'dark' ? 'bg-zinc-900 border-zinc-700 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'
                   }`}>
-                    <label className={`font-bold ${sheetTheme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'}`}>
+                    <label className={`font-bold font-mono tabular-nums ${sheetTheme === 'dark' ? 'text-zinc-300' : 'text-zinc-600'}`}>
                       Tempo (BPM): {draftBpm}
                     </label>
                     <input
@@ -3767,8 +3965,24 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                       max={240}
                       value={draftBpm}
                       onChange={e => setDraftBpm(Number(e.target.value))}
-                      className="w-36 accent-amber-500"
+                      className="w-full accent-amber-500"
                     />
+                    <div className="flex flex-wrap gap-1">
+                      {[68, 80, 96, 112, 128].map(preset => (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => setDraftBpm(preset)}
+                          className={`px-1.5 py-0.5 rounded font-mono text-[10px] tabular-nums cursor-pointer ${
+                            draftBpm === preset
+                              ? 'bg-amber-500 text-zinc-950 font-bold'
+                              : sheetTheme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      ))}
+                    </div>
                     <div className="flex justify-end gap-1 mt-1">
                       <button
                         type="button"
@@ -3776,7 +3990,7 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                           onUpdateSong({ ...song, bpm: draftBpm });
                           setActiveSheetPicker(null);
                         }}
-                        className="px-2 py-1 bg-amber-500 text-zinc-950 rounded font-bold cursor-pointer hover:bg-amber-400"
+                        className="px-2.5 py-1 bg-amber-500 text-zinc-950 rounded font-bold cursor-pointer hover:bg-amber-400"
                       >
                         Apply
                       </button>
@@ -3784,40 +3998,114 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* On-Sheet Lyric Format Selector (print:hidden) */}
+              <div className="relative print:hidden">
+                <button
+                  id="sheet-lyric-format-btn"
+                  type="button"
+                  onClick={() => setActiveSheetPicker(activeSheetPicker === 'lyrics' ? null : 'lyrics')}
+                  className={`flex items-center gap-1 cursor-pointer px-2 py-0.5 rounded-md text-[11px] font-sans font-bold border transition-colors ${
+                    sheetTheme === 'dark'
+                      ? 'bg-zinc-900/90 border-zinc-800 text-teal-300 hover:border-amber-500/50'
+                      : 'bg-zinc-100/80 border-zinc-200 text-teal-900 hover:border-amber-500/50'
+                  }`}
+                  title="Switch Lyric Display Format (POJ / Hàn-lô)"
+                >
+                  <span>
+                    {getVerseDisplayOption(song) === 'both_poj_top' || getVerseDisplayOption(song) === 'both'
+                      ? 'POJ / Hàn'
+                      : getVerseDisplayOption(song) === 'both_hanlo_top'
+                      ? 'Hàn / POJ'
+                      : getVerseDisplayOption(song) === 'hanlo'
+                      ? 'Hàn-lô'
+                      : 'POJ'}
+                  </span>
+                </button>
+
+                {activeSheetPicker === 'lyrics' && (
+                  <div className={`absolute top-full left-0 mt-1 border shadow-xl rounded-xl p-1.5 flex flex-col gap-1 z-50 text-xs font-sans min-w-[150px] print:hidden ${
+                    sheetTheme === 'dark' ? 'bg-zinc-900 border-zinc-700 text-zinc-200' : 'bg-white border-zinc-200 text-zinc-800'
+                  }`}>
+                    {([
+                      { id: 'both_poj_top', label: 'POJ / Hàn-lô (Top POJ)' },
+                      { id: 'both_hanlo_top', label: 'Hàn-lô / POJ (Top Hàn)' },
+                      { id: 'hanlo', label: 'Hàn-lô Only' },
+                      { id: 'poj', label: 'POJ Only' },
+                    ] as { id: VerseDisplayOption; label: string }[]).map(opt => {
+                      const currentOpt = getVerseDisplayOption(song);
+                      const isSelected =
+                        currentOpt === opt.id || (opt.id === 'both_poj_top' && currentOpt === 'both');
+                      return (
+                        <button
+                          key={opt.id}
+                          type="button"
+                          onClick={() => {
+                            handleUpdateGlobalLyricDisplayOption(opt.id);
+                            setActiveSheetPicker(null);
+                          }}
+                          className={`px-2.5 py-1.5 rounded text-left cursor-pointer text-[11px] font-semibold ${
+                            isSelected
+                              ? 'bg-amber-500 text-zinc-950 font-bold'
+                              : sheetTheme === 'dark' ? 'hover:bg-zinc-800' : 'hover:bg-zinc-100'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             </div>
 
-            {/* Right Credits Block */}
-            <div className={`flex flex-col items-end text-xs sm:text-sm font-serif space-y-0.5 ${
+            {/* Right Editorial Credits Block (Unboxed with · separators) */}
+            <div className={`flex flex-wrap items-center justify-end gap-1.5 text-xs sm:text-sm font-serif ${
               sheetTheme === 'dark' ? 'text-zinc-300' : 'text-zinc-700'
             }`}>
               {song.lyricist && (
-                <div
+                <span
                   className={`cursor-pointer ${sheetTheme === 'dark' ? 'hover:text-amber-400' : 'hover:text-amber-700'}`}
                   onClick={() => startHeaderEdit('lyricist', song.lyricist || '')}
                   title="Click to edit Lyricist credit"
                 >
                   {song.lyricist}
-                </div>
+                </span>
+              )}
+              {song.lyricist && song.composer && (
+                <span className="text-zinc-400 dark:text-zinc-600 select-none">·</span>
               )}
               {song.composer && (
-                <div
+                <span
                   className={`cursor-pointer ${sheetTheme === 'dark' ? 'hover:text-amber-400' : 'hover:text-amber-700'}`}
                   onClick={() => startHeaderEdit('composer', song.composer || '')}
                   title="Click to edit Composer credit"
                 >
                   {song.composer}
-                </div>
+                </span>
+              )}
+              {(song.lyricist || song.composer) && song.notator && (
+                <span className="text-zinc-400 dark:text-zinc-600 select-none">·</span>
               )}
               {song.notator && (
-                <div
+                <span
                   className={`cursor-pointer text-[11px] ${
-                    sheetTheme === 'dark' ? 'text-zinc-500 hover:text-amber-400' : 'text-zinc-500 hover:text-amber-700'
+                    sheetTheme === 'dark' ? 'text-zinc-400 hover:text-amber-400' : 'text-zinc-500 hover:text-amber-700'
                   }`}
                   onClick={() => startHeaderEdit('notator', song.notator || '')}
                   title="Click to edit Notator/Engraver credit"
                 >
                   {song.notator}
-                </div>
+                </span>
+              )}
+              {!song.lyricist && !song.composer && !song.notator && (
+                <button
+                  type="button"
+                  onClick={() => startHeaderEdit('composer', '')}
+                  className="print:hidden text-[11px] font-sans text-zinc-400 hover:text-amber-500 cursor-pointer"
+                >
+                  + Add Credits
+                </button>
               )}
             </div>
           </div>
@@ -3857,7 +4145,6 @@ export const RealSheetCanvas: React.FC<RealSheetCanvasProps> = ({
                     onClick={() => {
                       onSelectMeasure?.(engravedM.measureIndex);
                       setContextualEditTarget('measure');
-                      setIsContextualEditActive(true);
                     }}
                     onDoubleClick={(e) => {
                       e.stopPropagation();

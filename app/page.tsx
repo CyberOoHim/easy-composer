@@ -720,7 +720,7 @@ export default function Home() {
     isShareModalOpen;
 
   return (
-    <div className="min-h-screen bg-zinc-100 dark:bg-[#0c0e14] text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-amber-500/30 print:bg-white print:text-black print:min-h-0">
+    <div className="min-h-screen bg-[#EDE8DF] dark:bg-[#0A0C10] text-zinc-900 dark:text-zinc-100 flex flex-col antialiased selection:bg-amber-500/30 print:bg-white print:text-black print:min-h-0">
       {/* Top DAW Master Transport Console */}
       <HeaderBar
         song={song}
@@ -766,9 +766,9 @@ export default function Home() {
         <div
           id="shared-song-loaded-banner"
           role="status"
-          className="print:hidden mx-2 sm:mx-auto sm:max-w-[1600px] sm:w-full sm:px-3 lg:px-4 mt-2 animate-in fade-in slide-in-from-top-2 duration-200"
+          className="print:hidden mx-2 sm:mx-auto sm:max-w-[1600px] sm:w-full sm:px-3 lg:px-4 mt-1.5 animate-in fade-in slide-in-from-top-2 duration-200"
         >
-          <div className="p-3 rounded-2xl bg-amber-500/15 dark:bg-amber-500/10 border border-amber-500/30 text-zinc-900 dark:text-zinc-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs">
+          <div className="p-2.5 rounded-xl bg-amber-500/15 dark:bg-amber-500/10 border border-amber-500/30 text-zinc-900 dark:text-zinc-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 shadow-xs">
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="w-7 h-7 rounded-lg bg-amber-500 text-zinc-950 flex items-center justify-center font-black shrink-0 shadow-xs">
                 <Music className="w-3.5 h-3.5" />
@@ -777,7 +777,7 @@ export default function Home() {
                 <span className="text-xs font-bold truncate">
                   Opened shared score: <span className="text-amber-700 dark:text-amber-400 font-extrabold">{sharedSongNotice.song.title}</span>
                 </span>
-                <span className="text-[11px] text-zinc-600 dark:text-zinc-400 font-mono">
+                <span className="text-[11px] text-zinc-600 dark:text-zinc-400 font-mono tabular-nums">
                   1={sharedSongNotice.song.key} · {sharedSongNotice.song.timeSignature} · {sharedSongNotice.song.bpm} BPM · {sharedSongNotice.song.measures.length} measures
                 </span>
               </div>
@@ -823,9 +823,9 @@ export default function Home() {
         <div
           id="shared-song-error-banner"
           role="alert"
-          className="print:hidden mx-2 sm:mx-auto sm:max-w-[1600px] sm:w-full sm:px-3 lg:px-4 mt-2 animate-in fade-in slide-in-from-top-2 duration-200"
+          className="print:hidden mx-2 sm:mx-auto sm:max-w-[1600px] sm:w-full sm:px-3 lg:px-4 mt-1.5 animate-in fade-in slide-in-from-top-2 duration-200"
         >
-          <div className="p-3 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-200 flex items-center justify-between gap-2 shadow-xs">
+          <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-800 dark:text-rose-200 flex items-center justify-between gap-2 shadow-xs">
             <div className="flex items-center gap-2 min-w-0">
               <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0" />
               <span className="text-xs font-bold truncate">
@@ -849,16 +849,16 @@ export default function Home() {
         <div
           id="header-save-error-banner"
           role="alert"
-          className="print:hidden mx-2 sm:mx-auto sm:max-w-[1600px] sm:w-full sm:px-3 lg:px-4 mt-1.5"
+          className="print:hidden mx-2 sm:mx-auto sm:max-w-[1600px] sm:w-full sm:px-3 lg:px-4 mt-1"
         >
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-medium">
+          <div className="p-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-700 dark:text-rose-300 text-xs font-medium">
             {saveError}
           </div>
         </div>
       )}
 
       {/* Main Studio Canvas - Consolidated WYSIWYG Sheet */}
-      <main className="flex-1 max-w-[1600px] w-full mx-auto px-1 sm:px-3 lg:px-4 py-1 sm:py-2 flex flex-col gap-1.5 safe-px print:p-0 print:m-0 print:max-w-none print:w-full print:block">
+      <main className="flex-1 max-w-[1600px] w-full mx-auto px-0 sm:px-2 lg:px-3 pt-0 pb-1 flex flex-col gap-0 safe-px print:p-0 print:m-0 print:max-w-none print:w-full print:block">
         <ComposerEditor
           song={song}
           cursor={cursor}

@@ -58,6 +58,9 @@ interface SongMetadataHeaderProps {
   onResetPresetSong?: (presetId: string) => void;
   onRestoreDefaultSong?: () => void;
   modifiedPresetIds?: Set<string>;
+  isStripVisible?: boolean;
+  isSettingsModalOpen?: boolean;
+  onSetSettingsModalOpen?: (open: boolean) => void;
 }
 
 export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(({
@@ -72,8 +75,19 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
   onResetPresetSong,
   onRestoreDefaultSong,
   modifiedPresetIds = new Set(),
+  isStripVisible = false,
+  isSettingsModalOpen: externalModalOpen,
+  onSetSettingsModalOpen: setExternalModalOpen,
 }) => {
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [internalModalOpen, setInternalModalOpen] = useState<boolean>(false);
+  const isSettingsModalOpen = externalModalOpen ?? internalModalOpen;
+  const setIsSettingsModalOpen = useCallback((val: boolean) => {
+    if (setExternalModalOpen) {
+      setExternalModalOpen(val);
+    } else {
+      setInternalModalOpen(val);
+    }
+  }, [setExternalModalOpen]);
   const [restoreSuccessNotice, setRestoreSuccessNotice] = useState<string | null>(null);
 
   // Active inline popover for DAW LCD items: 'key' | 'timeSignature' | 'bpm' | 'displayMode' | null
@@ -187,7 +201,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [setIsSettingsModalOpen]);
 
   // Handle Key Change
   const handleSelectKey = (targetKey: KeySignature) => {
@@ -307,7 +321,8 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
         />
       )}
 
-      {/* COMPACT DAW PROJECT STRIP (High-Density, Maximize Viewport for Notation) */}
+      {/* COMPACT DAW PROJECT STRIP (Collapsed by default so score starts flush below Master Studio Bar) */}
+      {isStripVisible && (
       <div
         id="song-metadata-card"
         className="px-2.5 py-1 sm:py-1.5 bg-white/95 dark:bg-[#141720]/95 backdrop-blur-md border border-zinc-200/90 dark:border-zinc-800/80 rounded-xl shadow-2xs flex items-center justify-between gap-1.5 sm:gap-2 flex-wrap select-none relative print:hidden"
@@ -802,6 +817,7 @@ export const SongMetadataHeader: React.FC<SongMetadataHeaderProps> = React.memo(
           </button>
         </div>
       </div>
+      )}
 
       {/* SONG SETTINGS MODAL DIALOG (Non-intrusive, Does not shift notation scroll position) */}
       {isSettingsModalOpen && (

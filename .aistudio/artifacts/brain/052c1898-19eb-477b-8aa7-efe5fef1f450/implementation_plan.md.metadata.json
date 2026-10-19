@@ -1,6 +1,6 @@
 {
-  "summary": "Full-application architectural audit and deep structural refactoring blueprint decomposing monolithic UI and library modules into focused, testable domain subsystems while preserving all existing composition, engraving, audio synthesis, and Taigi lyric workflows.",
-  "updatedAt": "2026-10-19T05:02:23.595629310Z",
+  "summary": "Full UI/UX refactoring plan to maximize the note and lyric viewport at all times, consolidate four redundant top toolbars into a single slim master studio bar + interactive on-sheet header, transform the bottom HUD into a clean single-row dock where drawers and contextual edit decks open strictly on demand, and apply the Refined Editorial Studio visual aesthetic.",
+  "updatedAt": "2026-10-19T05:54:05.010198314Z",
   "requestFeedback": true,
   "userFacing": true
 }

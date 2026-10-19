@@ -366,6 +366,17 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
     return getStoredTactileQuickPad(false);
   });
 
+  const handleCloseDrawer = React.useCallback(() => {
+    if (onCloseDrawer) {
+      onCloseDrawer();
+    } else {
+      setInternalDrawer('none');
+      if (showPianoBed && onTogglePianoBed) {
+        onTogglePianoBed();
+      }
+    }
+  }, [onCloseDrawer, showPianoBed, onTogglePianoBed]);
+
   const handleToggleTactilePad = React.useCallback(() => {
     if (activeField !== 'pitch') {
       onToggleActiveField();
@@ -373,9 +384,15 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
     setShowTactileQuickPad(prev => {
       const nextVal = !prev;
       setStoredTactileQuickPad(nextVal);
+      if (nextVal) {
+        handleCloseDrawer();
+        if (isContextualEditActive && onToggleContextualEdit) {
+          onToggleContextualEdit();
+        }
+      }
       return nextVal;
     });
-  }, [activeField, onToggleActiveField]);
+  }, [activeField, onToggleActiveField, handleCloseDrawer, isContextualEditActive, onToggleContextualEdit]);
 
   const handleCloseTactilePad = React.useCallback(() => {
     setShowTactileQuickPad(false);
@@ -423,6 +440,15 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
   const isAddDelimiterActive = currentDrawer === 'ornaments' && addDelimiterActiveKey === currentSelectionKey;
 
   const handleToggleDrawer = (target: 'piano' | 'ornaments' | 'chords' | 'edit' | 'creativity') => {
+    const isOpening = currentDrawer !== target;
+    if (isOpening) {
+      if (showTactileQuickPad) {
+        handleCloseTactilePad();
+      }
+      if (isContextualEditActive && onToggleContextualEdit) {
+        onToggleContextualEdit();
+      }
+    }
     if (onToggleDrawer) {
       onToggleDrawer(target);
     } else if (target === 'piano' && onTogglePianoBed) {
@@ -441,28 +467,19 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
     }
   };
 
-  const handleCloseDrawer = React.useCallback(() => {
-    if (onCloseDrawer) {
-      onCloseDrawer();
-    } else {
-      setInternalDrawer('none');
-      if (showPianoBed && onTogglePianoBed) {
-        onTogglePianoBed();
-      }
-    }
-  }, [onCloseDrawer, showPianoBed, onTogglePianoBed]);
-
-  // Close active drawer on Escape key
+  // Close active drawer or deck on Escape key
   React.useEffect(() => {
-    if (currentDrawer === 'none') return;
+    if (currentDrawer === 'none' && !showTactileQuickPad && !isContextualEditActive) return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        handleCloseDrawer();
+        if (currentDrawer !== 'none') handleCloseDrawer();
+        if (showTactileQuickPad) handleCloseTactilePad();
+        if (isContextualEditActive && onToggleContextualEdit) onToggleContextualEdit();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [currentDrawer, handleCloseDrawer]);
+  }, [currentDrawer, showTactileQuickPad, isContextualEditActive, handleCloseDrawer, handleCloseTactilePad, onToggleContextualEdit]);
 
   return (
     <>
@@ -477,7 +494,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
 
       <div
         id="floating-score-hud-container"
-        className="fixed bottom-0 sm:bottom-1 left-1/2 -translate-x-1/2 z-40 w-full max-w-[calc(100vw-0.75rem)] sm:max-w-[calc(100vw-1rem)] md:max-w-5xl px-1 sm:px-2 pointer-events-none print:hidden flex flex-col items-center gap-1 safe-px"
+        className="fixed bottom-0 sm:bottom-1 left-1/2 -translate-x-1/2 z-40 w-full max-w-[calc(100vw-0.5rem)] sm:max-w-[calc(100vw-1rem)] xl:max-w-7xl px-1 sm:px-2 pointer-events-none print:hidden flex flex-col items-center gap-1 safe-px"
       >
         {/* Wide Bar for Ornaments & Articulations */}
         <OrnamentsDrawer
@@ -557,7 +574,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           </div>
         )}
 
-      <div className="pointer-events-auto w-full max-w-full min-w-0 flex flex-col items-center gap-1 p-1 sm:p-1.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md rounded-2xl border border-zinc-200/90 dark:border-zinc-800 shadow-2xl transition-all duration-200 overflow-hidden">
+      <div className="pointer-events-auto w-full max-w-full min-w-0 flex flex-col items-center gap-1 p-1 bg-zinc-950/95 text-zinc-100 backdrop-blur-md rounded-xl sm:rounded-2xl border border-zinc-800/90 shadow-2xl transition-all duration-150 overflow-hidden">
         {/* Tactile Quick-Pad (MOD-6: iPad-ergonomic thumb pad ≥44px touch targets) */}
         {showTactileQuickPad && (
           <div
@@ -993,16 +1010,16 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
         {/* A-B Section Suite Ribbon Slot */}
         {abRibbonSlot}
 
-        {/* Main Ribbon Buttons */}
-        <div className="w-full max-w-full min-w-0 flex items-center gap-1 sm:gap-1.5 flex-wrap justify-center overflow-x-auto no-scrollbar touch-momentum touch-pan-x py-0.5 px-1">
+        {/* Main Single-Row Bottom Dock */}
+        <div className="w-full max-w-full min-w-0 flex items-center gap-1 flex-nowrap justify-start xl:justify-between overflow-x-auto no-scrollbar touch-momentum touch-pan-x py-0.5 px-1 tabular-nums">
           {/* Play/Stop Sheet Button */}
           <button
             id="floating-hud-play-btn"
             type="button"
             onClick={onTogglePlay}
-            className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation min-h-[42px] ${
+            className={`flex items-center gap-1.5 px-3 h-8 rounded-lg font-bold text-xs shadow-xs transition-all active:scale-95 cursor-pointer touch-manipulation shrink-0 ${
               isPlaying
-                ? 'bg-rose-600 hover:bg-rose-500 text-white ring-2 ring-rose-400 font-extrabold animate-pulse'
+                ? 'bg-rose-600 hover:bg-rose-500 text-white ring-1 ring-rose-400 font-extrabold animate-pulse'
                 : 'bg-emerald-600 hover:bg-emerald-500 text-white font-bold'
             }`}
             title={
@@ -1015,12 +1032,12 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           >
             {isPlaying ? (
               <>
-                <Square className="w-4 h-4 fill-current" />
+                <Square className="w-3.5 h-3.5 fill-current" />
                 <span>Stop</span>
               </>
             ) : (
               <>
-                <Play className="w-4 h-4 fill-current" />
+                <Play className="w-3.5 h-3.5 fill-current" />
                 <span>Play</span>
               </>
             )}
@@ -1030,7 +1047,7 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
           {onUndo && onRedo && (
             <div
               id="floating-hud-undo-redo-group"
-              className="flex items-center bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 min-h-[42px]"
+              className="flex items-center bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 shrink-0"
             >
               <button
                 id="floating-hud-undo-btn"
@@ -1039,11 +1056,11 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 disabled={!canUndo}
                 title={canUndo ? `Undo [Ctrl+Z / ⌘Z] · ${pastCount} step(s)` : 'Nothing to undo'}
                 aria-label="Undo"
-                className="p-2.5 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-90 cursor-pointer touch-manipulation min-h-[38px] min-w-[38px] flex items-center justify-center"
+                className="p-1.5 rounded-md text-zinc-300 hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-90 cursor-pointer touch-manipulation h-7 w-7 flex items-center justify-center"
               >
-                <Undo2 className="w-4 h-4" />
+                <Undo2 className="w-3.5 h-3.5" />
               </button>
-              <div className="w-[1px] h-4 bg-zinc-300 dark:bg-zinc-750 mx-0.5" />
+              <div className="w-[1px] h-3.5 bg-zinc-800 mx-0.5" />
               <button
                 id="floating-hud-redo-btn"
                 type="button"
@@ -1051,25 +1068,25 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
                 disabled={!canRedo}
                 title={canRedo ? `Redo [Ctrl+Y / ⌘Shift+Z] · ${futureCount} step(s)` : 'Nothing to redo'}
                 aria-label="Redo"
-                className="p-2.5 rounded-lg text-zinc-700 dark:text-zinc-300 hover:bg-white dark:hover:bg-zinc-700 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-90 cursor-pointer touch-manipulation min-h-[38px] min-w-[38px] flex items-center justify-center"
+                className="p-1.5 rounded-md text-zinc-300 hover:bg-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed transition-all active:scale-90 cursor-pointer touch-manipulation h-7 w-7 flex items-center justify-center"
               >
-                <Redo2 className="w-4 h-4" />
+                <Redo2 className="w-3.5 h-3.5" />
               </button>
             </div>
           )}
 
-          <div className="h-6 w-px bg-zinc-200 dark:bg-zinc-700 hidden sm:block mx-0.5" />
+          <div className="h-5 w-px bg-zinc-800 shrink-0 mx-0.5" />
 
           {/* Active Field Toggle: Pitch vs Lyric */}
-          <div className="flex bg-zinc-100 dark:bg-zinc-800 p-0.5 rounded-xl border border-zinc-200 dark:border-zinc-700 min-h-[42px] items-center">
+          <div className="flex bg-zinc-900 p-0.5 rounded-lg border border-zinc-800 h-8 items-center shrink-0">
             <button
               id="floating-hud-pitch-mode-btn"
               type="button"
               onClick={() => activeField !== 'pitch' && onToggleActiveField()}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] flex items-center justify-center ${
+              className={`px-2.5 h-7 rounded-md text-xs font-bold transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
                 activeField === 'pitch'
                   ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                  : 'text-zinc-400 hover:text-zinc-100'
               }`}
               title="Edit musical pitches & durations (Up/Down arrow to switch)"
             >
@@ -1079,10 +1096,10 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               id="floating-hud-lyric-mode-btn"
               type="button"
               onClick={() => activeField !== 'lyric' && onToggleActiveField()}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer touch-manipulation min-h-[36px] flex items-center justify-center ${
+              className={`px-2.5 h-7 rounded-md text-xs font-bold transition-all cursor-pointer touch-manipulation flex items-center justify-center ${
                 activeField === 'lyric'
                   ? 'bg-amber-500 text-zinc-950 font-black shadow-2xs'
-                  : 'text-zinc-600 dark:text-zinc-400 hover:text-zinc-900'
+                  : 'text-zinc-400 hover:text-zinc-100'
               }`}
               title="Edit lyrics aligned under notes (Up/Down arrow to switch)"
             >
@@ -1449,6 +1466,12 @@ export const FloatingScoreHud: React.FC<FloatingScoreHudProps> = ({
               type="button"
               onClick={() => {
                 if (onToggleContextualEdit) {
+                  if (!isContextualEditActive) {
+                    handleCloseDrawer();
+                    if (showTactileQuickPad) {
+                      handleCloseTactilePad();
+                    }
+                  }
                   onToggleContextualEdit();
                 } else {
                   handleToggleDrawer('edit');
