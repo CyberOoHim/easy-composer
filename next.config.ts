@@ -30,7 +30,17 @@ const nextConfig: NextConfig = {
     ],
   },
   transpilePackages: ['motion'],
-  allowedDevOrigins: ['cyber.tail683ee1.ts.net', 'cyber', '100.126.251.56', 'localhost'],
+  allowedDevOrigins: [
+    'localhost',
+    'cyber.tail683ee1.ts.net',
+    'cyber',
+    '100.126.251.56',
+    'inno-tools.tail683ee1.ts.net',
+    'inno-tools',
+    '100.84.187.113',
+    ...(process.env.TAILSCALE_HOST ? [process.env.TAILSCALE_HOST] : []),
+    ...(process.env.TAILSCALE_IP ? [process.env.TAILSCALE_IP] : []),
+  ],
   experimental: {
     optimizePackageImports: ['lucide-react', 'motion'],
   },

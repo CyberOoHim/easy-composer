@@ -1,51 +1,95 @@
 ---
-description: Start Easy Composer with Herdr, dedicated port 3005, Tailscale Serve HTTPS ingress on port 8444 (differentiated from reference service), and verification
+description: Start Easy Composer dev server with Herdr, Tailscale Serve routing, and verification
 ---
 
-# Start Easy Composer Service (Differentiated Tailscale Ingress)
+# Start Easy Composer Service (Next.js Dev Server)
 
-This workflow starts the **Easy Composer** score editor application persistently via **Herdr**, routes it through a dedicated **Tailscale Serve** HTTPS port (`8444`), and verifies health checks.
+This workflow starts the Easy Composer score editor application:
 
-This setup is intentionally differentiated from the reference service (`taigi-agent`), allowing both services to run simultaneously side-by-side without port or URL collision.
+1. **Easy Composer** (`npm run dev`, Next.js on discovered `$LOCAL_PORT` —
+   sheet review + manifest generation via `npm run predev`, realistic sheet
+   score canvas, playback engine)
+
+The service is launched persistently via **Herdr**, secured through
+**Tailscale Serve**, and verified with health checks.
+
+Reference: multi-service start-service workflow pattern
+(single-service adaptation: `npm run predev` replaces the frontend build step —
+sheets are reviewed incrementally and `lib/sheetManifest.ts` is regenerated).
+
+> **Convention used below:** nothing is hardwired. Step 0 discovers four
+> values from live host state — `$TAILSCALE_HOST`, `$TAILSCALE_IP`,
+> `$LOCAL_PORT`, `$SERVE_PORT` — and every later step uses them. Defaults are
+> `3005` / `8444` (first candidates, not decisions).
 
 ---
 
-## 🏛️ Routing Architecture & Differentiated URLs
+## 0. Discover Current Routing (always run first)
 
-| Application | Target Local Port | Tailnet Access URL | Description |
-| :--- | :--- | :--- | :--- |
-| **Easy Composer** | **Port 3005** | **`https://cyber.tail683ee1.ts.net:8444/`** | Dedicated HTTPS endpoint on Tailscale |
-| **Easy Composer** | **Port 3005** | **`http://100.126.251.56:3005/`** | Direct Tailscale IP access (iPad Safari) |
-| **Easy Composer** | **Port 3005** | **`http://localhost:3005`** | Localhost access on host machine |
-| *Taigi Reference Main App* | *Port 3000* | *`https://cyber.tail683ee1.ts.net/`* | Primary Tailscale root ingress |
-| *Taigi Reference Reviewer* | *Port 5174* | *`https://cyber.tail683ee1.ts.net:8443/`* | Reviewer Vite dev server ingress |
+Do not skip this step. Tailscale routes and free ports differ per host and
+change over time — the final URLs come from here, never from memory.
+
+```bash
+cd /home/inno_formosa/easy-composer
+
+# 1. Who am I on the tailnet (no hardwired hostname):
+tailscale status
+TAILSCALE_HOST=$(tailscale status --json 2>/dev/null | python3 -c "import json,sys; d=json.load(sys.stdin); s=d.get('Self',{}); print((str(s.get('HostName','')).strip()+'.'+str(d.get('MagicDNSSuffix','')).strip()).strip('.'))")
+TAILSCALE_IP=$(tailscale ip -4 2>/dev/null | head -n 1)
+echo "TAILSCALE_HOST=$TAILSCALE_HOST"
+echo "TAILSCALE_IP=$TAILSCALE_IP"
+
+# 2. Existing Serve routes (decides $SERVE_PORT):
+tailscale serve status
+
+# 3. Local listeners (decides $LOCAL_PORT):
+ss -tlnp | grep -E ':3005|:3006|:844|:443' || echo "candidate ports free"
+```
+
+Decision rules:
+
+- `$LOCAL_PORT`: default `3005` (matches the `PORT` default in
+  `package.json` `dev` / `start` scripts). If bound by our own Next.js
+  server, reuse it. If bound by something else, pick the next free port in
+  `3005-3099` (verify with `ss -tlnp | grep -E ":<candidate>"`, then launch
+  with `PORT=<candidate> npm run dev`) and carry that value into every step
+  below.
+- `$SERVE_PORT`: if `tailscale serve status` already shows
+  `https://$TAILSCALE_HOST:<port>` proxying to `127.0.0.1:$LOCAL_PORT`,
+  reuse that `<port>`. Otherwise pick the first port in `8444-8499` absent
+  from **both** `tailscale serve status` and `ss -tlnp`.
+- Never run `tailscale serve reset` — this host may carry routes owned by
+  other projects.
+
+> One-time permission fix: if any `tailscale serve` command reports
+> `Access denied: serve config denied`, run
+> `sudo tailscale set --operator=$USER` once, then retry.
 
 ---
 
 ## 1. Pre-flight Checks
 
-Verify working directory and Tailscale connection:
+Working directory and Tailscale state come from Step 0 — re-check only that
+the chosen backend port is still free (or owned by our server):
 
 ```bash
-cd /home/ubuntu/taigi-composer
-
-# Ensure Tailscale is running
-tailscale status
-
-# Check whether port 3005 is already in use
-ss -tulpn | grep 3005
+ss -tulpn | grep -E "$LOCAL_PORT"
 ```
 
-*(If port 3005 is already occupied by a stale instance, run `.agents/workflows/stop-service.md` first).*
+*(If bound by something other than our server, stop the existing holder first
+or return to Step 0 and pick the next free port — e.g.
+`herdr --session easy-composer pane read w1:p1` to inspect, then kill or
+reuse that pane).*
 
 ---
 
 ## 2. Generate Sheet Manifest & Review Sheets
 
-Ensure all built-in sheets and manifests are validated and generated:
+Ensure all built-in sheets and manifests are validated and generated
+(incremental — only added, modified, or deleted sheets are checked):
 
 ```bash
-cd /home/ubuntu/taigi-composer
+cd /home/inno_formosa/easy-composer
 npm run predev
 ```
 
@@ -53,87 +97,93 @@ npm run predev
 
 ## 3. Start Persistent Service with Herdr
 
-Launch or reuse the dedicated `composer-server` tab in the `taigi` Herdr session:
+> [!IMPORTANT]
+> **Start the service in the `composer-server` tab of the current Herdr session**:
+> - Development and coding agent sessions run in the `coding` tab (e.g. `w1:t3`).
+> - The dev server must **always** be started and managed in the dedicated `composer-server` tab (pane `w1:p1`) of the current Herdr session (`easy-composer`). Never run the blocking server in the active coding pane.
+> - **Workspace setup**: If no Herdr workspace exists, create one named `easy-composer` with its working directory set to this repository (`cwd: /home/inno_formosa/easy-composer`):
+>   `herdr --session easy-composer workspace create --label "easy-composer" --cwd "/home/inno_formosa/easy-composer"`
+
+Herdr provides socket-managed, attachable terminal sessions ideal for
+autonomous agents:
 
 ```bash
-# 1. Ensure headless Herdr server for 'taigi' session is running
-herdr --session taigi server 2>/dev/null &
+# 1. Start headless Herdr server for 'easy-composer' session (if not already running)
+herdr --session easy-composer server 2>/dev/null &
 
-# 2. Check existing panes/tabs
-herdr --session taigi tab list
+# 2. If no workspace exists, create one named 'easy-composer' with cwd set to this repo
+herdr --session easy-composer workspace create --label "easy-composer" --cwd "/home/inno_formosa/easy-composer" 2>/dev/null || true
 
-# 3. Create 'composer-server' tab if not already present:
-# (If tab already exists, skip creation and target its pane ID)
-herdr --session taigi tab create --workspace w1 --cwd "/home/ubuntu/taigi-composer" --label "composer-server" --no-focus 2>/dev/null || true
+# 3. Ensure the dedicated 'composer-server' tab exists in the workspace
+herdr --session easy-composer tab rename w1:t1 composer-server 2>/dev/null || herdr --session easy-composer tab create --label "composer-server" --cwd "/home/inno_formosa/easy-composer"
 
-# 4. Find the pane ID for tab 'composer-server':
-# PANE_ID=$(herdr --session taigi tab list --json | jq -r '.result.tabs[] | select(.label=="composer-server") | .tab_id' | sed 's/:t/:p/')
-# (Common default pane ID: w1:pE)
-
-# 5. Launch Next.js dev server on port 3005 in the dedicated pane:
-herdr --session taigi pane run w1:pE "npm run dev"
+# 4. Start the service in the 'composer-server' tab pane (typically w1:p1; binds 0.0.0.0 so Tailscale Serve can reach it)
+# Find the pane ID of the composer-server tab dynamically if needed:
+# PANE_ID=$(python3 -c "import json, subprocess; panes=json.loads(subprocess.check_output(['herdr','pane','list']))['result']['panes']; tabs=json.loads(subprocess.check_output(['herdr','tab','list']))['result']['tabs']; cs=[t['tab_id'] for t in tabs if t.get('label')=='composer-server']; print(next((p['pane_id'] for p in panes if p.get('tab_id') in cs), 'w1:p1'))")
+herdr --session easy-composer pane run w1:p1 "npm run dev"
+# (If $LOCAL_PORT is not 3005: PORT=$LOCAL_PORT npm run dev — note package.json
+# reads ${PORT:-3005}, so prefix the run command with PORT=$LOCAL_PORT.)
 ```
 
 > **Live Inspection**:
-> - Read server logs: `herdr --session taigi pane read w1:pE --lines 50`
-> - Attach interactively anytime: `herdr session attach taigi`
+> - Server logs: `herdr --session easy-composer pane read w1:p1 --source recent-unwrapped --lines 50`
+> - Attach interactively anytime: `herdr session attach easy-composer`
 
 ---
 
-## 4. Configure Differentiated Tailscale Serve Routing
+## 4. Configure Tailscale Serve Routing
 
-Expose local port 3005 on dedicated HTTPS port `8444`:
+Expose `$LOCAL_PORT` on the discovered `$SERVE_PORT` so existing Serve routes
+on this host are left untouched (do **NOT** `tailscale serve reset` here —
+this host may carry routes owned by other projects):
 
 ```bash
-# Expose port 3005 on HTTPS 8444
-tailscale serve --bg --https=8444 3005
+# Expose Easy Composer on the discovered Serve port
+tailscale serve --bg --https=$SERVE_PORT $LOCAL_PORT
+```
 
-# Verify active serve routing table
+Verify serve routing table:
+
+```bash
 tailscale serve status
 ```
 
-Expected output:
+Expected addition (alongside any pre-existing routes, with discovered values
+filled in — e.g. `TAILSCALE_HOST=inno-tools.tail683ee1.ts.net`,
+`SERVE_PORT=8444`, `LOCAL_PORT=3005`):
+
 ```text
-https://cyber.tail683ee1.ts.net (tailnet only)
-|-- / proxy http://127.0.0.1:3000
-
-http://cyber (tailnet only)
-http://cyber.tail683ee1.ts.net (tailnet only)
-|-- / proxy http://127.0.0.1:3000
-
-https://cyber.tail683ee1.ts.net:8443 (tailnet only)
-|-- / proxy http://127.0.0.1:5174
-
-https://cyber.tail683ee1.ts.net:8444 (tailnet only)
-|-- / proxy http://127.0.0.1:3005
+https://$TAILSCALE_HOST:$SERVE_PORT (tailnet only)
+|-- / proxy http://127.0.0.1:$LOCAL_PORT
 ```
 
 ---
 
 ## 5. Health Checks & Verification
 
-Wait 2–3 seconds for compilation, then verify all endpoints:
+Wait for Next.js compilation to finish (first compile can take 30+ seconds),
+then verify:
 
 ```bash
 # 1. Check local Easy Composer HTTP response
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:3005/
+curl -s -o /dev/null -w "%{http_code}\n" http://localhost:$LOCAL_PORT/
 
-# 2. Check Tailscale HTTPS Ingress response (port 8444)
-curl -k -s -o /dev/null -w "%{http_code}\n" https://cyber.tail683ee1.ts.net:8444/
+# 2. Check Tailscale HTTPS Ingress response
+curl -k -s -o /dev/null -w "%{http_code}\n" https://$TAILSCALE_HOST:$SERVE_PORT/
 
-# 3. Check direct Tailscale IP response
-curl -s -o /dev/null -w "%{http_code}\n" http://100.126.251.56:3005/
+# 3. Check direct Tailscale IP response (iPad Safari fallback)
+curl -s -o /dev/null -w "%{http_code}\n" http://$TAILSCALE_IP:$LOCAL_PORT/
 
 # 4. Verify Easy Composer HTML metadata
-curl -s http://localhost:3005/ | grep -i "easy-composer"
+curl -s http://localhost:$LOCAL_PORT/ | grep -i "easy-composer"
 ```
 
 All status checks must return `200`.
 
 ---
 
-## 🌐 Access URLs on your Tailnet (iPad & Desktop):
+## Access URLs on your Tailnet (iPad & Desktop):
 
-- **iPad Safari (HTTPS Dedicated)**: `https://cyber.tail683ee1.ts.net:8444/`
-- **iPad Safari (Direct Tailnet IP)**: `http://100.126.251.56:3005/`
-- **Host Machine Localhost**: `http://localhost:3005`
+- **Easy Composer (HTTPS)**: `https://$TAILSCALE_HOST:$SERVE_PORT/`
+- **Easy Composer (direct Tailnet IP)**: `http://$TAILSCALE_IP:$LOCAL_PORT/`
+- **Local (same host)**: `http://localhost:$LOCAL_PORT/`
